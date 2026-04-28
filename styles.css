@@ -761,25 +761,26 @@ button { font-family: inherit; cursor: none; }
     min-height: 0;
     padding: 0 0 4px;
   }
+  .case .visual, .case.flip .visual {
+    overflow: hidden;
+  }
+  /* сброс всех десктопных смещений слоёв — используем !important чтобы перебить любую специфичность */
   .case .visual .layer,
-  .case.flip .visual .layer {
-    position: relative;
-    top: auto; left: auto; right: auto; bottom: auto;
-    width: 100%;
+  .case.flip .visual .layer,
+  .case.flip .visual .layer.l1,
+  .case.flip .visual .layer.l2 {
+    position: relative !important;
+    top: auto !important; left: auto !important;
+    right: auto !important; bottom: auto !important;
+    width: 100% !important;
     transform: none !important;
   }
   .case .visual .layer.l1,
-  .case.flip .visual .layer.l1 { height: 220px; }
+  .case.flip .visual .layer.l1 { height: 220px !important; }
   .case .visual .layer.l2,
-  .case.flip .visual .layer.l2 { height: 180px; }
+  .case.flip .visual .layer.l2 { height: 180px !important; }
   .case .visual .layer.l3,
-  .case.flip .visual .layer.l3 { display: none; }
-  .case[data-screen-label="case-01"] .visual .layer.l1,
-  .case[data-screen-label="case-01"] .visual .layer.l2,
-  .case[data-screen-label="case-09"] .visual .layer.l1,
-  .case[data-screen-label="case-09"] .visual .layer.l2 {
-    left: auto; right: auto;
-  }
+  .case.flip .visual .layer.l3 { display: none !important; }
 }
 
 /* ============================================================
