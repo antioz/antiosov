@@ -15,11 +15,6 @@ function Showreel() {
           </div>
         }
       </div>
-      <div className="showreel-meta">
-        <span>FILE_ANTIOSOV_REEL_2026.mp4</span>
-        <span>02 : 47 · 4K</span>
-        <span>↗ заглушка</span>
-      </div>
     </section>);
 
 }

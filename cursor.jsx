@@ -68,7 +68,7 @@ function TopBar({ showBack }) {
       {showBack ? (
         <a href="index.html" className="brand">← <b>D.A.</b> / index</a>
       ) : (
-        <div className="brand"><b>t.me/</b>antiosov</div>
+        <a href="https://t.me/antiosov" target="_blank" rel="noreferrer" className="brand"><b>t.me/</b>antiosov</a>
       )}
       <div className="clock">
         <span className="dot" />
