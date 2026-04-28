@@ -13,7 +13,7 @@ const CASES = [
     light: false,
     imgs: ["assets/1-1.png", "assets/1-2.jpg"],
     imgPos: ["center center", "center top"],
-    blur: [true, false],
+    blur: [true, true],
   },
   {
     n: "02",
@@ -27,7 +27,7 @@ const CASES = [
     light: false,
     imgs: ["assets/2-1.jpg", "assets/2-2.jpg"],
     imgPos: ["center center", "center center"],
-    blur: [true, true],
+    blur: [true, false],
   },
   {
     n: "03",
@@ -44,6 +44,28 @@ const CASES = [
   },
   {
     n: "04",
+    year: "",
+    title: ["Новый продукт на ", <span className="accent" key="a">рынке США</span>],
+    role: "СМО",
+    client: "Hoof Doctor",
+    body: "Маркетинг с нуля на очень консервативном рынке ухода за лошадьми. Перфоманс, кастомер суппорт, SMM, контент. Результат: $1кк выручки за первый год, 25% retention rate, сообщество ~9000 человек.",
+    tags: ["перфоманс", "контент"],
+    flip: true,
+    light: false,
+  },
+  {
+    n: "05",
+    year: "",
+    title: ["musical.ly / ", <span className="accent" key="a">TikTok</span>, " в СНГ"],
+    role: "партнёр",
+    client: "TikTok",
+    body: "Моя команда в составе Qmarketing занималась онбордингом первых контент-криейторов. Да, горжусь. Нет, не стыдно.",
+    tags: ["контент", "онбординг"],
+    flip: false,
+    light: false,
+  },
+  {
+    n: "06",
     year: "2025",
     title: ["Упаковка ", <span className="accent" key="a">B2B бизнеса</span>],
     role: "стратегия + упаковка",
@@ -56,7 +78,7 @@ const CASES = [
     imgPos: ["center top", "center center"],
   },
   {
-    n: "05",
+    n: "07",
     year: "2025",
     title: ["Цифровая инклюзия ", <span className="accent" key="a">в музеях</span>],
     role: "продакшн",
@@ -69,7 +91,7 @@ const CASES = [
     imgPos: ["center center", "center top"],
   },
   {
-    n: "06",
+    n: "08",
     year: "2025",
     title: ["Ролики для ", <span className="accent" key="a">Skyeng</span>],
     role: "креативный продюсер",
@@ -80,6 +102,17 @@ const CASES = [
     light: false,
     imgs: ["assets/6-1.jpg", "assets/6-2.jpg"],
     imgPos: ["center top", "center center"],
+  },
+  {
+    n: "09",
+    year: "2024",
+    title: ["Дизайн спецпроектов ", <span className="accent" key="a">Forbes</span>],
+    role: "спецпроекты",
+    client: "Forbes",
+    body: "Дизайн и вёрстка, красиво и оперативно.",
+    tags: ["дизайн", "вёрстка"],
+    flip: false,
+    light: false,
   },
 ];
 
@@ -101,11 +134,11 @@ function Case({ c }) {
       </div>
       <div className="visual" aria-hidden="true">
         <div className="layer l1" style={c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}}>
-          {c.blur?.[0] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
+          {c.blur?.[0] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
           {!c.imgs && 'image · 16:10'}
         </div>
         <div className="layer l2" style={c.imgs ? { background: `url(${c.imgs[1]}) ${c.imgPos?.[1] || 'center center'} / cover no-repeat` } : {}}>
-          {c.blur?.[1] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
+          {c.blur?.[1] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
           {!c.imgs && 'detail · 4:3'}
         </div>
         <div className="layer l3">{c.n}</div>
