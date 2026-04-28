@@ -700,6 +700,12 @@ button { font-family: inherit; cursor: none; }
 .case.flip .visual .layer.l2 { right: auto; left: 0; }
 .case.flip .visual .layer.l3 { right: auto; left: 8%; }
 
+/* case-specific offsets */
+.case[data-screen-label="case-01"] .visual .layer.l1 { left: 37.5%; }
+.case[data-screen-label="case-01"] .visual .layer.l2 { right: 32.5%; }
+.case[data-screen-label="case-09"] .visual .layer.l1 { left: 37.5%; }
+.case[data-screen-label="case-09"] .visual .layer.l2 { right: 32.5%; }
+
 /* light variant */
 .case.light {
   background: var(--invert-bg);
@@ -747,7 +753,31 @@ button { font-family: inherit; cursor: none; }
   .case .num, .case.flip .num { order: 0; }
   .case .body, .case.flip .body { order: 1; }
   .case .visual, .case.flip .visual {
-    display: none;
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    padding: 0 0 4px;
+  }
+  .case .visual .layer,
+  .case.flip .visual .layer {
+    position: relative;
+    top: auto; left: auto; right: auto; bottom: auto;
+    width: 100%;
+    transform: none !important;
+  }
+  .case .visual .layer.l1,
+  .case.flip .visual .layer.l1 { height: 220px; }
+  .case .visual .layer.l2,
+  .case.flip .visual .layer.l2 { height: 180px; }
+  .case .visual .layer.l3,
+  .case.flip .visual .layer.l3 { display: none; }
+  .case[data-screen-label="case-01"] .visual .layer.l1,
+  .case[data-screen-label="case-01"] .visual .layer.l2,
+  .case[data-screen-label="case-09"] .visual .layer.l1,
+  .case[data-screen-label="case-09"] .visual .layer.l2 {
+    left: auto; right: auto;
   }
 }
 
