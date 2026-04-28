@@ -781,10 +781,11 @@ button { font-family: inherit; cursor: none; }
   .case.flip .visual .layer.l2 { height: 180px !important; }
   .case .visual .layer.l3,
   .case.flip .visual .layer.l3 { display: none !important; }
-  /* titleOverlay — абсолютный div внутри l1, скрываем на мобайле */
-  .case .visual .layer.l1 > div[style*="linear-gradient"] {
-    display: none !important;
-  }
+  /* скрываем второй кадр case-01 и первый кадр case-05 */
+  .case[data-screen-label="case-01"] .visual .layer.l2,
+  .case[data-screen-label="case-05"] .visual .layer.l1 { display: none !important; }
+  /* case-04 l2 — портретное фото, нужна бо́льшая высота */
+  .case[data-screen-label="case-04"] .visual .layer.l2 { height: 300px !important; }
 }
 
 /* ============================================================
