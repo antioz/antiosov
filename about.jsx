@@ -27,7 +27,7 @@ function About() {
               <span className="arrow">→</span>
             </a>
 <a className="btn" href="https://t.me/antiosov" target="_blank" rel="noreferrer">
-              <span>связаться</span>
+              <span>написать в ЛС</span>
               <span className="arrow">↗</span>
             </a>
           </div>
