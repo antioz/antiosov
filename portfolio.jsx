@@ -39,7 +39,7 @@ const CASES = [
     tags: ["видео", "продакшн"],
     flip: false,
     light: false,
-    imgs: ["assets/3-1.PNG", "assets/3-2.PNG"],
+    imgs: ["assets/3-1.PNG", "assets/3-2.jpg"],
     imgPos: ["center center", "center center"],
   },
   {
