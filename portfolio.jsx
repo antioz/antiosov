@@ -52,7 +52,7 @@ const CASES = [
     tags: ["стратегия", "брендинг", "B2B"],
     flip: true,
     light: false,
-    imgs: ["assets/4-1.jpg", "assets/4-2.jpg"],
+    imgs: ["assets/4-1.jpg", "assets/4-2.JPEG"],
     imgPos: ["center top", "center center"],
   },
   {
