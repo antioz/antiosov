@@ -11,6 +11,8 @@ const CASES = [
     tags: ["ИИ", "автоматизация", "контент"],
     flip: false,
     light: false,
+    imgs: ["assets/1-1.png", "assets/1-2.jpg"],
+    imgPos: ["center center", "center top"],
   },
   {
     n: "02",
@@ -22,6 +24,8 @@ const CASES = [
     tags: ["ИИ", "автоматизация", "маркетинг"],
     flip: true,
     light: false,
+    imgs: ["assets/2-1.jpg", "assets/2-2.jpg"],
+    imgPos: ["center center", "center center"],
   },
   {
     n: "03",
@@ -33,6 +37,8 @@ const CASES = [
     tags: ["видео", "продакшн"],
     flip: false,
     light: false,
+    imgs: ["assets/3-1.PNG", "assets/3-2.PNG"],
+    imgPos: ["center center", "center center"],
   },
   {
     n: "04",
@@ -44,6 +50,8 @@ const CASES = [
     tags: ["стратегия", "брендинг", "B2B"],
     flip: true,
     light: false,
+    imgs: ["assets/4-1.jpg", "assets/4-2.jpg"],
+    imgPos: ["center top", "center center"],
   },
   {
     n: "05",
@@ -55,6 +63,8 @@ const CASES = [
     tags: ["дизайн", "текст"],
     flip: false,
     light: false,
+    imgs: ["assets/5-1.png", "assets/5-2.png"],
+    imgPos: ["center center", "center top"],
   },
   {
     n: "06",
