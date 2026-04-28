@@ -71,6 +71,7 @@ function TopBar({ showBack }) {
         <a href="https://t.me/antiosov" target="_blank" rel="noreferrer" className="brand"><b>t.me/</b>antiosov</a>
       )}
       <div className="clock">
+        <a href="blog/index.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>блог</a>
         <span className="dot" />
         <span>MSK · {hh}:{mm}:{ss}</span>
       </div>

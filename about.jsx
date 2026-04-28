@@ -26,11 +26,7 @@ function About() {
               <span>портфолио</span>
               <span className="arrow">→</span>
             </a>
-            <a className="btn" href="blog/index.html">
-              <span>блог</span>
-              <span className="arrow">→</span>
-            </a>
-            <a className="btn" href="https://t.me/antiosov" target="_blank" rel="noreferrer">
+<a className="btn" href="https://t.me/antiosov" target="_blank" rel="noreferrer">
               <span>связаться</span>
               <span className="arrow">↗</span>
             </a>
