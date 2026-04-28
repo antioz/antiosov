@@ -3,6 +3,17 @@
 const CASES = [
   {
     n: "01",
+    year: "2026",
+    title: [<span className="accent" key="a">Контент-завод</span>, " звезд"],
+    role: "идея + пайплайн + запуск",
+    client: "Пет-проект",
+    body: "От инсайта до релиза. Цельный пайплайн «сбор данных — анализ — текст — музыка — постинг» с минимальным участием человека, в процесс активно вовлечены 1–2 кожаных мешка. Затраты стремятся к нулю. Тесты пройдены, работа идёт, готов к масштабированию. Кстати, есть окошко для инвестиций. 😉",
+    tags: ["AI pipeline", "content", "pet-project"],
+    flip: false,
+    light: false,
+  },
+  {
+    n: "02",
     year: "2025",
     title: ["AI-агенты для", <span className="accent" key="a">креативного</span>, " отдела"],
     role: "Стратегия + оркестрация",
@@ -13,7 +24,7 @@ const CASES = [
     light: false,
   },
   {
-    n: "02",
+    n: "03",
     year: "2024",
     title: ["Performance-вселенная для ", <span className="accent" key="a">e-com</span>],
     role: "Performance creative lead",
@@ -24,7 +35,7 @@ const CASES = [
     light: false,
   },
   {
-    n: "03",
+    n: "04",
     year: "2024",
     title: ["Нарративная кампания для ", <span className="accent" key="a">культурного</span>, " института"],
     role: "Креативный директор",
@@ -35,7 +46,7 @@ const CASES = [
     light: true,
   },
   {
-    n: "04",
+    n: "05",
     year: "2023",
     title: ["Внутренний ", <span className="accent" key="a">копи-движок</span>, " на агентах"],
     role: "Архитектор процесса",
@@ -46,7 +57,7 @@ const CASES = [
     light: false,
   },
   {
-    n: "05",
+    n: "06",
     year: "2022",
     title: ["Бренд-голос ", <span className="accent" key="a">для каршеринга</span>],
     role: "Tone of voice",
@@ -57,7 +68,7 @@ const CASES = [
     light: false,
   },
   {
-    n: "06",
+    n: "07",
     year: "2021—…",
     title: ["Параллельно: ", <span className="accent" key="a">личная практика</span>],
     role: "Mind-stack",
@@ -113,12 +124,11 @@ function PortfolioApp() {
       <section className="portfolio-hero">
         <div className="hero-name">004 / Portfolio · 2021—2026</div>
         <h1>
-          немного из<br />
-          того, что<br />
-          <span style={{ fontStyle: 'italic', color: 'var(--accent)' }}>делал.</span>
+          Антиосов.<br />
+          <span style={{ fontStyle: 'italic', color: 'var(--accent)' }}>Найдется все.</span>
         </h1>
         <p className="sub">
-          Кейсы — выборочно. Где-то <em>стратегия</em>, где-то <em>оркестрация</em> агентов, где-то всё руками. Полный список — в личке.
+          Отобрал кейсы, которые иллюстрируют мой опыт решения бизнес-задач и построения работающих систем. Показываю на карточках.
         </p>
       </section>
 
