@@ -52,6 +52,8 @@ const CASES = [
     tags: ["перфоманс", "контент"],
     flip: true,
     light: false,
+    imgs: ["assets/4-1.jpg", "assets/4-2.PNG"],
+    imgPos: ["center center", "center top"],
   },
   {
     n: "05",
@@ -63,6 +65,8 @@ const CASES = [
     tags: ["контент", "онбординг"],
     flip: false,
     light: false,
+    imgs: ["assets/5-1.png", "assets/5-2.png"],
+    imgPos: ["center center", "center center"],
   },
   {
     n: "06",
@@ -74,21 +78,21 @@ const CASES = [
     tags: ["стратегия", "брендинг", "B2B"],
     flip: true,
     light: false,
-    imgs: ["assets/4-1.jpg", "assets/4-2.JPEG"],
+    imgs: ["assets/6-1.jpg", "assets/6-2.JPEG"],
     imgPos: ["center top", "center center"],
   },
   {
     n: "07",
     year: "2025",
-    title: ["Цифровая инклюзия ", <span className="accent" key="a">в музеях</span>],
+    title: ["Цифровая инклюзия ", <span className="accent" key="a" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>в музеях</span>],
     role: "продакшн",
     client: "Русский Музей",
     body: "Сделали с экспертами методическое пособие: редактура, дизайн, иллюстрации, вёрстка, адаптация под скринридер. 100% аналоговый труд.",
     tags: ["дизайн", "текст"],
     flip: false,
     light: false,
-    imgs: ["assets/5-1.png", "assets/5-2.png"],
-    imgPos: ["center center", "center top"],
+    imgs: ["assets/7-1.png", "assets/7-2.png"],
+    imgPos: ["center top", "center top"],
   },
   {
     n: "08",
@@ -100,7 +104,7 @@ const CASES = [
     tags: ["видео", "продакшн"],
     flip: true,
     light: false,
-    imgs: ["assets/6-1.jpg", "assets/6-2.jpg"],
+    imgs: ["assets/8-1.jpg", "assets/8-2.jpg"],
     imgPos: ["center top", "center center"],
   },
   {
@@ -113,6 +117,8 @@ const CASES = [
     tags: ["дизайн", "вёрстка"],
     flip: false,
     light: false,
+    imgs: ["assets/9-1.png", "assets/9-2.png"],
+    imgPos: ["center center", "center top"],
   },
 ];
 
