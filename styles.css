@@ -747,12 +747,8 @@ button { font-family: inherit; cursor: none; }
   .case .num, .case.flip .num { order: 0; }
   .case .body, .case.flip .body { order: 1; }
   .case .visual, .case.flip .visual {
-    order: 2;
-    min-height: 60vh;
-    margin-top: 24px;
+    display: none;
   }
-  .case.flip .visual .layer.l1 { left: 0; right: auto; }
-  .case.flip .visual .layer.l2 { left: auto; right: 0; }
 }
 
 /* ============================================================
