@@ -13,6 +13,7 @@ const CASES = [
     light: false,
     imgs: ["assets/1-1.png", "assets/1-2.jpg"],
     imgPos: ["center center", "center top"],
+    blur: [true, false],
   },
   {
     n: "02",
@@ -26,6 +27,7 @@ const CASES = [
     light: false,
     imgs: ["assets/2-1.jpg", "assets/2-2.jpg"],
     imgPos: ["center center", "center center"],
+    blur: [true, true],
   },
   {
     n: "03",
@@ -99,9 +101,11 @@ function Case({ c }) {
       </div>
       <div className="visual" aria-hidden="true">
         <div className="layer l1" style={c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}}>
+          {c.blur?.[0] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }} />}
           {!c.imgs && 'image · 16:10'}
         </div>
         <div className="layer l2" style={c.imgs ? { background: `url(${c.imgs[1]}) ${c.imgPos?.[1] || 'center center'} / cover no-repeat` } : {}}>
+          {c.blur?.[1] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }} />}
           {!c.imgs && 'detail · 4:3'}
         </div>
         <div className="layer l3">{c.n}</div>
