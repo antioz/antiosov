@@ -214,6 +214,7 @@ button { font-family: inherit; cursor: none; }
 .showreel-frame {
   position: relative;
   width: 100%;
+  max-height: 70vh;
   aspect-ratio: 16 / 9;
   background:
     repeating-linear-gradient(45deg,
