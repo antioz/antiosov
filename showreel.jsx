@@ -9,9 +9,14 @@ function Showreel() {
         <button className="play" onClick={() => setPlaying(true)} aria-label="Play showreel">
             ▸ play
           </button> :
-
-        <div className="label">
-            [ video placeholder · ссылка появится позже ]
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+            <iframe
+              src="https://kinescope.io/embed/dZ4XPSzyNY3iLDazh4APjG"
+              allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write; screen-wake-lock;"
+              frameBorder="0"
+              allowFullScreen
+              style={{ width: '100%', height: '100%', display: 'block' }}
+            />
           </div>
         }
       </div>
