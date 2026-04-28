@@ -108,7 +108,7 @@ function PortfolioApp() {
   return (
     <>
       <CustomCursor />
-      <a href="index.html" className="back-link">← index</a>
+      <a href="index.html" className="back-link">← главная</a>
 
       <section className="portfolio-hero">
         <div className="hero-name">004 / Portfolio · 2021—2026</div>
