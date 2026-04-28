@@ -4,16 +4,17 @@ const CASES = [
   {
     n: "01",
     year: "2026",
-    title: [<span className="accent" key="a">Контент-завод</span>, " звезд"],
+    title: [<span className="accent" key="a">Контент‑завод</span>, " звезд"],
     role: "идея + пайплайн + запуск",
     client: "Пет-проект",
     body: "От инсайта до релиза. Цельный пайплайн «сбор данных — анализ — текст — музыка — постинг» с минимальным участием человека, в процесс активно вовлечены 1–2 кожаных мешка. Затраты стремятся к нулю. Тесты пройдены, работа идёт, готов к масштабированию. Кстати, есть окошко для инвестиций.",
     tags: ["ИИ", "автоматизация", "контент"],
     flip: false,
     light: false,
-    imgs: ["assets/1-1.png", "assets/1-2.jpg"],
+    imgs: ["assets/1-1.png", "assets/1-2.png"],
     imgPos: ["center center", "center top"],
-    blur: [true, false],
+    blur: [3, 0],
+    l1Style: { width: '58%', height: '52%' },
   },
   {
     n: "02",
@@ -27,7 +28,7 @@ const CASES = [
     light: false,
     imgs: ["assets/2-1.jpg", "assets/2-2.jpg"],
     imgPos: ["center center", "center center"],
-    blur: [true, true],
+    blur: [2, 2],
   },
   {
     n: "03",
@@ -65,7 +66,7 @@ const CASES = [
     tags: ["контент", "онбординг"],
     flip: false,
     light: false,
-    imgs: ["assets/5-1.png", "assets/5-2.png"],
+    imgs: ["assets/5-1.jpg", "assets/5-2.png"],
     imgPos: ["center center", "center center"],
   },
   {
@@ -139,12 +140,12 @@ function Case({ c }) {
         </div>
       </div>
       <div className="visual" aria-hidden="true">
-        <div className="layer l1" style={c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}}>
-          {c.blur?.[0] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
+        <div className="layer l1" style={{ ...(c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}), ...(c.l1Style || {}) }}>
+          {c.blur?.[0] > 0 && <div style={{ position: 'absolute', inset: 0, backdropFilter: `blur(${c.blur[0]}px)`, WebkitBackdropFilter: `blur(${c.blur[0]}px)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
           {!c.imgs && 'image · 16:10'}
         </div>
         <div className="layer l2" style={c.imgs ? { background: `url(${c.imgs[1]}) ${c.imgPos?.[1] || 'center center'} / cover no-repeat` } : {}}>
-          {c.blur?.[1] && <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
+          {c.blur?.[1] > 0 && <div style={{ position: 'absolute', inset: 0, backdropFilter: `blur(${c.blur[1]}px)`, WebkitBackdropFilter: `blur(${c.blur[1]}px)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
           {!c.imgs && 'detail · 4:3'}
         </div>
         <div className="layer l3">{c.n}</div>
@@ -170,7 +171,7 @@ function PortfolioApp() {
       <a href="index.html" className="back-link">← главная</a>
 
       <section className="portfolio-hero">
-        <div className="hero-name">004 / Portfolio · 2021—2026</div>
+        <div className="hero-name">004 / Portfolio</div>
         <h1>
           Антиосов.<br />
           <span style={{ fontStyle: 'italic', color: 'var(--accent)' }}>Найдется все.</span>
