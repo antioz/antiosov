@@ -781,6 +781,10 @@ button { font-family: inherit; cursor: none; }
   .case.flip .visual .layer.l2 { height: 180px !important; }
   .case .visual .layer.l3,
   .case.flip .visual .layer.l3 { display: none !important; }
+  /* titleOverlay — абсолютный div внутри l1, скрываем на мобайле */
+  .case .visual .layer.l1 > div[style*="linear-gradient"] {
+    display: none !important;
+  }
 }
 
 /* ============================================================
