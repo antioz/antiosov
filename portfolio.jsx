@@ -98,10 +98,10 @@ function Case({ c }) {
         </div>
       </div>
       <div className="visual" aria-hidden="true">
-        <div className="layer l1" style={c.imgs ? { backgroundImage: `url(${c.imgs[0]})`, backgroundSize: 'cover', backgroundPosition: c.imgPos?.[0] || 'center center' } : {}}>
+        <div className="layer l1" style={c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}}>
           {!c.imgs && 'image · 16:10'}
         </div>
-        <div className="layer l2" style={c.imgs ? { backgroundImage: `url(${c.imgs[1]})`, backgroundSize: 'cover', backgroundPosition: c.imgPos?.[1] || 'center center' } : {}}>
+        <div className="layer l2" style={c.imgs ? { background: `url(${c.imgs[1]}) ${c.imgPos?.[1] || 'center center'} / cover no-repeat` } : {}}>
           {!c.imgs && 'detail · 4:3'}
         </div>
         <div className="layer l3">{c.n}</div>
