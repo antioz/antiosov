@@ -141,7 +141,7 @@ function Case({ c }) {
       </div>
       <div className="visual" aria-hidden="true">
         <div className="layer l1" style={c.imgs ? { background: `url(${c.imgs[0]}) ${c.imgPos?.[0] || 'center center'} / cover no-repeat` } : {}}>
-          {c.blur?.[0] > 0 && <div style={{ position: 'absolute', inset: 0, backdropFilter: `blur(${c.blur[0]}px)`, WebkitBackdropFilter: `blur(${c.blur[0]}px)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(244,244,240,0.18)', textTransform: 'uppercase', userSelect: 'none' }}>hidden</span></div>}
+          {c.blur?.[0] > 0 && <div style={{ position: 'absolute', inset: 0, backdropFilter: `blur(${c.blur[0]}px)`, WebkitBackdropFilter: `blur(${c.blur[0]}px)` }}></div>}
           {c.titleOverlay && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', padding: '12px 16px', background: 'linear-gradient(to top, rgba(10,10,10,0.72) 0%, transparent 60%)', pointerEvents: 'none' }}><span style={{ fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 'clamp(13px, 1.4vw, 18px)', lineHeight: 1.1, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{c.title}</span></div>}
           {!c.imgs && 'image · 16:10'}
         </div>
