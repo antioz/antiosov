@@ -703,6 +703,7 @@ button { font-family: inherit; cursor: none; }
 /* case-specific offsets */
 .case[data-screen-label="case-01"] .visual .layer.l1 { left: 37.5%; }
 .case[data-screen-label="case-01"] .visual .layer.l2 { right: 32.5%; }
+.case[data-screen-label="case-01"] .visual .layer.l3 { right: 22%; }
 .case[data-screen-label="case-09"] .visual .layer.l1 { left: 37.5%; }
 .case[data-screen-label="case-09"] .visual .layer.l2 { right: 32.5%; }
 
