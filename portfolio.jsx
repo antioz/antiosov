@@ -56,6 +56,17 @@ const CASES = [
     flip: false,
     light: false,
   },
+  {
+    n: "06",
+    year: "2025",
+    title: ["Ролики для ", <span className="accent" key="a">Skyeng</span>],
+    role: "креативный продюсер",
+    client: "Skyeng",
+    body: "Работал над проектом на позиции креативного продюсера со стороны агентства Smetana.",
+    tags: ["видео", "продакшн"],
+    flip: true,
+    light: false,
+  },
 ];
 
 function Case({ c }) {
