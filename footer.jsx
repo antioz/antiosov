@@ -11,7 +11,7 @@ function Footer() {
       <div className="footer-meta">
         <div><b>telegram</b> · <a href="https://t.me/antiosov" target="_blank" rel="noreferrer">@antiosov</a></div>
         <div><b>войсы</b> · норм</div>
-        <div><b>зона</b> · MSK / GMT+3</div>
+        <div><b>моя тг-сетка</b> · <a href="https://t.me/webthreesome/4242" target="_blank" rel="noreferrer">подписаться</a></div>
         <div style={{ marginTop: 24 }}>© 2026 · made by hand & by agents</div>
       </div>
     </section>);

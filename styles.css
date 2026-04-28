@@ -791,3 +791,36 @@ button { font-family: inherit; cursor: none; }
   background: var(--accent);
   color: var(--accent-ink);
 }
+
+/* ============================================================
+   Portfolio CTA block
+   ============================================================ */
+.portfolio-cta-block {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 80px 40px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+}
+.portfolio-cta-block p {
+  font-size: clamp(16px, 2vw, 20px);
+  color: var(--fg-dim);
+  line-height: 1.6;
+  margin: 0 0 32px;
+}
+.cta-btn {
+  display: inline-block;
+  padding: 14px 28px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s;
+}
+.cta-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}

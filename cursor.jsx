@@ -73,7 +73,7 @@ function TopBar({ showBack }) {
       <div className="clock">
         <a href="blog/index.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>блог</a>
         <span className="dot" />
-        <span>MSK · {hh}:{mm}:{ss}</span>
+        <a href="portfolio.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>портфолио</a>
       </div>
     </div>
   );

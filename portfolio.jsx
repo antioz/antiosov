@@ -143,17 +143,22 @@ function PortfolioApp() {
 
       {CASES.map((c) => <Case key={c.n} c={c} />)}
 
+      <section className="portfolio-cta-block reveal">
+        <p>Если хотите больше примеров или обсудить, чем могу быть полезен вашему бизнесу — давайте пообщаемся лично.</p>
+        <a href="https://t.me/antiosov" target="_blank" rel="noreferrer" className="cta-btn">написать в ЛС →</a>
+      </section>
+
       <section className="footer">
         <h2 className="footer-cta">
           <a href="https://t.me/antiosov" target="_blank" rel="noreferrer">
             на<br />
-            <span className="accent">связь →</span>
+            <span className="accent">связи→</span>
           </a>
         </h2>
         <div className="footer-meta">
-          <div>telegram · <a href="https://t.me/antiosov" target="_blank" rel="noreferrer">@antiosov</a></div>
-          <div>response · в течение дня</div>
-          <div>зона · MSK / GMT+3</div>
+          <div><b>telegram</b> · <a href="https://t.me/antiosov" target="_blank" rel="noreferrer">@antiosov</a></div>
+          <div><b>войсы</b> · норм</div>
+          <div><b>моя тг-сетка</b> · <a href="https://t.me/webthreesome/4242" target="_blank" rel="noreferrer">подписаться</a></div>
           <div style={{ marginTop: 24 }}>© 2026</div>
         </div>
       </section>
