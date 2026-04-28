@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title id="page-title">Блог — Дмитрий Антиосов</title>
+  <meta name="robots" content="index, follow" />
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #111111;
+      --fg: #f4f4f0;
+      --fg-dim: #888;
+      --fg-fade: #444;
+      --line: #1f1f1f;
+      --accent: #00E0A4;
+      --font-display: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --pad-x: clamp(20px, 4vw, 64px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font-display); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px var(--pad-x); z-index: 50;
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--fg-dim);
+    }
+    .topbar .brand { color: var(--fg); font-weight: 500; }
+    .topbar .brand b { color: var(--accent); }
+
+    .post-hero {
+      padding: 120px var(--pad-x) 64px;
+      border-bottom: 1px solid var(--line);
+      max-width: 900px;
+    }
+    .post-hero .tag {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em;
+      color: var(--fg-dim); text-transform: uppercase; margin-bottom: 32px;
+      display: flex; gap: 24px; align-items: center;
+    }
+    .post-hero .tags-list { display: flex; gap: 8px; flex-wrap: wrap; }
+    .post-hero .tag-item {
+      background: var(--bg-elev); border: 1px solid var(--line);
+      padding: 2px 8px; border-radius: 2px; font-size: 10px; letter-spacing: 0.06em;
+    }
+    .post-hero h1 {
+      font-size: clamp(32px, 6vw, 88px); font-weight: 800; line-height: 1.0;
+      letter-spacing: -0.035em; margin: 0 0 24px; color: var(--fg);
+    }
+    .post-hero .post-meta {
+      font-family: var(--font-mono); font-size: 12px; color: var(--fg-dim);
+      display: flex; gap: 24px;
+    }
+    .post-hero .read-time { color: var(--accent); }
+
+    .post-body {
+      padding: 64px var(--pad-x) 96px;
+      max-width: 720px;
+    }
+    .post-body p {
+      font-size: clamp(16px, 1.5vw, 19px); line-height: 1.75;
+      color: var(--fg); margin: 0 0 28px;
+    }
+    .post-body h2 {
+      font-size: clamp(22px, 3vw, 40px); font-weight: 700;
+      letter-spacing: -0.025em; margin: 56px 0 20px; color: var(--fg);
+    }
+    .post-body h3 {
+      font-size: clamp(18px, 2vw, 26px); font-weight: 600;
+      letter-spacing: -0.02em; margin: 40px 0 16px; color: var(--fg);
+    }
+    .post-body strong { color: var(--fg); }
+    .post-body em { color: var(--fg-dim); }
+    .post-body img {
+      width: 100%; border-radius: 4px; margin: 32px 0;
+      border: 1px solid var(--line);
+    }
+    .post-body blockquote {
+      border-left: 2px solid var(--accent); padding-left: 24px;
+      margin: 32px 0; color: var(--fg-dim);
+    }
+    .post-body ul, .post-body ol {
+      padding-left: 24px; margin: 0 0 28px;
+    }
+    .post-body li {
+      font-size: clamp(16px, 1.5vw, 19px); line-height: 1.75; margin-bottom: 8px;
+    }
+    .post-body code {
+      font-family: var(--font-mono); font-size: 0.85em;
+      background: var(--bg-elev); padding: 2px 6px; border-radius: 3px;
+    }
+
+    .post-footer {
+      padding: 48px var(--pad-x) 80px;
+      border-top: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 24px;
+    }
+    .post-footer a {
+      font-family: var(--font-mono); font-size: 13px; color: var(--fg-dim);
+      transition: color 0.2s;
+    }
+    .post-footer a:hover { color: var(--accent); }
+    .post-footer .tg {
+      font-family: var(--font-mono); font-size: 13px; color: var(--fg-dim);
+    }
+    .post-footer .tg a { color: var(--accent); }
+
+    .loading { padding: 160px var(--pad-x); font-family: var(--font-mono); font-size: 13px; color: var(--fg-dim); }
+    .not-found { padding: 160px var(--pad-x); font-family: var(--font-mono); font-size: 13px; color: var(--fg-dim); }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html" class="brand">← <b>блог</b></a>
+    <span id="topbar-date" style="font-family:var(--font-mono);font-size:12px;color:var(--fg-dim)"></span>
+  </div>
+
+  <div id="app"><div class="loading">загрузка...</div></div>
+
+  <script>
+    function formatDate(str) {
+      const d = new Date(str);
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function readingTime(html) {
+      const text = html.replace(/<[^>]+>/g, '');
+      const words = text.trim().split(/\s+/).length;
+      return Math.max(1, Math.round(words / 200));
+    }
+
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) {
+      location.href = 'index.html';
+    }
+
+    fetch('posts.json')
+      .then(r => r.json())
+      .then(posts => {
+        const post = posts.find(p => p.id === id);
+        if (!post) {
+          document.getElementById('app').innerHTML = '<div class="not-found">статья не найдена. <a href="index.html">← в блог</a></div>';
+          return;
+        }
+
+        // Update meta tags
+        document.getElementById('page-title').textContent = post.title + ' — Дмитрий Антиосов';
+        document.getElementById('topbar-date').textContent = formatDate(post.date);
+
+        // Dynamic OG/meta (for crawlers reading static HTML these won't help,
+        // but good for social share previews via JS-rendered pages)
+        const desc = document.createElement('meta');
+        desc.name = 'description';
+        desc.content = post.preview;
+        document.head.appendChild(desc);
+
+        const cover = post.image
+          ? `<img src="../${post.image}" alt="${post.title}" />`
+          : '';
+
+        const mins = readingTime(post.content);
+
+        document.getElementById('app').innerHTML = `
+          <article>
+            <div class="post-hero">
+              <div class="tag">
+                <span>${formatDate(post.date)}</span>
+                <div class="tags-list">${post.tags.map(t => `<span class="tag-item">${t}</span>`).join('')}</div>
+              </div>
+              <h1>${post.title}</h1>
+              <div class="post-meta">
+                <span>Дмитрий Антиосов</span>
+                <span class="read-time">~${mins} мин</span>
+              </div>
+            </div>
+            <div class="post-body">
+              ${cover}
+              ${post.content}
+            </div>
+          </article>
+          <div class="post-footer">
+            <a href="index.html">← все записи</a>
+            <div class="tg">обсудить: <a href="https://t.me/antiosov" target="_blank" rel="noreferrer">@antiosov</a></div>
+          </div>
+        `;
+      })
+      .catch(() => {
+        document.getElementById('app').innerHTML = '<div class="not-found">ошибка загрузки. <a href="index.html">← в блог</a></div>';
+      });
+  </script>
+</body>
+</html>

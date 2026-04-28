@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Блог — Дмитрий Антиосов</title>
+  <meta name="description" content="Заметки Дмитрия Антиосова о AI, креативном мышлении, performance-маркетинге и системном подходе." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://antiosov.ru/blog/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://antiosov.ru/blog/" />
+  <meta property="og:title" content="Блог — Дмитрий Антиосов" />
+  <meta property="og:description" content="Заметки о AI, креативном мышлении, performance-маркетинге и системном подходе." />
+  <meta property="og:image" content="https://antiosov.ru/assets/og-cover.jpg" />
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #111111;
+      --fg: #f4f4f0;
+      --fg-dim: #888;
+      --fg-fade: #444;
+      --line: #1f1f1f;
+      --accent: #00E0A4;
+      --font-display: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --pad-x: clamp(20px, 4vw, 64px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--font-display); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px var(--pad-x); z-index: 50;
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: var(--fg-dim);
+    }
+    .topbar .brand { color: var(--fg); font-weight: 500; }
+    .topbar .brand b { color: var(--accent); }
+
+    .blog-hero {
+      padding: 120px var(--pad-x) 64px;
+      border-bottom: 1px solid var(--line);
+    }
+    .blog-hero .tag {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em;
+      color: var(--fg-dim); text-transform: uppercase; margin-bottom: 32px;
+    }
+    .blog-hero h1 {
+      font-size: clamp(48px, 10vw, 140px); font-weight: 800; line-height: 0.9;
+      letter-spacing: -0.04em; margin: 0; color: var(--fg);
+    }
+    .blog-hero h1 .accent { color: var(--accent); font-style: italic; }
+
+    .posts {
+      padding: 0 var(--pad-x) 96px;
+    }
+    .post-card {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 40px;
+      padding: 40px 0;
+      border-bottom: 1px solid var(--line);
+      transition: opacity 0.2s;
+    }
+    .post-card:hover { opacity: 0.75; }
+    .post-card .meta {
+      font-family: var(--font-mono); font-size: 11px; color: var(--fg-dim);
+      padding-top: 6px;
+    }
+    .post-card .meta .date { margin-bottom: 12px; }
+    .post-card .meta .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .post-card .meta .tag-item {
+      background: var(--bg-elev); border: 1px solid var(--line);
+      padding: 2px 8px; border-radius: 2px; font-size: 10px;
+    }
+    .post-card .body h2 {
+      font-size: clamp(20px, 2.5vw, 32px); font-weight: 700; margin: 0 0 12px;
+      letter-spacing: -0.02em; line-height: 1.15;
+    }
+    .post-card .body p {
+      color: var(--fg-dim); font-size: 15px; line-height: 1.6; margin: 0 0 20px;
+    }
+    .post-card .read-more {
+      font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+
+    .empty {
+      padding: 80px var(--pad-x); color: var(--fg-dim);
+      font-family: var(--font-mono); font-size: 13px;
+    }
+
+    @media (max-width: 680px) {
+      .post-card { grid-template-columns: 1fr; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="../index.html" class="brand">← <b>D.A.</b> / index</a>
+    <span style="font-family:var(--font-mono);font-size:12px;color:var(--fg-dim)">005 / БЛОГ</span>
+  </div>
+
+  <div class="blog-hero">
+    <div class="tag">005 / Блог · 2026</div>
+    <h1>мысли<br />вслух<span class="accent">.</span></h1>
+  </div>
+
+  <div class="posts" id="posts">
+    <div class="empty">загрузка...</div>
+  </div>
+
+  <script>
+    function formatDate(str) {
+      const d = new Date(str);
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    fetch('posts.json')
+      .then(r => r.json())
+      .then(posts => {
+        const container = document.getElementById('posts');
+        if (!posts.length) {
+          container.innerHTML = '<div class="empty">пока пусто.</div>';
+          return;
+        }
+        container.innerHTML = posts.map(p => `
+          <a class="post-card" href="post.html?id=${p.id}">
+            <div class="meta">
+              <div class="date">${formatDate(p.date)}</div>
+              <div class="tags">${p.tags.map(t => `<span class="tag-item">${t}</span>`).join('')}</div>
+            </div>
+            <div class="body">
+              <h2>${p.title}</h2>
+              <p>${p.preview}</p>
+              <span class="read-more">читать →</span>
+            </div>
+          </a>
+        `).join('');
+      })
+      .catch(() => {
+        document.getElementById('posts').innerHTML = '<div class="empty">не удалось загрузить статьи.</div>';
+      });
+  </script>
+</body>
+</html>
