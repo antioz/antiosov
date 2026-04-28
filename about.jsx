@@ -5,7 +5,7 @@ function About() {
       <div className="about">
         <div className="about-left">
           <div className="section-tag">002 / ПАРУ СЛОВ</div>
-          <div className="avatar" aria-hidden="true" style={{ width: '100%', maxWidth: 240, aspectRatio: '1 / 1', alignSelf: 'center', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--line)', position: 'relative' }}>
+          <div className="avatar" aria-hidden="true" style={{ width: '100%', maxWidth: 192, aspectRatio: '1 / 1', alignSelf: 'center', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--line)', position: 'relative' }}>
             <img src="assets/avatar.jpg" alt="Дмитрий Антиосов" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div className="about-meta">

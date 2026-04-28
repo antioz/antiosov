@@ -174,6 +174,8 @@ button { font-family: inherit; cursor: none; }
   .hero-foot { grid-template-columns: 1fr; }
   .hero-foot .end { text-align: left; }
   .hero-foot .scroll { display: none; }
+  .hero { min-height: auto; padding-bottom: 40px; }
+  .topbar { font-size: 10px; padding: 14px var(--pad-x); }
 }
 
 /* ============================================================
