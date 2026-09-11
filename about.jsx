@@ -6,7 +6,7 @@ function About() {
         <div className="about-left">
           <div className="section-tag">002 / ПАРУ СЛОВ</div>
           <div className="avatar" aria-hidden="true" style={{ width: '100%', maxWidth: 192, aspectRatio: '1 / 1', alignSelf: 'center', borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--line)', position: 'relative' }}>
-            <img src="assets/avatar.jpg" alt="Дмитрий Антиосов" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src="/assets/avatar.jpg" alt="Дмитрий Антиосов" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div className="about-meta">
             <div className="row"><span>статус</span><b>в строю</b></div>
@@ -22,7 +22,7 @@ function About() {
             Сегодня так же собираю команды под задачи, только всё больше ролей занимают <strong>ИИ-агенты</strong>. При этом твёрдо стою на позиции, что нет ничего важнее применения и усложнения собственного интеллекта. Изучаю системное мышление, практикую логику и философию, читаю сложные тексты, много пишу и останавливаться не собираюсь.
           </p>
           <div className="about-actions">
-            <a className="btn primary" href="portfolio.html">
+            <a className="btn primary" href="/portfolio.html">
               <span>портфолио</span>
               <span className="arrow">→</span>
             </a>
