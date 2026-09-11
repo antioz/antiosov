@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Дмитрий Антиосов — AI-native, smart, creative</title>
-  <meta name="description" content="Дмитрий Антиосов — AI-native креативный директор. 10 лет в performance, e-com, EdTech. Строю автоматизированные креативные системы на стыке людей и AI-агентов." />
+  <title>Дмитрий Антиосов — Нахожу слова</title>
+  <meta name="description" content="Дмитрий Антиосов. Нахожу слова: художественные и нехудожественные тексты, креатив." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://antiosov.ru/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://antiosov.ru/" />
-  <meta property="og:title" content="Дмитрий Антиосов — AI-native, smart, creative" />
-  <meta property="og:description" content="Дмитрий Антиосов — AI-native креативный директор. 10 лет в performance, e-com, EdTech. Строю автоматизированные креативные системы." />
+  <meta property="og:title" content="Дмитрий Антиосов — Нахожу слова" />
+  <meta property="og:description" content="Художественные и нехудожественные тексты, креатив." />
   <meta property="og:image" content="https://antioz.github.io/antiosov/assets/og.png" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Дмитрий Антиосов — AI-native, smart, creative" />
-  <meta name="twitter:description" content="Дмитрий Антиосов — AI-native креативный директор. 10 лет в performance, e-com, EdTech." />
+  <meta name="twitter:title" content="Дмитрий Антиосов — Нахожу слова" />
+  <meta name="twitter:description" content="Художественные и нехудожественные тексты, креатив." />
   <meta name="twitter:image" content="https://antioz.github.io/antiosov/assets/og.png" />
 
   <!-- Schema.org JSON-LD -->
@@ -29,36 +29,116 @@
     "@context": "https://schema.org",
     "@type": "Person",
     "name": "Дмитрий Антиосов",
-    "jobTitle": "Creative Director",
-    "description": "AI-native креативный директор. 10 лет в performance-маркетинге, e-com, EdTech. Строю автоматизированные креативные системы.",
     "url": "https://antiosov.ru",
     "image": "https://antiosov.ru/assets/avatar.jpg",
-    "sameAs": ["https://t.me/antiosov"],
-    "knowsAbout": ["Creative Direction", "AI Agents", "Performance Marketing", "Brand Voice", "EdTech", "E-commerce"]
+    "sameAs": [
+      "https://t.me/antiosov",
+      "https://www.instagram.com/the.antiosov/",
+      "https://www.youtube.com/@dimastihi"
+    ]
   }
   </script>
 
-  <!-- Favicon -->
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="styles.css?v=5" />
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300&display=swap">
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #0a0a0a;
+      --dim: #888888;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      min-height: 100vh;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 48px 24px;
+    }
+    .name {
+      margin: 0 0 16px;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0.45em;
+      text-indent: 0.45em; /* компенсирует разрядку после последней буквы */
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: clamp(44px, 9vw, 120px);
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+    nav {
+      margin-top: 72px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px 32px;
+    }
+    nav a, .social a {
+      color: var(--dim);
+      text-decoration: none;
+      transition: color .2s ease;
+    }
+    nav a:hover, .social a:hover { color: var(--ink); }
+    nav a {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .social {
+      margin-top: 40px;
+      display: flex;
+      gap: 24px;
+    }
+    .social a { display: inline-flex; }
+    .social svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+    @media (max-width: 600px) {
+      nav { flex-direction: column; gap: 18px; margin-top: 56px; }
+      .name { font-size: 11px; letter-spacing: 0.35em; text-indent: 0.35em; }
+    }
+  </style>
 </head>
 <body>
-  <div id="root"></div>
+  <main>
+    <p class="name">Дмитрий Антиосов</p>
+    <h1>Нахожу слова</h1>
 
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="cursor.jsx"></script>
-  <script type="text/babel" src="hero.jsx"></script>
-  <script type="text/babel" src="showreel.jsx"></script>
-  <script type="text/babel" src="about.jsx"></script>
-  <script type="text/babel" src="clients.jsx"></script>
-  <script type="text/babel" src="footer.jsx"></script>
-  <script type="text/babel" src="app.jsx"></script>
+    <nav aria-label="Разделы">
+      <a href="#">Обо мне</a>
+      <a href="#">Художественные тексты</a>
+      <a href="#">Нехудожественные тексты</a>
+      <a href="/creative/">Креатив</a>
+    </nav>
+
+    <div class="social">
+      <a href="https://t.me/antiosov" target="_blank" rel="noopener" aria-label="Telegram" title="Telegram">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.78 15.17l-.4 5.6c.57 0 .82-.25 1.12-.54l2.68-2.57 5.56 4.07c1.02.56 1.75.27 2.02-.94l3.66-17.15c.33-1.5-.55-2.1-1.54-1.72L1.2 10.2c-1.47.57-1.45 1.39-.25 1.76l5.5 1.72L19.2 5.65c.6-.4 1.15-.18.7.22"/></svg>
+      </a>
+      <a href="https://www.instagram.com/the.antiosov/" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 2.7.27.27 2.7.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.2 4.36 2.62 6.78 6.98 6.98C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c4.35-.2 6.78-2.62 6.98-6.98.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95C23.73 2.7 21.3.27 16.95.07 15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 12 18.16 6.16 6.16 0 0 0 12 5.84zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>
+      </a>
+      <a href="https://www.youtube.com/@dimastihi" target="_blank" rel="noopener" aria-label="YouTube" title="YouTube">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>
+      </a>
+    </div>
+  </main>
 </body>
 </html>
