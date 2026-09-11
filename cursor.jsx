@@ -66,14 +66,14 @@ function TopBar({ showBack }) {
   return (
     <div className="topbar">
       {showBack ? (
-        <a href="index.html" className="brand">← <b>D.A.</b> / index</a>
+        <a href="/creative/" className="brand">← <b>D.A.</b> / index</a>
       ) : (
         <a href="https://t.me/antiosov" target="_blank" rel="noreferrer" className="brand"><b>t.me/</b>antiosov</a>
       )}
       <div className="clock">
-        <a href="portfolio.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>портфолио</a>
+        <a href="/portfolio.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>портфолио</a>
         <span className="dot" />
-        <a href="blog/index.html" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>блог</a>
+        <a href="/blog/" style={{ color: 'var(--fg-dim)', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.04em' }}>блог</a>
       </div>
     </div>
   );
