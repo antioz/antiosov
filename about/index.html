@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Обо мне — Дмитрий Антиосов</title>
+  <meta name="description" content="Дмитрий Антиосов — обо мне." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://antiosov.ru/about/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://antiosov.ru/about/" />
+  <meta property="og:title" content="Обо мне — Дмитрий Антиосов" />
+  <meta property="og:description" content="Текст пишется." />
+  <meta property="og:image" content="https://antiosov.ru/assets/og-words.png" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta property="og:site_name" content="Антиосов" />
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../assets/reveal.css" />
+
+  <style>
+    :root { --bg: #ffffff; --ink: #0a0a0a; --dim: #888888; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+    main {
+      min-height: 100vh; min-height: 100svh;
+      display: flex; flex-direction: column; text-align: center;
+    }
+    .hero {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px;
+    }
+    .name {
+      margin: 0 0 16px; font-size: 13px; font-weight: 400;
+      letter-spacing: 0.45em; text-indent: 0.45em; text-transform: uppercase;
+    }
+    .name a { color: inherit; text-decoration: none; }
+    h1 {
+      margin: 0 0 64px;
+      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+      font-style: italic; font-weight: 300;
+      font-size: clamp(40px, 6.5vw, 88px); line-height: 1; letter-spacing: -0.01em;
+    }
+    .list { display: flex; flex-direction: column; gap: 28px; }
+    .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .item .title {
+      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+      font-style: italic; font-weight: 400; font-size: 34px; line-height: 1;
+      color: var(--ink); text-decoration: none; transition: color .2s ease;
+    }
+    a.title:hover { color: var(--dim); }
+    .item.soon .title { color: var(--dim); }
+    .item .meta { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+    footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
+    footer a {
+      font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--dim); text-decoration: none; transition: color .2s ease;
+    }
+    footer a:hover { color: var(--ink); }
+    @media (max-width: 600px) {
+      .name { font-size: 11px; letter-spacing: 0.35em; text-indent: 0.35em; }
+      h1 { margin-bottom: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <h1 class="r" style="--i:1">Обо мне</h1>
+
+      <div class="list">
+        <div class="item r" style="--i:2">
+          <span class="meta">текст пишется</span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="r" style="--i:5">
+      <a href="/">← на главную</a>
+    </footer>
+  </main>
+  <script src="../assets/reveal.js"></script>
+</body>
+</html>
