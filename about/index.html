@@ -62,10 +62,6 @@
 
     figure { margin: 0; }
     figure img { display: block; width: 100%; height: auto; }
-    figcaption {
-      margin-top: 10px;
-      font-family: 'Inter', system-ui, sans-serif; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--dim);
-    }
 
     .text p {
       margin: 0 0 14px; font-size: 15px; line-height: 1.65; text-wrap: pretty;
@@ -100,18 +96,30 @@
 
     @media (max-width: 900px) {
       .sheet { padding: 0 20px 24px; }
-      header.hero { padding: 64px 0 40px; gap: 16px; }
+      header.hero { padding: 56px 0 32px; gap: 12px; }
       header.hero h1 { grid-column: 1 / 13; }
-      header.hero .tag { grid-column: 1 / 13; padding-bottom: 0; }
-      .grid { gap: 20px; }
+      .rule { margin-top: 20px; }
+
+      /* шестиколоночная сетка: кадры разной ширины и со сдвигами, а не столбик в полную ширину */
+      .grid { grid-template-columns: repeat(6, 1fr); gap: 14px; }
       .row { margin-bottom: 40px; }
-      .c1-5, .c1-6, .c1-7, .c2-6, .c4-8, .c5-9, .c7-13, .c8-13, .c9-13 { grid-column: 1 / 13; }
       .pad-top, .pad-top-lg { padding-top: 0; }
-      .quote { grid-column: 1 / 13; padding: 56px 0 48px; }
-      .text p { font-size: 16px; }
-      /* на узком — часть фото уже полной ширины, чтобы не было монотонности */
-      .narrow { width: 68%; }
-      .narrow-r { width: 68%; margin-left: auto; }
+
+      .f1 { grid-column: 1 / 6; }
+      .t1 { grid-column: 2 / 7; padding-top: 24px; }
+
+      .f2 { grid-column: 1 / 4; }
+      .f3 { grid-column: 4 / 7; padding-top: 44px; }
+      .f4 { grid-column: 2 / 6; padding-top: 28px; }
+
+      .t2 { grid-column: 1 / 6; padding-top: 0; }
+      .f5 { grid-column: 3 / 7; padding-top: 24px; }
+
+      .f6 { grid-column: 1 / 7; }
+
+      .quote { grid-column: 1 / 7; padding: 56px 0 48px; }
+      .text p { font-size: 15px; line-height: 1.6; }
+      .lead { font-size: 16px; }
     }
   </style>
 </head>
@@ -126,40 +134,35 @@
 
     <!-- 1: крупный кадр слева, текст справа -->
     <section class="grid row">
-      <figure class="c1-7 r">
+      <figure class="f1 c1-7 r">
         <img src="img/02.jpg" alt="Дмитрий Антиосов у гостиницы «Космос»" width="1050" height="1400" loading="eager" decoding="async" />
-        <figcaption>01 · Москва</figcaption>
       </figure>
-      <div class="text c8-13 pad-top-lg r" style="--i:1">
+      <div class="text t1 c8-13 pad-top-lg r" style="--i:1">
         <p class="lead">Заслуженный маркетолог России, почетный член Гильдии Креативных Директоров, член Союза Топ-блогеров России, почетный кавалер ордена Довлатова, ментор, энергокоуч, доказанный ченеллер, потомственный дворянин, русский.</p>
       </div>
     </section>
 
     <!-- 2: три кадра в ряд -->
     <section class="grid row">
-      <figure class="c1-5 narrow r">
+      <figure class="f2 c1-5 r">
         <img src="img/01.jpg" alt="Дмитрий Антиосов в оранжевом костюме" width="956" height="1276" loading="lazy" decoding="async" />
-        <figcaption>02</figcaption>
       </figure>
-      <figure class="c5-9 pad-top r" style="--i:1">
+      <figure class="f3 c5-9 pad-top r" style="--i:1">
         <img src="img/03.jpg" alt="Дмитрий Антиосов на сцене" width="960" height="1280" loading="lazy" decoding="async" />
-        <figcaption>03 · Сцена</figcaption>
       </figure>
-      <figure class="c9-13 narrow-r r" style="--i:2">
+      <figure class="f4 c9-13 r" style="--i:2">
         <img src="img/05.jpg" alt="Дмитрий Антиосов в смокинге" width="768" height="1196" loading="lazy" decoding="async" />
-        <figcaption>04</figcaption>
       </figure>
     </section>
 
     <!-- 3: текст слева, кадр справа -->
     <section class="grid row">
-      <div class="text c1-6 pad-top r">
+      <div class="text t2 c1-6 pad-top r">
         <p>Автор десятков научных постов, двух книг, лучшего стихотворения России по версии «TikTok Awards 2021». Участник форумов и конференций, выставок и юбилеев. Управленец года, 2019, по версии Arenum Community Team.</p>
         <p>Консультирую СЕО и фаундеров международных компаний по чувствительным вопросам (NDA).</p>
       </div>
-      <figure class="c7-13 r" style="--i:1">
+      <figure class="f5 c7-13 r" style="--i:1">
         <img src="img/04.jpg" alt="Дмитрий Антиосов у бильярдного стола" width="853" height="1280" loading="lazy" decoding="async" />
-        <figcaption>05</figcaption>
       </figure>
     </section>
 
@@ -170,9 +173,8 @@
 
     <!-- 5: финальный портрет во всю сетку -->
     <section class="grid row">
-      <figure class="c1-13 r">
+      <figure class="f6 c1-13 r">
         <img src="img/06.jpg" alt="Портрет Дмитрия Антиосова" width="1400" height="933" loading="lazy" decoding="async" />
-        <figcaption>06 · Портрет</figcaption>
       </figure>
     </section>
   </div>
