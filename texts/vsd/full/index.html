@@ -49,12 +49,6 @@
     }
     .email:focus { border-color: var(--ink); }
     .email::placeholder { color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; font-size: 11px; }
-    .qrbox {
-      width: 260px; height: 260px; margin: 8px auto 28px; padding: 12px;
-      border: 1px solid var(--line); border-radius: 8px; background: #fff;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .qrbox svg, .qrbox img { width: 100%; height: 100%; display: block; }
     .wall .note a { color: var(--ink); }
     .wall .note { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
 
@@ -100,19 +94,12 @@
     <p>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
     <form class="payform" id="payform" novalidate>
       <input class="email" id="email" type="email" name="email" placeholder="email для чека" autocomplete="email" required />
-      <button class="btn" id="pay" type="submit">Оплатить по СБП — 500 ₽</button>
+      <button class="btn" id="pay" type="submit">Открыть за 500 ₽</button>
     </form>
     <div class="note" id="fail" hidden>оплата не прошла — попробуйте ещё раз</div>
     <div class="note" id="failEmail" hidden>нужен email — на него придёт чек</div>
-    <div class="note" id="failSbp" hidden>оплата по СБП сейчас недоступна — напишите в Telegram <a href="https://t.me/antiosov" target="_blank" rel="noopener">@antiosov</a></div>
   </section>
 
-  <section id="qr" class="wall" hidden>
-    <p>Оплата по СБП — 500 ₽</p>
-    <div class="qrbox"><div id="qrimg"></div></div>
-    <a class="btn" id="qrlink" href="#" target="_blank" rel="noopener">Открыть в приложении банка</a>
-    <div class="note" id="qrnote">отсканируйте камерой или откройте на телефоне · страница откроется сама после оплаты</div>
-  </section>
 
   <!-- открыто -->
   <div id="opened" hidden>
@@ -197,40 +184,12 @@
         addPages(urls); open();
       }
 
-      var poll = null;
-      function showQr(d) {
-        wall.hidden = true;
-        var box = document.getElementById('qr'); box.hidden = false;
-        if (d.svg) { document.getElementById('qrimg').innerHTML = d.svg; }
-        else { document.getElementById('qrimg').innerHTML = '<a href="' + d.link + '">' + d.link + '</a>'; }
-        document.getElementById('qrlink').href = d.link;
-        var tries = 0;
-        poll = setInterval(function () {
-          tries++;
-          if (tries > 200) { clearInterval(poll); document.getElementById('qrnote').textContent = 'время ожидания истекло — обновите страницу'; return; }
-          fetch(PAYWALL_URL + '?a=status&o=' + encodeURIComponent(d.order))
-            .then(function (r) { return r.json(); })
-            .then(function (s) {
-              if (s.paid && s.token) { clearInterval(poll); store(KEY, s.token); location.href = location.pathname + '?t=' + encodeURIComponent(s.token); }
-              else if (s.failed) { clearInterval(poll); document.getElementById('qrnote').textContent = 'оплата не прошла — обновите страницу и попробуйте ещё раз'; }
-            })
-            .catch(function () {});
-        }, 3000);
-      }
-
       document.getElementById('payform').addEventListener('submit', function (e) {
         e.preventDefault();
         var email = document.getElementById('email').value.trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('failEmail').hidden = false; document.getElementById('email').focus(); return; }
         if (!PAYWALL_URL) { modal.classList.add('open'); return; }
-        var btn = document.getElementById('pay'); btn.disabled = true; btn.textContent = 'Готовим QR…';
-        fetch(PAYWALL_URL + '?a=sbp&email=' + encodeURIComponent(email))
-          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-          .then(showQr)
-          .catch(function () {
-            btn.disabled = false; btn.textContent = 'Оплатить по СБП — 500 ₽';
-            document.getElementById('failSbp').hidden = false;
-          });
+        location.href = PAYWALL_URL + '?a=pay&email=' + encodeURIComponent(email);
       });
       document.getElementById('close').addEventListener('click', function () { modal.classList.remove('open'); });
       modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('open'); });
