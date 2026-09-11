@@ -175,6 +175,7 @@
       }
 
       // возврат после оплаты: ?t=<токен>
+      if (q.get('reset')) { try { localStorage.removeItem(KEY); localStorage.removeItem(LEGACY); } catch (e) {} clean(); }
       if (q.get('t')) { store(KEY, q.get('t')); clean(); }
       if (q.get('fail') === 'email') { document.getElementById('failEmail').hidden = false; clean(); }
       else if (q.get('fail')) { document.getElementById('fail').hidden = false; clean(); }
