@@ -58,13 +58,23 @@
     }
     .story p { margin: 0 0 18px; font-size: 17px; line-height: 1.7; text-wrap: pretty; }
     .story p:last-child { margin-bottom: 0; }
-    .ill { margin: 24px 0 40px; }
-    .ill img { display: block; height: auto; }
-    .ill--right { width: 46%; margin-left: auto; margin-right: -12%; }
-    .ill--left { width: 46%; margin-right: auto; margin-left: -12%; }
-    .ill--small { width: 34%; margin-left: 8%; }
-    .ill--center { width: 56%; margin-left: auto; margin-right: auto; }
-    .ill img { width: 100%; }
+    /* иллюстрации: на широких экранах — на полях, вразнобой; на узких — в потоке */
+    .ill { margin: 0 0 24px; }
+    .ill img { display: block; width: 100%; height: auto; }
+    .m1 { width: 62%; margin-left: auto; margin-right: -10%; }
+    .m2 { width: 40%; margin-left: 4%; }
+    .m3 { width: 66%; margin-right: auto; margin-left: -8%; }
+    .m4 { width: 44%; margin-left: auto; margin-right: 2%; }
+    .m5 { width: 56%; margin-left: auto; margin-right: auto; }
+    @media (min-width: 1100px) {
+      .ill { margin: 0; position: relative; }
+      .m1 { float: right; width: 300px; margin: -40px -380px 0 0; transform: rotate(2deg); }
+      .m2 { float: left; width: 240px; margin: 60px 0 0 -330px; transform: rotate(-3deg); }
+      .m3 { float: right; width: 260px; margin: 140px -350px 0 0; transform: rotate(-1.5deg); }
+      .m4 { float: left; width: 280px; margin: -20px 0 0 -370px; transform: rotate(2.5deg); }
+      .m5 { float: right; width: 220px; margin: 90px -320px 0 0; transform: rotate(-2deg); }
+      .story::after { content: ''; display: block; clear: both; }
+    }
     .end {
       text-align: center; padding: 72px 24px 64px;
       font-family: 'Inter', system-ui, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -77,10 +87,6 @@
       main { padding: 0 20px 24px; }
       .story { padding: 24px 0 40px; }
       .story p { font-size: 16px; }
-      .ill--right, .ill--left { width: 64%; margin-left: 0; margin-right: 0; }
-      .ill--right { margin-left: auto; }
-      .ill--small { width: 44%; margin-left: 0; }
-      .ill--center { width: 72%; }
     }
   </style>
 </head>
@@ -89,16 +95,16 @@
 
   <header class="hero">
     <h1 class="r" style="--i:1">Мужички</h1>
-    <div class="sub r" style="--i:2">девять рассказов · 2025</div>
+    <div class="sub r" style="--i:2">девять рассказов · 2026</div>
   </header>
 
   <main>
     <article class="story r">
       <div class="num">01</div>
       <h2>Один мужичок спустился к мусоропроводу перед работой.</h2>
+    <figure class="ill m1 r"><img src="img/03.jpg" alt="" width="782" height="1100" loading="lazy" decoding="async" /></figure>
       <p>Увидел на полу магнитик и кусок синей изоленты. Он магнитик на палец положил и изолентой примотал. Весь день на работе скрепки по столу гонял и был счастлив. А в столовой вилкой дирижировал выдуманному оркестру. Потому что дорабатывал последние 11 дней перед увольнением, скучать не любил, а действовать в собственных интересах пока так и не научился.</p>
     </article>
-    <figure class="ill ill--right r"><img src="img/03.jpg" alt="" width="782" height="1100" loading="lazy" decoding="async" /></figure>
     <article class="story r">
       <div class="num">02</div>
       <h2>Один мужичок очень себя не ценил.</h2>
@@ -111,10 +117,10 @@
     <article class="story r">
       <div class="num">03</div>
       <h2>Один мужичок испытал странное наваждение.</h2>
+    <figure class="ill m2 r"><img src="img/01.jpg" alt="" width="984" height="984" loading="lazy" decoding="async" /></figure>
       <p>Зашел в Магнит за моцареллой, а купил двадцать два килограмма замороженной мойвы. Когда наваждение сошло, так и не смог ни объяснить себе этот поступок, ни придумать, что с ней делать.</p>
       <p>Я этого делать тоже не возьмусь. Что еще раз подтверждает, что не все в жизни поддается пониманию.</p>
     </article>
-    <figure class="ill ill--small r"><img src="img/01.jpg" alt="" width="984" height="984" loading="lazy" decoding="async" /></figure>
     <article class="story r">
       <div class="num">04</div>
       <h2>Один мужичок ненавидел зло.</h2>
@@ -132,6 +138,7 @@
     <article class="story r">
       <div class="num">05</div>
       <h2>Один мужичок так сильно хотел, чтобы его полюбили, что сам не заметил, как стал всех вокруг так же сильно ненавидеть.</h2>
+    <figure class="ill m3 r"><img src="img/05.jpg" alt="" width="781" height="1100" loading="lazy" decoding="async" /></figure>
       <p>В интернете на каждый контент свое мнение имел. И мнение это ненавидело самого автора, его мысль и выводы. Но никогда ни одного комментария мужичок не написал. Так сильно ненавидел.</p>
       <p>Настолько сильно, что и в жизни говорить толком не мог. В голове звучали тирады, по сокрушительности сравнимые с падающим на свалку машин башенным краном. А снаружи слышно было только напряженное похрустывание губ и дребезжание зубов.</p>
       <p>Редкие слова прорывались из его гневного сопла только в самые отвратительные моменты жизни. И те — в виде рубленого бормотства. — Ннд, — только и мог он выдавить кассиру Пятерочки на вопрос о пакете, отводя в сторону глаза. Чтобы не убить, конечно же.</p>
@@ -142,7 +149,6 @@
       <p>Потому что боженька нас всех, дураков, любит. И для каждого у него припасен подарочек. Надо только сильно захотеть.</p>
       <p>П.с. Соседи потом промеж себя говорили, что как будто и не такой противный стал мужичок-то. Но вы ему это не говорите, если повстречаете. Чтобы не вспугнуть нечаянно.</p>
     </article>
-    <figure class="ill ill--left r"><img src="img/05.jpg" alt="" width="781" height="1100" loading="lazy" decoding="async" /></figure>
     <article class="story r">
       <div class="num">06</div>
       <h2>Один мужичок попал в неведомую страну.</h2>
@@ -160,11 +166,11 @@
     <article class="story r">
       <div class="num">07</div>
       <h2>Один мужичок очень хотел быть полезным.</h2>
+    <figure class="ill m4 r"><img src="img/02.jpg" alt="" width="1100" height="1100" loading="lazy" decoding="async" /></figure>
       <p>И стал он вести полезную жизнь. Ел полезную еду, делал полезные упражнения, давал только полезные советы, избегал бесполезных действий и людей. За долгие годы полезной жизни принес мужичок немало пользы людям. Все ему были очень благодарны и старались всячески угодить. В чем он также видел для людей изрядную пользу, поэтому от благ не отказывался, а аккуратно складывал их в доме, а что-то раздавал дальше.</p>
       <p>Пришло время мужичку. Все полезное про жизнь он передал, всех родных и близких отпустил, и лег помирать. А за 5 минут до смерти смог он вывести 5 простых правил, как с максимальной пользой завершить жизненный путь. Но записать или рассказать не успел. Так и умер, немного вдохновленный и немного опечаленный.</p>
       <p>Как все, в общем.</p>
     </article>
-    <figure class="ill ill--small r"><img src="img/02.jpg" alt="" width="1100" height="1100" loading="lazy" decoding="async" /></figure>
     <article class="story r">
       <div class="num">08</div>
       <h2>Один мужичок очень любил путешествовать.</h2>
@@ -179,6 +185,7 @@
     <article class="story r">
       <div class="num">09</div>
       <h2>Один мужичок очень любил свою козу.</h2>
+    <figure class="ill m5 r"><img src="img/04.jpg" alt="" width="774" height="1100" loading="lazy" decoding="async" /></figure>
       <p>Известно, о чем вы подумали, это вас интернет навсегда испортил. Он любил свою козу, которая из пальцев. Та всегда получалась мощная, волевая — козырная. Для самых дотошных, а я знаю, такие есть среди моих читателей, сообщу: жила коза на правой руке.</p>
       <p>Так он ее любил, что постоянно любовался в свободное от забот время, наряды ей покупал и изобретал. Особенно коза любила черные кожаные перчатки без пальцев с небольшими шипами. Время такое было: разруха, застой. Общечеловеческий панк был на полном ходу, чем коза хуже.</p>
       <p>Поэтому всю юность мужичок провел на концертах. Там козе можно было вдоволь побеситься. Он так это и называл: выгулять козу. При этом, сам мужичок ни рок, ни панк, ни тем более металл не любил. От металла у него даже случалась пароксизмальная сенсорная парасомния, штука хоть и не опасная, но очень неприятная. Единственная группа, которую мужичок любил за треш и угар — Коррозия Металла. Есть даже известная фотография в интернете, где стоит Сергей "Паук" Троицкий со своей элегантной, утонченной козочкой, и мужичок. Со своей, козырной.</p>
@@ -188,7 +195,6 @@
       <p>А потом не стало их, обоих. Как всего однажды не становится. Мы вышли во двор после школы, а мужичок не вышел. И коза не вышла — в один день они нас оставили без присмотра. Так их вместе и положили.</p>
       <p>Вот такая, ребят, дружба. На всю жизнь.</p>
     </article>
-    <figure class="ill ill--center r"><img src="img/04.jpg" alt="" width="774" height="1100" loading="lazy" decoding="async" /></figure>
   </main>
 
   <div class="end r">
