@@ -1,0 +1,3 @@
+.r { opacity: 0; transform: translateY(12px); transition: opacity .7s ease, transform .7s ease; transition-delay: calc(var(--i, 0) * 70ms); }
+.r.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .r { transition: none; } }

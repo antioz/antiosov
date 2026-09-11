@@ -22,6 +22,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
+  <link rel="stylesheet" href="../assets/reveal.css" />
+
   <style>
     :root { --bg: #ffffff; --ink: #0a0a0a; --dim: #888888; }
     * { box-sizing: border-box; }
@@ -71,24 +73,24 @@
 <body>
   <main>
     <div class="hero">
-      <p class="name"><a href="/">Дмитрий Антиосов</a></p>
-      <h1>Художественные тексты</h1>
+      <h1 class="r" style="--i:1">Художественные тексты</h1>
 
       <div class="list">
-        <div class="item">
+        <div class="item r" style="--i:2">
           <a class="title" href="/texts/vsd/">ВСД</a>
-          <span class="meta">книга стихов · 2025</span>
+          <span class="meta">книга стихов · 2018</span>
         </div>
-        <div class="item soon">
-          <span class="title">Мужички</span>
-          <span class="meta">рассказы · скоро</span>
+        <div class="item r" style="--i:3">
+          <a class="title" href="/texts/muzhichki/">Мужички</a>
+          <span class="meta">рассказы · 2025</span>
         </div>
       </div>
     </div>
 
-    <footer>
+    <footer class="r" style="--i:5">
       <a href="/">← на главную</a>
     </footer>
   </main>
+  <script src="../assets/reveal.js"></script>
 </body>
 </html>
