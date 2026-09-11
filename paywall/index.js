@@ -5,10 +5,11 @@
 //   pay      → создаёт платёж в Т-Банке (Init) и редиректит на платёжную страницу
 //   success  → сюда возвращает Т-Банк после оплаты; проверяем статус, выдаём токен, редиректим на сайт
 //   notify   → уведомления Т-Банка (проверка подписи, ответ OK)
-//   access   → по токену отдаёт подписанные ссылки на страницы 21–112 и PDF из Object Storage
+//   access   → по токену отдаёт подписанные ссылки на платную часть товара из Object Storage
 //
 // Переменные окружения: TB_TERMINAL, TB_PASSWORD, SECRET, S3_KEY, S3_SECRET, S3_BUCKET,
-//                       SITE (https://antiosov.ru), SELF_URL (адрес этой функции), PRICE (в копейках, 50000)
+//                       SITE (https://antiosov.ru), SELF_URL (адрес этой функции),
+//                       PRICE (книга, в копейках), PRICE_ESSAY (эссе, в копейках)
 
 const https = require('https');
 const crypto = require('crypto');
@@ -17,10 +18,29 @@ const path = require('path');
 
 const ENV = process.env;
 const SITE = ENV.SITE || 'https://antiosov.ru';
-const BOOK_URL = SITE + '/texts/vsd/full/';
-const PRICE = parseInt(ENV.PRICE || '50000', 10);
-const PAID_PAGES = { from: 21, to: 112 };
 const LINK_TTL = 3 * 60 * 60; // секунд
+
+// Каталог: что продаём, почём и что выдаём после оплаты.
+const PRODUCTS = {
+  vsd: {
+    price: parseInt(ENV.PRICE || '50000', 10),
+    title: 'Книга «ВСД» — полная версия и PDF',
+    item: 'Книга «ВСД», электронная версия',
+    back: SITE + '/texts/vsd/full/',
+    grant: () => {
+      const pages = [];
+      for (let i = 21; i <= 112; i++) pages.push(presign(`pages/${String(i).padStart(2, '0')}.jpg`, LINK_TTL));
+      return { pages, pdf: presign('vsd.pdf', LINK_TTL) };
+    },
+  },
+  essay: {
+    price: parseInt(ENV.PRICE_ESSAY || '100000', 10),
+    title: 'Эссе «Любить писать» — полный текст',
+    item: 'Эссе «Любить писать», электронная версия',
+    back: SITE + '/nonfiction/lyubit-pisat/',
+    grant: () => ({ html: presign('essay/rest.html', LINK_TTL) }),
+  },
+};
 
 // Т-Банк подписан российским УЦ — добавляем его к системным корням.
 const RU_CA = fs.readFileSync(path.join(__dirname, 'ru-ca.pem'));
@@ -52,16 +72,21 @@ function tbCall(method, params) {
 }
 
 // ---------- токен доступа ----------
-function sign(paymentId) {
-  return crypto.createHmac('sha256', ENV.SECRET).update(String(paymentId)).digest('base64url');
+function sign(key) {
+  return crypto.createHmac('sha256', ENV.SECRET).update(key).digest('base64url');
 }
-function makeAccessToken(paymentId) { return paymentId + '.' + sign(paymentId); }
+function makeAccessToken(prodKey, paymentId) {
+  return prodKey + '.' + paymentId + '.' + sign(prodKey + ':' + paymentId);
+}
 function verifyAccessToken(t) {
   if (!t || typeof t !== 'string') return null;
-  const i = t.indexOf('.'); if (i < 1) return null;
-  const pid = t.slice(0, i), sig = Buffer.from(t.slice(i + 1)), good = Buffer.from(sign(pid));
-  if (sig.length !== good.length) return null;
-  return crypto.timingSafeEqual(sig, good) ? pid : null;
+  const parts = t.split('.');
+  if (parts.length !== 3) return null;
+  const [prodKey, pid, sig] = parts;
+  if (!PRODUCTS[prodKey]) return null;
+  const good = Buffer.from(sign(prodKey + ':' + pid)), got = Buffer.from(sig);
+  if (got.length !== good.length || !crypto.timingSafeEqual(got, good)) return null;
+  return { prodKey, pid };
 }
 
 // ---------- Object Storage: presigned GET (AWS SigV4) ----------
@@ -102,14 +127,14 @@ const text = (code, s) => ({ statusCode: code, headers: { 'Content-Type': 'text/
 // ---------- маршруты ----------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function receipt(email) {
+function receipt(email, prod) {
   // Чек 54-ФЗ для Т-Чеков. TAXATION: osn | usn_income | usn_income_outcome | patent | envd | esn
   return {
     Email: email,
     Taxation: ENV.TAXATION || 'usn_income',
     Items: [{
-      Name: 'Книга «ВСД», электронная версия',
-      Price: PRICE, Quantity: 1, Amount: PRICE,
+      Name: prod.item,
+      Price: prod.price, Quantity: 1, Amount: prod.price,
       Tax: ENV.VAT || 'none',
       PaymentMethod: 'full_payment',
       PaymentObject: 'intellectual_activity',
@@ -118,82 +143,43 @@ function receipt(email) {
 }
 
 async function pay(q) {
-  // Карточная оплата (не используется, пока приём только по СБП; оставлено для отладки).
+  const prodKey = PRODUCTS[q.p] ? q.p : 'vsd';
+  const prod = PRODUCTS[prodKey];
   const email = (q.email || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return redirect(BOOK_URL + '?fail=email');
-  const orderId = 'vsd-' + crypto.randomBytes(6).toString('hex');
+  if (!EMAIL_RE.test(email)) return redirect(prod.back + '?fail=email');
+  const orderId = prodKey + '-' + crypto.randomBytes(6).toString('hex');
   const res = await tbCall('Init', {
     TerminalKey: ENV.TB_TERMINAL,
-    Amount: PRICE,
+    Amount: prod.price,
     OrderId: orderId,
-    Description: 'Книга «ВСД» — полная версия и PDF',
+    Description: prod.title,
     SuccessURL: ENV.SELF_URL + '?a=success&o=' + orderId,
-    FailURL: BOOK_URL + '?fail=1',
+    FailURL: prod.back + '?fail=1',
     NotificationURL: ENV.SELF_URL + '?a=notify',
     DATA: { Email: email },
-    Receipt: receipt(email),
+    Receipt: receipt(email, prod),
   });
   if (!res.Success || !res.PaymentURL) {
     console.error('Init failed', JSON.stringify(res));
-    return redirect(BOOK_URL + '?fail=1');
+    return redirect(prod.back + '?fail=1');
   }
   console.log('init', orderId, res.PaymentId);
   return redirect(res.PaymentURL);
 }
 
-// Оплата по СБП: Init → GetQr. Возвращает ссылку-payload и SVG с QR; страница сама опрашивает ?a=status.
-async function sbp(q) {
-  const email = (q.email || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return json(400, { error: 'email' });
-  const orderId = 'vsd-' + crypto.randomBytes(6).toString('hex');
-  const init = await tbCall('Init', {
-    TerminalKey: ENV.TB_TERMINAL,
-    Amount: PRICE,
-    OrderId: orderId,
-    Description: 'Книга «ВСД» — полная версия и PDF',
-    NotificationURL: ENV.SELF_URL + '?a=notify',
-    DATA: { Email: email },
-    Receipt: receipt(email),
-  });
-  if (!init.Success || !init.PaymentId) {
-    console.error('Init failed', JSON.stringify(init));
-    return json(502, { error: 'init' });
-  }
-  const base = { TerminalKey: ENV.TB_TERMINAL, PaymentId: init.PaymentId, PaymentMethod: 'SBP' };
-  const [link, image] = await Promise.all([
-    tbCall('GetQr', { ...base, DataType: 'PAYLOAD' }),
-    tbCall('GetQr', { ...base, DataType: 'IMAGE' }),
-  ]);
-  if (!link.Success || !link.Data) {
-    console.error('GetQr failed', JSON.stringify(link));
-    return json(502, { error: 'sbp', code: link.ErrorCode, message: link.Message });
-  }
-  console.log('sbp', orderId, init.PaymentId);
-  return json(200, { order: orderId, link: link.Data, svg: image.Success ? image.Data : null });
-}
-
-// Опрос статуса заказа: клиент знает только свой случайный OrderId.
-async function status(q) {
-  const orderId = (q.o || '').trim();
-  if (!/^vsd-[0-9a-f]{12}$/.test(orderId)) return json(400, { error: 'order' });
-  const st = await tbCall('CheckOrder', { TerminalKey: ENV.TB_TERMINAL, OrderId: orderId });
-  const payments = (st.Success && Array.isArray(st.Payments)) ? st.Payments : [];
-  const paid = payments.find(p => (p.Status === 'CONFIRMED' || p.Status === 'AUTHORIZED') && Number(p.Amount) === PRICE);
-  if (paid) return json(200, { paid: true, token: makeAccessToken(paid.PaymentId) });
-  const bad = payments.find(p => ['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED', 'REVERSED', 'REFUNDED'].includes(p.Status));
-  return json(200, { paid: false, failed: !!bad, statuses: payments.map(p => p.Status) });
-}
-
+// Т-Банк возвращает покупателя сюда; свой OrderId зашит в SuccessURL.
 async function success(q) {
-  // Т-Банк возвращает покупателя сюда; свой OrderId мы зашили в SuccessURL, PaymentId берём из CheckOrder.
-  const orderId = q.o;
-  if (!orderId) { console.warn('success without order', JSON.stringify(q)); return redirect(BOOK_URL + '?fail=1'); }
+  const orderId = (q.o || '').trim();
+  const m = /^([a-z]+)-[0-9a-f]{12}$/.exec(orderId);
+  const prodKey = m && PRODUCTS[m[1]] ? m[1] : 'vsd';
+  const prod = PRODUCTS[prodKey];
+  if (!m) { console.warn('success without order', JSON.stringify(q)); return redirect(prod.back + '?fail=1'); }
   const st = await tbCall('CheckOrder', { TerminalKey: ENV.TB_TERMINAL, OrderId: orderId });
   const payments = (st.Success && Array.isArray(st.Payments)) ? st.Payments : [];
-  const paid = payments.find(p => (p.Status === 'CONFIRMED' || p.Status === 'AUTHORIZED') && Number(p.Amount) === PRICE);
+  const paid = payments.find(p => (p.Status === 'CONFIRMED' || p.Status === 'AUTHORIZED') && Number(p.Amount) === prod.price);
   console.log('success', orderId, JSON.stringify(payments.map(p => [p.PaymentId, p.Status, p.Amount])));
-  if (!paid) return redirect(BOOK_URL + '?fail=1');
-  return redirect(BOOK_URL + '?t=' + makeAccessToken(paid.PaymentId));
+  if (!paid) return redirect(prod.back + '?fail=1');
+  return redirect(prod.back + '?t=' + makeAccessToken(prodKey, paid.PaymentId));
 }
 
 function notify(bodyStr) {
@@ -205,11 +191,9 @@ function notify(bodyStr) {
 }
 
 function access(q) {
-  const pid = verifyAccessToken(q.t);
-  if (!pid) return json(403, { error: 'no access' });
-  const pages = [];
-  for (let i = PAID_PAGES.from; i <= PAID_PAGES.to; i++) pages.push(presign(`pages/${String(i).padStart(2, '0')}.jpg`, LINK_TTL));
-  return json(200, { pages, pdf: presign('vsd.pdf', LINK_TTL), ttl: LINK_TTL });
+  const t = verifyAccessToken(q.t);
+  if (!t) return json(403, { error: 'no access' });
+  return json(200, { ...PRODUCTS[t.prodKey].grant(), ttl: LINK_TTL });
 }
 
 module.exports.handler = async function (event) {
@@ -219,8 +203,6 @@ module.exports.handler = async function (event) {
   try {
     switch (q.a) {
       case 'pay': return await pay(q);
-      case 'sbp': return await sbp(q);
-      case 'status': return await status(q);
       case 'success': return await success(q);
       case 'notify': return notify(event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body);
       case 'access': return access(q);
