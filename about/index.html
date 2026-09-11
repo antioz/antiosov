@@ -87,20 +87,9 @@
     .pad-top-lg { padding-top: 120px; }
 
     .specs { align-self: end; }
-    .spec { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-    .spec li {
-      display: flex; align-items: baseline; gap: 14px;
-      padding: 11px 0; border-bottom: 1px solid var(--line);
-    }
-    .spec b {
-      font-family: 'Inter', system-ui, sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.05em;
-      min-width: 28px;
-    }
-    .spec span {
-      font-family: 'Inter', system-ui, sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
-    }
+    .specs p { margin: 0 0 14px; font-size: 15px; line-height: 1.65; text-wrap: pretty; }
     .at {
-      margin: 22px 0 0;
+      margin: 0;
       font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
       font-style: italic; font-size: 22px; line-height: 1.2;
     }
@@ -139,26 +128,8 @@
 
       .f6 { grid-column: 1 / 7; }
 
-      .specs { align-self: end; }
-    .spec { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-    .spec li {
-      display: flex; align-items: baseline; gap: 14px;
-      padding: 11px 0; border-bottom: 1px solid var(--line);
-    }
-    .spec b {
-      font-family: 'Inter', system-ui, sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.05em;
-      min-width: 28px;
-    }
-    .spec span {
-      font-family: 'Inter', system-ui, sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
-    }
-    .at {
-      margin: 22px 0 0;
-      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
-      font-style: italic; font-size: 22px; line-height: 1.2;
-    }
-
-    .quote { grid-column: 1 / 7; padding: 56px 0 48px; }
+      .quote { grid-column: 1 / 7; padding: 56px 0 48px; }
+      .at { font-size: 20px; }
       .text p { font-size: 15px; line-height: 1.6; }
       .lead { font-size: 16px; }
     }
@@ -192,15 +163,8 @@
         <img src="img/05.jpg" alt="Дмитрий Антиосов в смокинге" width="768" height="1196" loading="lazy" decoding="async" />
       </figure>
       <div class="specs c9-13 r" style="--i:2">
-        <ul class="spec">
-          <li><b>41</b><span>год опыта</span></li>
-          <li><b>25</b><span>лет творчества</span></li>
-          <li><b>10</b><span>лет маркетинга и креатива</span></li>
-          <li><b>8</b><span>лет управления</span></li>
-          <li><b>4</b><span>конечности</span></li>
-          <li><b>1</b><span>такой вообще на свете</span></li>
-        </ul>
-        <p class="at">я к вашим услугам</p>
+        <p>41 год опыта, 25 лет творчества, 10 лет маркетинга и креатива, 8 лет управления, 4 конечности и 1 такой вообще на свете.</p>
+        <p class="at">Я к вашим услугам.</p>
       </div>
     </section>
 
