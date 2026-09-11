@@ -107,24 +107,28 @@ async function pay() {
     Amount: PRICE,
     OrderId: orderId,
     Description: 'Книга «ВСД» — полная версия и PDF',
-    SuccessURL: ENV.SELF_URL + '?a=success',
+    SuccessURL: ENV.SELF_URL + '?a=success&o=' + orderId,
     FailURL: BOOK_URL + '?fail=1',
     NotificationURL: ENV.SELF_URL + '?a=notify',
   });
   if (!res.Success || !res.PaymentURL) {
-    console.error('Init failed', res);
+    console.error('Init failed', JSON.stringify(res));
     return redirect(BOOK_URL + '?fail=1');
   }
+  console.log('init', orderId, res.PaymentId);
   return redirect(res.PaymentURL);
 }
 
 async function success(q) {
-  const paymentId = q.PaymentId;
-  if (!paymentId) return redirect(BOOK_URL + '?fail=1');
-  const st = await tbCall('GetState', { TerminalKey: ENV.TB_TERMINAL, PaymentId: paymentId });
-  const paid = st.Success && (st.Status === 'CONFIRMED' || st.Status === 'AUTHORIZED') && Number(st.Amount) === PRICE;
-  if (!paid) { console.warn('not paid', st); return redirect(BOOK_URL + '?fail=1'); }
-  return redirect(BOOK_URL + '?t=' + makeAccessToken(paymentId));
+  // Т-Банк возвращает покупателя сюда; свой OrderId мы зашили в SuccessURL, PaymentId берём из CheckOrder.
+  const orderId = q.o;
+  if (!orderId) { console.warn('success without order', JSON.stringify(q)); return redirect(BOOK_URL + '?fail=1'); }
+  const st = await tbCall('CheckOrder', { TerminalKey: ENV.TB_TERMINAL, OrderId: orderId });
+  const payments = (st.Success && Array.isArray(st.Payments)) ? st.Payments : [];
+  const paid = payments.find(p => (p.Status === 'CONFIRMED' || p.Status === 'AUTHORIZED') && Number(p.Amount) === PRICE);
+  console.log('success', orderId, JSON.stringify(payments.map(p => [p.PaymentId, p.Status, p.Amount])));
+  if (!paid) return redirect(BOOK_URL + '?fail=1');
+  return redirect(BOOK_URL + '?t=' + makeAccessToken(paid.PaymentId));
 }
 
 function notify(bodyStr) {
