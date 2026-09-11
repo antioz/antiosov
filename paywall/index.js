@@ -100,7 +100,26 @@ const json = (code, obj) => ({
 const text = (code, s) => ({ statusCode: code, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: s });
 
 // ---------- маршруты ----------
-async function pay() {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function receipt(email) {
+  // Чек 54-ФЗ для Т-Чеков. TAXATION: osn | usn_income | usn_income_outcome | patent | envd | esn
+  return {
+    Email: email,
+    Taxation: ENV.TAXATION || 'usn_income',
+    Items: [{
+      Name: 'Книга «ВСД», электронная версия',
+      Price: PRICE, Quantity: 1, Amount: PRICE,
+      Tax: ENV.VAT || 'none',
+      PaymentMethod: 'full_payment',
+      PaymentObject: 'intellectual_activity',
+    }],
+  };
+}
+
+async function pay(q) {
+  const email = (q.email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return redirect(BOOK_URL + '?fail=email');
   const orderId = 'vsd-' + crypto.randomBytes(6).toString('hex');
   const res = await tbCall('Init', {
     TerminalKey: ENV.TB_TERMINAL,
@@ -110,6 +129,8 @@ async function pay() {
     SuccessURL: ENV.SELF_URL + '?a=success&o=' + orderId,
     FailURL: BOOK_URL + '?fail=1',
     NotificationURL: ENV.SELF_URL + '?a=notify',
+    DATA: { Email: email },
+    Receipt: receipt(email),
   });
   if (!res.Success || !res.PaymentURL) {
     console.error('Init failed', JSON.stringify(res));
@@ -153,7 +174,7 @@ module.exports.handler = async function (event) {
   if (method === 'OPTIONS') return { statusCode: 204, headers: { 'Access-Control-Allow-Origin': SITE, 'Access-Control-Allow-Methods': 'GET, OPTIONS' }, body: '' };
   try {
     switch (q.a) {
-      case 'pay': return await pay();
+      case 'pay': return await pay(q);
       case 'success': return await success(q);
       case 'notify': return notify(event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body);
       case 'access': return access(q);

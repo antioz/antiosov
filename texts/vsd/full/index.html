@@ -41,6 +41,14 @@
       background: transparent; cursor: pointer; font-family: inherit; transition: background .2s ease, color .2s ease;
     }
     .btn:hover { background: var(--ink); color: var(--bg); }
+    .payform { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .email {
+      width: 100%; max-width: 320px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 999px;
+      font: inherit; font-size: 14px; letter-spacing: 0.02em; text-align: center; color: var(--ink); background: transparent; outline: none;
+      transition: border-color .2s ease;
+    }
+    .email:focus { border-color: var(--ink); }
+    .email::placeholder { color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; font-size: 11px; }
     .wall .note { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
 
     /* книга */
@@ -83,8 +91,12 @@
   <!-- закрыто -->
   <section id="wall" class="wall r" style="--i:3">
     <p>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
-    <button class="btn" id="pay" type="button">Открыть за 500 ₽</button>
+    <form class="payform" id="payform" novalidate>
+      <input class="email" id="email" type="email" name="email" placeholder="email для чека" autocomplete="email" required />
+      <button class="btn" id="pay" type="submit">Открыть за 500 ₽</button>
+    </form>
     <div class="note" id="fail" hidden>оплата не прошла — попробуйте ещё раз</div>
+    <div class="note" id="failEmail" hidden>нужен email — на него придёт чек</div>
   </section>
 
   <!-- открыто -->
@@ -149,7 +161,8 @@
 
       // возврат после оплаты: ?t=<токен>
       if (q.get('t')) { store(KEY, q.get('t')); clean(); }
-      if (q.get('fail')) { document.getElementById('fail').hidden = false; clean(); }
+      if (q.get('fail') === 'email') { document.getElementById('failEmail').hidden = false; clean(); }
+      else if (q.get('fail')) { document.getElementById('fail').hidden = false; clean(); }
       if (q.get('unlock') === '1' && !PAYWALL_URL) { store(LEGACY, '1'); clean(); }
 
       var token = read(KEY);
@@ -168,8 +181,11 @@
         addPages(urls); open();
       }
 
-      document.getElementById('pay').addEventListener('click', function () {
-        if (PAYWALL_URL) { location.href = PAYWALL_URL + '?a=pay'; } else { modal.classList.add('open'); }
+      document.getElementById('payform').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = document.getElementById('email').value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('failEmail').hidden = false; document.getElementById('email').focus(); return; }
+        if (PAYWALL_URL) { location.href = PAYWALL_URL + '?a=pay&email=' + encodeURIComponent(email); } else { modal.classList.add('open'); }
       });
       document.getElementById('close').addEventListener('click', function () { modal.classList.remove('open'); });
       modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('open'); });
