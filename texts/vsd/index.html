@@ -55,11 +55,18 @@
       font-style: italic; font-weight: 300;
       font-size: clamp(40px, 6.5vw, 88px); line-height: 1;
     }
-    .end a {
-      font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    .end .note { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--dim); }
+    .end .btn {
+      display: inline-block; padding: 18px 40px; border: 1px solid var(--ink); border-radius: 999px;
+      font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink); text-decoration: none;
+      transition: background .2s ease, color .2s ease;
+    }
+    .end .btn:hover { background: var(--ink); color: var(--bg); }
+    .end .back {
+      margin-top: 16px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
       color: var(--dim); text-decoration: none; transition: color .2s ease;
     }
-    .end a:hover { color: var(--ink); }
+    .end .back:hover { color: var(--ink); }
     @media (max-width: 600px) {
       .top { padding: 28px 16px 32px; letter-spacing: 0.2em; }
       .book { padding: 0 16px; gap: 16px; }
@@ -98,9 +105,11 @@
 
   <div class="end r">
     <h2>Дальше — за деньги</h2>
-    <a href="https://t.me/antiosov" target="_blank" rel="noopener">написать в Telegram</a>
-    <a href="/texts/">← назад</a>
+    <div class="note">вся книга · 112 страниц · PDF-файл</div>
+    <a class="btn" href="/texts/vsd/full/">Открыть за 500 ₽</a>
+    <a class="back" href="/texts/">← назад</a>
   </div>
+
   <script src="../../assets/reveal.js"></script>
 </body>
 </html>
