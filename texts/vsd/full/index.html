@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ВСД — вся книга</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://antiosov.ru/texts/vsd/full/" />
+  <link rel="icon" href="../../../assets/favicon.svg" type="image/svg+xml" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+  <link rel="stylesheet" href="../../../assets/reveal.css" />
+
+  <style>
+    :root { --bg: #ffffff; --ink: #0a0a0a; --dim: #888888; --line: #e6e6e6; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; text-align: center; }
+    .top { padding: 40px 24px 0; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+    .top a, .meta a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
+    .top a:hover, .meta a:hover { color: var(--ink); }
+    .hero { padding: 96px 24px 56px; }
+    h1 {
+      margin: 0 0 20px;
+      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+      font-style: italic; font-weight: 300;
+      font-size: clamp(56px, 9vw, 120px); line-height: 1; letter-spacing: -0.01em;
+    }
+    .meta { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); }
+    .meta .sep { margin: 0 10px; }
+
+    /* пейволл */
+    .wall { max-width: 560px; margin: 0 auto; padding: 0 24px 96px; }
+    .wall p { margin: 0 0 32px; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 24px; line-height: 1.35; }
+    .btn {
+      display: inline-block; padding: 18px 40px; border: 1px solid var(--ink); border-radius: 999px;
+      font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink); text-decoration: none;
+      background: transparent; cursor: pointer; font-family: inherit; transition: background .2s ease, color .2s ease;
+    }
+    .btn:hover { background: var(--ink); color: var(--bg); }
+    .wall .note { margin-top: 20px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+
+    /* книга */
+    .book { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 0 24px; }
+    .book img { display: block; width: 100%; max-width: 560px; height: auto; aspect-ratio: 1196 / 1861; border: 1px solid var(--line); }
+    .dl { padding: 0 24px 64px; }
+    .dl.bottom { padding-top: 72px; }
+    .end { padding: 24px 24px 64px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
+    .end a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
+    .end a:hover { color: var(--ink); }
+
+    /* заглушка оплаты */
+    .modal { position: fixed; inset: 0; background: rgba(255,255,255,.96); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
+    .modal.open { display: flex; }
+    .modal .card { max-width: 420px; }
+    .modal h2 { margin: 0 0 16px; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 400; font-size: 40px; line-height: 1.05; }
+    .modal p { margin: 0 0 28px; font-size: 14px; line-height: 1.6; color: #444; }
+    .modal .close { display: block; margin: 24px auto 0; background: none; border: 0; font: inherit; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
+
+    [hidden] { display: none !important; }
+    @media (max-width: 600px) {
+      .top { padding-top: 28px; letter-spacing: 0.2em; }
+      .hero { padding: 72px 16px 40px; }
+      .book { padding: 0 16px; gap: 16px; }
+      .book img { border: none; }
+      .wall p { font-size: 21px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top r"><a href="/texts/vsd/">← назад</a></div>
+
+  <header class="hero">
+    <h1 class="r" style="--i:1">ВСД</h1>
+    <div class="meta r" style="--i:2">книга стихов<span class="sep">·</span>112 страниц<span class="sep">·</span>Дима Антиосов</div>
+  </header>
+
+  <!-- закрыто -->
+  <section id="wall" class="wall r" style="--i:3">
+    <p>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
+    <button class="btn" id="pay" type="button">Открыть за 500 ₽</button>
+    <div class="note">разовая оплата · без подписки</div>
+  </section>
+
+  <!-- открыто -->
+  <div id="opened" hidden>
+    <div class="dl"><a class="btn" href="vsd.pdf" download>Скачать PDF</a></div>
+    <main class="book">
+      <img class="r" src="../pages/01.jpg" alt="ВСД, страница 1" width="1196" height="1861" loading="eager" decoding="async" />
+      <img class="r" src="../pages/02.jpg" alt="ВСД, страница 2" width="1196" height="1861" loading="eager" decoding="async" />
+      <img class="r" src="../pages/03.jpg" alt="ВСД, страница 3" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/04.jpg" alt="ВСД, страница 4" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/05.jpg" alt="ВСД, страница 5" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/06.jpg" alt="ВСД, страница 6" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/07.jpg" alt="ВСД, страница 7" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/08.jpg" alt="ВСД, страница 8" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/09.jpg" alt="ВСД, страница 9" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/10.jpg" alt="ВСД, страница 10" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/11.jpg" alt="ВСД, страница 11" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/12.jpg" alt="ВСД, страница 12" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/13.jpg" alt="ВСД, страница 13" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/14.jpg" alt="ВСД, страница 14" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/15.jpg" alt="ВСД, страница 15" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/16.jpg" alt="ВСД, страница 16" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/17.jpg" alt="ВСД, страница 17" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/18.jpg" alt="ВСД, страница 18" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/19.jpg" alt="ВСД, страница 19" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/20.jpg" alt="ВСД, страница 20" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/21.jpg" alt="ВСД, страница 21" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/22.jpg" alt="ВСД, страница 22" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/23.jpg" alt="ВСД, страница 23" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/24.jpg" alt="ВСД, страница 24" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/25.jpg" alt="ВСД, страница 25" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/26.jpg" alt="ВСД, страница 26" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/27.jpg" alt="ВСД, страница 27" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/28.jpg" alt="ВСД, страница 28" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/29.jpg" alt="ВСД, страница 29" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/30.jpg" alt="ВСД, страница 30" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/31.jpg" alt="ВСД, страница 31" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/32.jpg" alt="ВСД, страница 32" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/33.jpg" alt="ВСД, страница 33" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/34.jpg" alt="ВСД, страница 34" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/35.jpg" alt="ВСД, страница 35" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/36.jpg" alt="ВСД, страница 36" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/37.jpg" alt="ВСД, страница 37" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/38.jpg" alt="ВСД, страница 38" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/39.jpg" alt="ВСД, страница 39" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/40.jpg" alt="ВСД, страница 40" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/41.jpg" alt="ВСД, страница 41" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/42.jpg" alt="ВСД, страница 42" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/43.jpg" alt="ВСД, страница 43" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/44.jpg" alt="ВСД, страница 44" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/45.jpg" alt="ВСД, страница 45" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/46.jpg" alt="ВСД, страница 46" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/47.jpg" alt="ВСД, страница 47" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/48.jpg" alt="ВСД, страница 48" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/49.jpg" alt="ВСД, страница 49" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/50.jpg" alt="ВСД, страница 50" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/51.jpg" alt="ВСД, страница 51" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/52.jpg" alt="ВСД, страница 52" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/53.jpg" alt="ВСД, страница 53" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/54.jpg" alt="ВСД, страница 54" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/55.jpg" alt="ВСД, страница 55" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/56.jpg" alt="ВСД, страница 56" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/57.jpg" alt="ВСД, страница 57" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/58.jpg" alt="ВСД, страница 58" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/59.jpg" alt="ВСД, страница 59" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/60.jpg" alt="ВСД, страница 60" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/61.jpg" alt="ВСД, страница 61" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/62.jpg" alt="ВСД, страница 62" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/63.jpg" alt="ВСД, страница 63" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/64.jpg" alt="ВСД, страница 64" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/65.jpg" alt="ВСД, страница 65" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/66.jpg" alt="ВСД, страница 66" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/67.jpg" alt="ВСД, страница 67" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/68.jpg" alt="ВСД, страница 68" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/69.jpg" alt="ВСД, страница 69" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/70.jpg" alt="ВСД, страница 70" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/71.jpg" alt="ВСД, страница 71" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/72.jpg" alt="ВСД, страница 72" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/73.jpg" alt="ВСД, страница 73" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/74.jpg" alt="ВСД, страница 74" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/75.jpg" alt="ВСД, страница 75" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/76.jpg" alt="ВСД, страница 76" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/77.jpg" alt="ВСД, страница 77" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/78.jpg" alt="ВСД, страница 78" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/79.jpg" alt="ВСД, страница 79" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/80.jpg" alt="ВСД, страница 80" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/81.jpg" alt="ВСД, страница 81" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/82.jpg" alt="ВСД, страница 82" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/83.jpg" alt="ВСД, страница 83" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/84.jpg" alt="ВСД, страница 84" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/85.jpg" alt="ВСД, страница 85" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/86.jpg" alt="ВСД, страница 86" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/87.jpg" alt="ВСД, страница 87" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/88.jpg" alt="ВСД, страница 88" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/89.jpg" alt="ВСД, страница 89" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/90.jpg" alt="ВСД, страница 90" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/91.jpg" alt="ВСД, страница 91" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/92.jpg" alt="ВСД, страница 92" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/93.jpg" alt="ВСД, страница 93" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/94.jpg" alt="ВСД, страница 94" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/95.jpg" alt="ВСД, страница 95" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/96.jpg" alt="ВСД, страница 96" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/97.jpg" alt="ВСД, страница 97" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/98.jpg" alt="ВСД, страница 98" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/99.jpg" alt="ВСД, страница 99" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/100.jpg" alt="ВСД, страница 100" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/101.jpg" alt="ВСД, страница 101" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/102.jpg" alt="ВСД, страница 102" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/103.jpg" alt="ВСД, страница 103" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/104.jpg" alt="ВСД, страница 104" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/105.jpg" alt="ВСД, страница 105" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/106.jpg" alt="ВСД, страница 106" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/107.jpg" alt="ВСД, страница 107" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/108.jpg" alt="ВСД, страница 108" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/109.jpg" alt="ВСД, страница 109" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/110.jpg" alt="ВСД, страница 110" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/111.jpg" alt="ВСД, страница 111" width="1196" height="1861" loading="lazy" decoding="async" />
+      <img class="r" src="../pages/112.jpg" alt="ВСД, страница 112" width="1196" height="1861" loading="lazy" decoding="async" />
+    </main>
+    <div class="dl bottom"><a class="btn" href="vsd.pdf" download>Скачать PDF</a></div>
+  </div>
+
+  <div class="end r"><a href="/texts/vsd/">← назад</a></div>
+
+  <!-- заглушка оплаты: заменится на реальный платёж -->
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+    <div class="card">
+      <h2>Оплата подключается</h2>
+      <p>Скоро здесь будет оплата картой. Пока книгу можно получить, написав в Telegram — <a href="https://t.me/antiosov" target="_blank" rel="noopener">@antiosov</a>.</p>
+      <a class="btn" href="https://t.me/antiosov" target="_blank" rel="noopener">Написать в Telegram</a>
+      <button class="close" type="button" id="close">закрыть</button>
+    </div>
+  </div>
+
+  <script>
+    // Временная клиентская заглушка. Реальная проверка оплаты переедет на сервер (Yandex Cloud Functions).
+    (function () {
+      var KEY = 'vsdUnlocked';
+      var q = new URLSearchParams(location.search);
+      if (q.get('unlock') === '1') { try { localStorage.setItem(KEY, '1'); } catch (e) {} history.replaceState(null, '', location.pathname); }
+      var unlocked = false; try { unlocked = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      if (unlocked) { document.getElementById('wall').hidden = true; document.getElementById('opened').hidden = false; }
+      var modal = document.getElementById('modal');
+      document.getElementById('pay').addEventListener('click', function () { modal.classList.add('open'); });
+      document.getElementById('close').addEventListener('click', function () { modal.classList.remove('open'); });
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('open'); });
+    })();
+  </script>
+  <script src="../../../assets/reveal.js"></script>
+</body>
+</html>
