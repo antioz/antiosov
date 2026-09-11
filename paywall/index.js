@@ -118,6 +118,7 @@ function receipt(email) {
 }
 
 async function pay(q) {
+  // Карточная оплата (не используется, пока приём только по СБП; оставлено для отладки).
   const email = (q.email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return redirect(BOOK_URL + '?fail=email');
   const orderId = 'vsd-' + crypto.randomBytes(6).toString('hex');
@@ -138,6 +139,49 @@ async function pay(q) {
   }
   console.log('init', orderId, res.PaymentId);
   return redirect(res.PaymentURL);
+}
+
+// Оплата по СБП: Init → GetQr. Возвращает ссылку-payload и SVG с QR; страница сама опрашивает ?a=status.
+async function sbp(q) {
+  const email = (q.email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return json(400, { error: 'email' });
+  const orderId = 'vsd-' + crypto.randomBytes(6).toString('hex');
+  const init = await tbCall('Init', {
+    TerminalKey: ENV.TB_TERMINAL,
+    Amount: PRICE,
+    OrderId: orderId,
+    Description: 'Книга «ВСД» — полная версия и PDF',
+    NotificationURL: ENV.SELF_URL + '?a=notify',
+    DATA: { Email: email },
+    Receipt: receipt(email),
+  });
+  if (!init.Success || !init.PaymentId) {
+    console.error('Init failed', JSON.stringify(init));
+    return json(502, { error: 'init' });
+  }
+  const base = { TerminalKey: ENV.TB_TERMINAL, PaymentId: init.PaymentId, PaymentMethod: 'SBP' };
+  const [link, image] = await Promise.all([
+    tbCall('GetQr', { ...base, DataType: 'PAYLOAD' }),
+    tbCall('GetQr', { ...base, DataType: 'IMAGE' }),
+  ]);
+  if (!link.Success || !link.Data) {
+    console.error('GetQr failed', JSON.stringify(link));
+    return json(502, { error: 'sbp', code: link.ErrorCode, message: link.Message });
+  }
+  console.log('sbp', orderId, init.PaymentId);
+  return json(200, { order: orderId, link: link.Data, svg: image.Success ? image.Data : null });
+}
+
+// Опрос статуса заказа: клиент знает только свой случайный OrderId.
+async function status(q) {
+  const orderId = (q.o || '').trim();
+  if (!/^vsd-[0-9a-f]{12}$/.test(orderId)) return json(400, { error: 'order' });
+  const st = await tbCall('CheckOrder', { TerminalKey: ENV.TB_TERMINAL, OrderId: orderId });
+  const payments = (st.Success && Array.isArray(st.Payments)) ? st.Payments : [];
+  const paid = payments.find(p => (p.Status === 'CONFIRMED' || p.Status === 'AUTHORIZED') && Number(p.Amount) === PRICE);
+  if (paid) return json(200, { paid: true, token: makeAccessToken(paid.PaymentId) });
+  const bad = payments.find(p => ['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED', 'REVERSED', 'REFUNDED'].includes(p.Status));
+  return json(200, { paid: false, failed: !!bad, statuses: payments.map(p => p.Status) });
 }
 
 async function success(q) {
@@ -175,6 +219,8 @@ module.exports.handler = async function (event) {
   try {
     switch (q.a) {
       case 'pay': return await pay(q);
+      case 'sbp': return await sbp(q);
+      case 'status': return await status(q);
       case 'success': return await success(q);
       case 'notify': return notify(event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body);
       case 'access': return access(q);
