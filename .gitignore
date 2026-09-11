@@ -1,2 +1,3 @@
 paywall/.env
 paywall/.deploy.env
+paywall/prod.env

@@ -17,5 +17,9 @@ Yandex Cloud Function (Node.js 18) + Object Storage. Код — `index.js`, се
 ## Бакет
 Приватный. Объекты: `pages/21.jpg … pages/112.jpg`, `vsd.pdf`.
 
+## Терминалы
+Боевой — `prod.env` (в .gitignore), тестовый DEMO — `.env`. Переключение: передеплой функции
+с другими TB_TERMINAL/TB_PASSWORD (см. историю команд в сессии или README-скрипт ниже).
+
 ## Локальный прогон
 `node test.js` — вызывает handler с фейковыми событиями (нужен `.env` рядом, см. test.js).
