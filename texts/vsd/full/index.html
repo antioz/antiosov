@@ -47,6 +47,7 @@
     .book { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 0 24px; }
     .book img { display: block; width: 100%; max-width: 560px; height: auto; aspect-ratio: 1196 / 1861; border: 1px solid var(--line); }
     .dl { padding: 0 24px 64px; }
+    .dl.hero-dl { padding: 8px 0 0; }
     .dl.bottom { padding-top: 72px; }
     .end { padding: 24px 24px 64px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
     .end a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
@@ -68,14 +69,16 @@
       .book img { border: none; }
       .wall p { font-size: 21px; }
     }
+      .sep { margin: 0 10px; color: var(--dim); }
+      .sep { margin: 0 10px; color: var(--dim); }
   </style>
 </head>
 <body>
-  <div class="top r"><a href="/texts/vsd/">← назад</a></div>
+  <div class="top r"><a href="/texts/vsd/">← назад</a><span class="sep">·</span><a href="/">главная</a></div>
 
   <header class="hero">
     <h1 class="r" style="--i:1">ВСД</h1>
-    <div class="meta r" style="--i:2">книга стихов<span class="sep">·</span>112 страниц<span class="sep">·</span>Дима Антиосов</div>
+    <div class="dl hero-dl" id="heroDl" hidden><a class="btn pdf" href="vsd.pdf" download>Скачать PDF</a></div>
   </header>
 
   <!-- закрыто -->
@@ -87,7 +90,6 @@
 
   <!-- открыто -->
   <div id="opened" hidden>
-    <div class="dl"><a class="btn pdf" href="vsd.pdf" download>Скачать PDF</a></div>
     <main class="book" id="book">
       <img class="r" src="../pages/01.jpg" alt="ВСД, страница 1" width="1196" height="1861" loading="eager" decoding="async" />
       <img class="r" src="../pages/02.jpg" alt="ВСД, страница 2" width="1196" height="1861" loading="eager" decoding="async" />
@@ -113,7 +115,7 @@
     <div class="dl bottom"><a class="btn pdf" href="vsd.pdf" download>Скачать PDF</a></div>
   </div>
 
-  <div class="end r"><a href="/texts/vsd/">← назад</a></div>
+  <div class="end r"><a href="/texts/vsd/">← назад</a><span class="sep">·</span><a href="/">главная</a></div>
 
   <!-- заглушка оплаты: заменится на реальный платёж -->
   <div class="modal" id="modal" role="dialog" aria-modal="true">
@@ -136,7 +138,7 @@
       function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
       function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
       function clean() { history.replaceState(null, '', location.pathname); }
-      function open() { wall.hidden = true; opened.hidden = false; }
+      function open() { wall.hidden = true; opened.hidden = false; document.getElementById('heroDl').hidden = false; }
       function addPages(urls) {
         var book = document.getElementById('book');
         urls.forEach(function (u, i) {
