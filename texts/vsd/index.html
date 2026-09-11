@@ -63,22 +63,22 @@
       transition: background .2s ease, color .2s ease;
     }
     .end .btn:hover { background: var(--ink); color: var(--bg); }
-    .end .back {
-      margin-top: 16px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--dim); text-decoration: none; transition: color .2s ease;
-    }
-    .end .back:hover { color: var(--ink); }
+    .end .back { margin-top: 16px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+    .end .back a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
+    .end .back a:hover { color: var(--ink); }
     @media (max-width: 600px) {
       .top { padding: 28px 16px 32px; letter-spacing: 0.2em; }
       .book { padding: 0 16px; gap: 16px; }
       .book img { border: none; }
       .end { padding: 72px 16px 56px; }
     }
+      .sep { margin: 0 10px; color: var(--dim); }
+      .sep { margin: 0 10px; color: var(--dim); }
   </style>
 </head>
 <body>
   <div class="top r">
-    <a href="/texts/">← назад</a>
+    <a href="/texts/">← назад</a><span class="sep">·</span><a href="/">главная</a>
   </div>
 
   <main class="book">
@@ -108,7 +108,7 @@
     <h2>Дальше — за деньги</h2>
     <div class="note">вся книга · 112 страниц · PDF-файл</div>
     <a class="btn" href="/texts/vsd/full/">Открыть за 500 ₽</a>
-    <a class="back" href="/texts/">← назад</a>
+    <span class="back"><a href="/texts/">← назад</a><span class="sep">·</span><a href="/">главная</a></span>
   </div>
 
   <script src="../../assets/reveal.js"></script>
