@@ -45,6 +45,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300&display=swap">
 
+  <link rel="stylesheet" href="assets/reveal.css" />
+
   <style>
     :root {
       --bg: #ffffff;
@@ -130,19 +132,19 @@
 <body>
   <main>
     <div class="hero">
-      <p class="name">Дмитрий Антиосов</p>
-      <h1>Нахожу слова</h1>
+      <p class="name r" style="--i:1">Дмитрий Антиосов</p>
+      <h1 class="r" style="--i:2">Нахожу слова</h1>
     </div>
 
     <footer>
-    <nav aria-label="Разделы">
+    <nav class="r" style="--i:4" aria-label="Разделы">
       <a href="#">Обо мне</a>
       <a href="/texts/">Художественные тексты</a>
-      <a href="#">Нехудожественные тексты</a>
+      <a href="/nonfiction/">Нехудожественные тексты</a>
       <a href="/creative/">Креативное портфолио</a>
     </nav>
 
-    <div class="social">
+    <div class="social r" style="--i:5">
       <a href="https://t.me/antiosov" target="_blank" rel="noopener" aria-label="Telegram" title="Telegram">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.78 15.17l-.4 5.6c.57 0 .82-.25 1.12-.54l2.68-2.57 5.56 4.07c1.02.56 1.75.27 2.02-.94l3.66-17.15c.33-1.5-.55-2.1-1.54-1.72L1.2 10.2c-1.47.57-1.45 1.39-.25 1.76l5.5 1.72L19.2 5.65c.6-.4 1.15-.18.7.22"/></svg>
       </a>
@@ -155,5 +157,6 @@
     </div>
     </footer>
   </main>
+  <script src="assets/reveal.js"></script>
 </body>
 </html>
