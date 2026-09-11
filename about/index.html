@@ -21,124 +21,162 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=PT+Serif:ital,wght@0,400;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=PT+Serif:ital,wght@0,400;1,400&display=swap">
   <link rel="stylesheet" href="../assets/reveal.css" />
 
   <style>
     :root { --bg: #ffffff; --ink: #0a0a0a; --dim: #888888; --line: #e6e6e6; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); overflow-x: hidden; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
     body { font-family: 'PT Serif', Georgia, serif; -webkit-font-smoothing: antialiased; }
+
     .top {
       padding: 40px 24px 0; text-align: center;
       font-family: 'Inter', system-ui, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
     }
     .top a, .end a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
     .top a:hover, .end a:hover { color: var(--ink); }
-    header.hero { text-align: center; padding: 96px 24px 72px; }
+    .sep { margin: 0 10px; color: var(--dim); }
+
+    /* Лукбук-сетка: 12 колонок, всё выровнено по ней, без наклонов */
+    .sheet { max-width: 1240px; margin: 0 auto; padding: 0 40px 40px; }
+
+    header.hero {
+      display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px;
+      align-items: end; padding: 88px 0 56px;
+    }
     header.hero h1 {
-      margin: 0;
+      grid-column: 1 / 8; margin: 0;
       font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
       font-style: italic; font-weight: 300;
-      font-size: clamp(56px, 9vw, 120px); line-height: 1; letter-spacing: -0.01em;
+      font-size: clamp(48px, 7vw, 92px); line-height: 0.95; letter-spacing: -0.015em;
     }
-
-    main { max-width: 620px; margin: 0 auto; padding: 0 24px 40px; }
-    .block { position: relative; padding: 24px 0 40px; }
-    .block p { margin: 0 0 18px; font-size: 17px; line-height: 1.7; text-wrap: pretty; }
-    .block p:last-child { margin-bottom: 0; }
-    .block .big {
-      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif; font-style: italic; font-weight: 400;
-      font-size: clamp(30px, 4.2vw, 42px); line-height: 1.1; letter-spacing: -0.01em; text-align: center; padding: 24px 0 0;
+    header.hero .tag {
+      grid-column: 9 / 13; padding-bottom: 12px;
+      font-family: 'Inter', system-ui, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
     }
+    .rule { grid-column: 1 / 13; height: 1px; background: var(--line); margin-top: 28px; }
 
-    /* фото: на узких экранах — в потоке, разной ширины; на широких — на полях */
-    .ph { margin: 0 0 32px; }
-    .ph img { display: block; width: 100%; height: auto; }
-    .ph .cap {
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px 24px; }
+    .row { margin-bottom: 72px; }
+
+    figure { margin: 0; }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
       margin-top: 10px;
-      font-family: 'Inter', system-ui, sans-serif; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
+      font-family: 'Inter', system-ui, sans-serif; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--dim);
     }
-    .p1 { width: 78%; margin-left: auto; margin-right: -8%; }
-    .p2 { width: 56%; margin-left: 0; transform: rotate(-2deg); }
-    .p3 { width: 62%; margin-left: auto; margin-right: 4%; }
-    .p4 { width: 70%; margin-left: -6%; transform: rotate(1.5deg); }
-    .p5 { width: 48%; margin-left: auto; margin-right: 0; }
-    .p6 { width: 100%; margin: 0 -6% 32px; width: 112%; }
 
-    @media (min-width: 1100px) {
-      .ph { margin: 0; position: relative; }
-      .ph .cap { position: absolute; left: 0; top: 100%; margin-top: 12px; white-space: nowrap; }
-      .p1 { float: right; width: 320px; margin: -80px -380px 0 0; transform: none; }
-      .p2 { float: left;  width: 240px; margin: 20px 0 0 -340px; transform: rotate(-2.5deg); }
-      .p3 { float: right; width: 240px; margin: -20px -340px 0 0; transform: rotate(1.5deg); }
-      .p4 { float: left;  width: 300px; margin: -40px 0 0 -400px; transform: rotate(2deg); }
-      .p5 { float: right; width: 220px; margin: 120px -300px 0 0; transform: rotate(-1.5deg); clear: right; }
-      .p6 { float: none; width: 880px; margin: 48px 0 0 -130px; transform: none; }
-      .p6 .cap { position: static; margin-top: 12px; text-align: right; }
-      .block::after { content: ''; display: block; clear: both; }
+    .text p {
+      margin: 0 0 14px; font-size: 15px; line-height: 1.65; text-wrap: pretty;
+    }
+    .text p:last-child { margin-bottom: 0; }
+    .lead { font-size: 16.5px; line-height: 1.6; }
+
+    /* расстановка по сетке */
+    .c1-5  { grid-column: 1 / 5; }
+    .c1-6  { grid-column: 1 / 7; }
+    .c1-7  { grid-column: 1 / 8; }
+    .c2-6  { grid-column: 2 / 7; }
+    .c4-8  { grid-column: 4 / 9; }
+    .c5-9  { grid-column: 5 / 9; }
+    .c7-13 { grid-column: 7 / 13; }
+    .c8-13 { grid-column: 8 / 13; }
+    .c9-13 { grid-column: 9 / 13; }
+    .c1-13 { grid-column: 1 / 13; }
+    .pad-top { padding-top: 56px; }
+    .pad-top-lg { padding-top: 120px; }
+
+    .quote {
+      grid-column: 4 / 10; margin: 0; padding: 96px 0 88px; text-align: center;
+      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
+      font-style: italic; font-weight: 400; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.15;
     }
 
     .end {
-      text-align: center; padding: 72px 24px 64px;
+      padding: 24px 24px 64px; text-align: center;
       font-family: 'Inter', system-ui, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
     }
-    @media (max-width: 600px) {
-      .top { padding-top: 28px; letter-spacing: 0.2em; }
-      header.hero { padding: 72px 16px 48px; }
-      main { padding: 0 20px 24px; }
-      .block p { font-size: 16px; }
-      .p1 { width: 86%; margin-right: -4%; }
-      .p4 { width: 80%; margin-left: -4%; }
-      .p6 { width: 108%; margin-left: -4%; margin-right: -4%; }
+
+    @media (max-width: 900px) {
+      .sheet { padding: 0 20px 24px; }
+      header.hero { padding: 64px 0 40px; gap: 16px; }
+      header.hero h1 { grid-column: 1 / 13; }
+      header.hero .tag { grid-column: 1 / 13; padding-bottom: 0; }
+      .grid { gap: 20px; }
+      .row { margin-bottom: 40px; }
+      .c1-5, .c1-6, .c1-7, .c2-6, .c4-8, .c5-9, .c7-13, .c8-13, .c9-13 { grid-column: 1 / 13; }
+      .pad-top, .pad-top-lg { padding-top: 0; }
+      .quote { grid-column: 1 / 13; padding: 56px 0 48px; }
+      .text p { font-size: 16px; }
+      /* на узком — часть фото уже полной ширины, чтобы не было монотонности */
+      .narrow { width: 68%; }
+      .narrow-r { width: 68%; margin-left: auto; }
     }
-    .sep { margin: 0 10px; color: var(--dim); }
   </style>
 </head>
 <body>
   <div class="top r"><a href="/">← назад</a></div>
 
-  <header class="hero">
-    <h1 class="r" style="--i:1">Обо мне</h1>
-  </header>
+  <div class="sheet">
+    <header class="hero">
+      <h1 class="r" style="--i:1">Обо мне</h1>
+      <div class="tag r" style="--i:2">Дмитрий Антиосов · портрет в шести кадрах</div>
+      <div class="rule r" style="--i:3"></div>
+    </header>
 
-  <main>
-    <section class="block">
-      <figure class="ph p1 r" style="--i:2">
+    <!-- 1: крупный кадр слева, текст справа -->
+    <section class="grid row">
+      <figure class="c1-7 r">
         <img src="img/02.jpg" alt="Дмитрий Антиосов у гостиницы «Космос»" width="1050" height="1400" loading="eager" decoding="async" />
-        <figcaption class="cap">01 · Москва</figcaption>
+        <figcaption>01 · Москва</figcaption>
       </figure>
-      <p class="r" style="--i:3">Заслуженный маркетолог России, почетный член Гильдии Креативных Директоров, член Союза Топ-блогеров России, почетный кавалер ордена Довлатова, ментор, энергокоуч, доказанный ченеллер, потомственный дворянин, русский.</p>
-      <figure class="ph p2 r">
-        <img src="img/01.jpg" alt="Дмитрий Антиосов" width="956" height="1276" loading="lazy" decoding="async" />
-        <figcaption class="cap">02</figcaption>
-      </figure>
+      <div class="text c8-13 pad-top-lg r" style="--i:1">
+        <p class="lead">Заслуженный маркетолог России, почетный член Гильдии Креативных Директоров, член Союза Топ-блогеров России, почетный кавалер ордена Довлатова, ментор, энергокоуч, доказанный ченеллер, потомственный дворянин, русский.</p>
+      </div>
     </section>
 
-    <section class="block">
-      <figure class="ph p3 r">
+    <!-- 2: три кадра в ряд -->
+    <section class="grid row">
+      <figure class="c1-5 narrow r">
+        <img src="img/01.jpg" alt="Дмитрий Антиосов в оранжевом костюме" width="956" height="1276" loading="lazy" decoding="async" />
+        <figcaption>02</figcaption>
+      </figure>
+      <figure class="c5-9 pad-top r" style="--i:1">
         <img src="img/03.jpg" alt="Дмитрий Антиосов на сцене" width="960" height="1280" loading="lazy" decoding="async" />
-        <figcaption class="cap">03 · Сцена</figcaption>
+        <figcaption>03 · Сцена</figcaption>
       </figure>
-      <p class="r">Автор десятков научных постов, двух книг, лучшего стихотворения России по версии «TikTok Awards 2021». Участник форумов и конференций, выставок и юбилеев. Управленец года, 2019, по версии Arenum Community Team. Консультирую СЕО и фаундеров международных компаний по чувствительным вопросам (NDA).</p>
-      <figure class="ph p4 r">
-        <img src="img/04.jpg" alt="Дмитрий Антиосов" width="853" height="1280" loading="lazy" decoding="async" />
-        <figcaption class="cap">04</figcaption>
-      </figure>
-      <figure class="ph p5 r">
-        <img src="img/05.jpg" alt="Дмитрий Антиосов" width="768" height="1196" loading="lazy" decoding="async" />
-        <figcaption class="cap">05</figcaption>
+      <figure class="c9-13 narrow-r r" style="--i:2">
+        <img src="img/05.jpg" alt="Дмитрий Антиосов в смокинге" width="768" height="1196" loading="lazy" decoding="async" />
+        <figcaption>04</figcaption>
       </figure>
     </section>
 
-    <section class="block">
-      <p class="big r">Думаю, что это еще не все.</p>
-      <figure class="ph p6 r">
-        <img src="img/06.jpg" alt="Дмитрий Антиосов, портрет" width="1400" height="933" loading="lazy" decoding="async" />
-        <figcaption class="cap">06 · Портрет</figcaption>
+    <!-- 3: текст слева, кадр справа -->
+    <section class="grid row">
+      <div class="text c1-6 pad-top r">
+        <p>Автор десятков научных постов, двух книг, лучшего стихотворения России по версии «TikTok Awards 2021». Участник форумов и конференций, выставок и юбилеев. Управленец года, 2019, по версии Arenum Community Team.</p>
+        <p>Консультирую СЕО и фаундеров международных компаний по чувствительным вопросам (NDA).</p>
+      </div>
+      <figure class="c7-13 r" style="--i:1">
+        <img src="img/04.jpg" alt="Дмитрий Антиосов у бильярдного стола" width="853" height="1280" loading="lazy" decoding="async" />
+        <figcaption>05</figcaption>
       </figure>
     </section>
-  </main>
+
+    <!-- 4: фраза -->
+    <section class="grid">
+      <p class="quote r">Думаю, что это еще не все.</p>
+    </section>
+
+    <!-- 5: финальный портрет во всю сетку -->
+    <section class="grid row">
+      <figure class="c1-13 r">
+        <img src="img/06.jpg" alt="Портрет Дмитрия Антиосова" width="1400" height="933" loading="lazy" decoding="async" />
+        <figcaption>06 · Портрет</figcaption>
+      </figure>
+    </section>
+  </div>
 
   <div class="end r"><a href="/">← назад</a></div>
 
