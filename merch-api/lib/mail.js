@@ -29,8 +29,10 @@ function tplOwnerNewOrder(o) {
   const site = ENV.SITE || 'https://antiosov.ru';
   const m = wrap(`Заказ ${o.id}`, [
     item(o), `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
-    o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии', `${o.customer_name}, ${o.customer_phone}, ${o.customer_email}`, where(o),
-    link(`${site}/merch/admin/#order/${o.id}`, 'Открыть в админке'),
+    o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии',
+    // Без персональных данных покупателя: письмо может уходить на зарубежную почту (152-ФЗ, трансграничная передача).
+    // Имя, телефон, адрес — только в админке (Yandex Cloud, РФ).
+    link(`${site}/merch/admin/#order/${o.id}`, 'Покупатель и адрес — в админке'),
   ]);
   return { subject: `Заказ ${o.id} — ${item(o)} — ${rub(o.total)}`, ...m };
 }
@@ -52,7 +54,7 @@ function tplCustomerCancelled(o) {
   return { subject: `Заказ ${o.id} отменён, возврат ${rub(o.total)}`, ...m };
 }
 function tplOwnerLatePayment(o, paymentId) {
-  const m = wrap(`Поздняя оплата ${o.id}`, [`Заказ был в статусе ${o.status}, платёж ${paymentId} подтверждён после срока.`, 'Сделан автоматический возврат через Т-Банк. Проверь в кабинете.', `${o.customer_name}, ${o.customer_phone}, ${o.customer_email}`]);
+  const m = wrap(`Поздняя оплата ${o.id}`, [`Заказ был в статусе ${o.status}, платёж ${paymentId} подтверждён после срока.`, 'Сделан автоматический возврат через Т-Банк. Проверь в кабинете.', 'Данные покупателя — в админке (без ПД в письме).']);
   return { subject: `Поздняя оплата ${o.id} — возврат`, ...m };
 }
 module.exports = { send, tplOwnerNewOrder, tplCustomerPaid, tplCustomerShipped, tplCustomerCancelled, tplOwnerLatePayment };
