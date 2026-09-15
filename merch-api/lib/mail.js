@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 const ENV = process.env;
 let transport = null;
 function getTransport() {
-  if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 10000, socketTimeout: 20000 }); // Postbox отвечает на MAIL FROM до ~6 с
+  if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000 }); // Postbox отвечает на MAIL FROM до ~6 с
   return transport;
 }
 async function send({ to, subject, text, html }) {
@@ -11,14 +11,17 @@ async function send({ to, subject, text, html }) {
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const rub = n => `${Number(n).toLocaleString('ru-RU')} ₽`;
+const rub = n => { const v = (n == null || n === '') ? NaN : Number(n); return Number.isFinite(v) ? `${v.toLocaleString('ru-RU')} ₽` : '—'; };
 const where = o => o.pvz_address ? `Пункт выдачи: ${o.pvz_address}` : `Адрес: ${o.address_text}`;
 const item = o => `${o.product_title}${o.size && o.size !== '-' ? ', размер ' + o.size : ''} × ${o.qty}`;
+// Ссылка — единственный «сырой» элемент; href и подпись экранируются здесь, шаблон не собирает HTML руками
+const link = (href, label) => ({ html: `<a href="${esc(href)}">${esc(label)}</a>`, text: `${label}: ${href}` });
+// Строка — либо обычная строка (всегда экранируется), либо объект { html, text } из link()
 const wrap = (title, lines) => ({
-  text: [title, '', ...lines].join('\n'),
+  text: [title, '', ...lines.map(l => typeof l === 'string' ? l : (l.text != null ? l.text : String(l.html).replace(/<[^>]*>/g, '')))].join('\n'),
   html: `<div style="font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5;color:#0a0a0a;max-width:560px">
 <p style="font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:28px;margin:0 0 16px">${esc(title)}</p>
-${lines.map(l => `<p style="margin:0 0 8px">${l.startsWith('<') ? l : esc(l)}</p>`).join('\n')}
+${lines.map(l => `<p style="margin:0 0 8px">${typeof l === 'string' ? esc(l) : l.html}</p>`).join('\n')}
 <p style="margin:24px 0 0;color:#888;font-size:13px;letter-spacing:.2em;text-transform:uppercase">antiosov.ru</p></div>`,
 });
 
@@ -27,7 +30,7 @@ function tplOwnerNewOrder(o) {
   const m = wrap(`Заказ ${o.id}`, [
     item(o), `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
     o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии', `${o.customer_name}, ${o.customer_phone}, ${o.customer_email}`, where(o),
-    `<a href="${site}/merch/admin/#order/${o.id}">Открыть в админке</a>`,
+    link(`${site}/merch/admin/#order/${o.id}`, 'Открыть в админке'),
   ]);
   return { subject: `Заказ ${o.id} — ${item(o)} — ${rub(o.total)}`, ...m };
 }
@@ -41,7 +44,7 @@ function tplCustomerPaid(o) {
 }
 function tplCustomerShipped(o) {
   const m = wrap('Заказ отправлен', [`Номер заказа: ${o.id}`, item(o), where(o),
-    o.yd_track_url ? `<a href="${esc(o.yd_track_url)}">Отследить посылку</a>` : (o.admin_note ? `Трек: ${o.admin_note}` : 'Напишу, когда посылка будет в пункте выдачи.')]);
+    o.yd_track_url ? link(o.yd_track_url, 'Отследить посылку') : (o.admin_note ? `Трек: ${o.admin_note}` : 'Напишу, когда посылка будет в пункте выдачи.')]);
   return { subject: `Заказ ${o.id} отправлен`, ...m };
 }
 function tplCustomerCancelled(o) {
