@@ -3,11 +3,15 @@ const test = require('node:test'); const assert = require('node:assert');
 const yd = require('../lib/yd');
 
 test('off-режим: quote даёт DELIVERY_FLAT', async () => {
-  const saved = process.env.YD_MODE; process.env.YD_MODE = 'off'; process.env.DELIVERY_FLAT = '400';
-  const q = await yd.quote({ pvz_id: null, weight_g: 300, dims_cm: { x: 30, y: 20, z: 3 }, qty: 1 });
-  assert.deepEqual(q, { price_rub: 400, days: null });
-  assert.deepEqual(await yd.cities('Мос'), []);
-  process.env.YD_MODE = saved;
+  const saved = { YD_MODE: process.env.YD_MODE, DELIVERY_FLAT: process.env.DELIVERY_FLAT };
+  try {
+    process.env.YD_MODE = 'off'; process.env.DELIVERY_FLAT = '400';
+    const q = await yd.quote({ pvz_id: null, weight_g: 300, dims_cm: { x: 30, y: 20, z: 3 }, qty: 1 });
+    assert.deepEqual(q, { price_rub: 400, days: null });
+    assert.deepEqual(await yd.cities('Мос'), []);
+  } finally {
+    for (const k of Object.keys(saved)) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+  }
 });
 
 test('test-режим: города → ПВЗ → quote', { skip: process.env.YD_MODE !== 'test' }, async () => {
@@ -16,8 +20,10 @@ test('test-режим: города → ПВЗ → quote', { skip: process.env.Y
   const points = await yd.pvz(cities[0].geo_id);
   assert.ok(points.length > 0 && points[0].id && points[0].address, JSON.stringify(points[0]));
   // В тестовой среде не для всех ПВЗ есть маршрут от тестового склада (400 no_delivery_options) — ищем первый, который считается
+  // YD_TEST_PVZ_ID — известная точка с маршрутом, чтобы не перебирать
   let q = null, lastErr = null;
-  for (const pt of points.slice(0, 40)) {
+  const candidates = process.env.YD_TEST_PVZ_ID ? [{ id: process.env.YD_TEST_PVZ_ID }] : points.slice(0, 40);
+  for (const pt of candidates) {
     try { q = await yd.quote({ pvz_id: pt.id, weight_g: 300, dims_cm: { x: 30, y: 20, z: 3 }, qty: 1 }); break; }
     catch (e) { lastErr = e; if (e.code !== 'no_delivery_options') throw e; }
   }
