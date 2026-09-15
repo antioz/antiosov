@@ -1,4 +1,5 @@
 // merch-api — Yandex Cloud Function (Node.js 18), HTTP-триггер. Маршрут в ?a=, тело — JSON.
+// Токен админки передаётся в заголовке X-Admin-Token: заголовок Authorization перехватывает сама платформа Cloud Functions (IAM) и отвечает 403 до вызова кода.
 const crypto = require('crypto');
 const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin');
 const { tbToken } = require('./lib/tbank');
@@ -50,10 +51,10 @@ module.exports.handler = async function (event) {
   setOrigin(header(event, 'origin'));
   const q = event.queryStringParameters || {};
   const method = (event.httpMethod || 'GET').toUpperCase();
-  if (method === 'OPTIONS') return { statusCode: 204, headers: { ...cors(), 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '3600' }, body: '' };
+  if (method === 'OPTIONS') return { statusCode: 204, headers: { ...cors(), 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'X-Admin-Token, Content-Type', 'Access-Control-Max-Age': '3600' }, body: '' };
   try {
     const a = String(q.a || '');
-    if (a.startsWith('admin/')) return await admin.route(a, method, method === 'GET' ? {} : parseBody(event), q, header(event, 'authorization'));
+    if (a.startsWith('admin/')) return await admin.route(a, method, method === 'GET' ? {} : parseBody(event), q, header(event, 'x-admin-token'));
     switch (a) {
       case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
       case 'product': { const p = await orders.getProduct(String(q.s || '')); return p ? json(200, { product: p, yd_mode: ext.yd.mode() }) : json(404, { error: 'no_product' }); }

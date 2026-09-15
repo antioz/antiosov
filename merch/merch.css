@@ -1,0 +1,32 @@
+/* Общие стили магазина (merch/*). Тон — как на сайте: Cormorant Garamond italic для заголовков, Inter для UI. */
+:root { --bg:#fff; --ink:#0a0a0a; --dim:#888; --line:#e6e6e6; --serif:'Cormorant Garamond','Times New Roman',Georgia,serif; --sans:'Inter',system-ui,-apple-system,sans-serif; }
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink)} body{font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+main{max-width:1040px;margin:0 auto;padding:48px 24px 80px}
+.name{margin:0 0 16px;font-size:13px;letter-spacing:.45em;text-indent:.45em;text-transform:uppercase;text-align:center} .name a{color:inherit;text-decoration:none}
+h1{margin:0 0 48px;font-family:var(--serif);font-style:italic;font-weight:300;font-size:clamp(40px,6.5vw,88px);line-height:1;letter-spacing:-.01em;text-align:center}
+h2{margin:0 0 8px;font-family:var(--serif);font-style:italic;font-weight:400;font-size:34px;line-height:1.05}
+.meta{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:40px 28px}
+@media(max-width:560px){.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:28px 16px}}
+.card{display:block;color:inherit;text-decoration:none;text-align:center}
+.card .ph{aspect-ratio:4/5;background:#f4f4f4;overflow:hidden;margin-bottom:14px} .card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease} .card:hover img{transform:scale(1.02)}
+.card .t{font-family:var(--serif);font-style:italic;font-size:26px;line-height:1.05} .card .p{margin-top:6px;font-size:13px;letter-spacing:.1em} .card.out{opacity:.45}
+.product{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:start} @media(max-width:760px){.product{grid-template-columns:1fr;gap:28px}}
+.gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;max-width:100%} .gallery img{flex:0 0 100%;width:100%;scroll-snap-align:start;aspect-ratio:4/5;object-fit:cover;background:#f4f4f4}
+.desc{font-size:15px;line-height:1.6;margin:16px 0 24px} .desc p{margin:0 0 10px}
+.price{font-size:20px;letter-spacing:.06em;margin:4px 0 20px}
+.sizes{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px} .sizes button{min-width:48px;height:40px;padding:0 12px;border:1px solid var(--ink);background:#fff;color:var(--ink);font:inherit;font-size:13px;letter-spacing:.1em;cursor:pointer}
+.sizes button.on{background:var(--ink);color:#fff} .sizes button.out{border-color:var(--line);color:#bbb;text-decoration:line-through;cursor:not-allowed} .sizes button.pre{border-style:dashed}
+.qty{display:inline-flex;border:1px solid var(--ink);margin-bottom:18px} .qty button{width:40px;height:40px;border:0;background:#fff;color:var(--ink);font-size:18px;cursor:pointer} .qty span{width:44px;line-height:40px;text-align:center;font-size:14px}
+.field{display:block;margin:0 0 14px} .field span{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:0;font:inherit;font-size:15px;background:#fff;color:var(--ink);outline:none} .field textarea{height:auto;padding:10px 12px;min-height:72px;resize:vertical} .field input:focus,.field textarea:focus{border-color:var(--ink)} .field.err input,.field.err textarea{border-color:#c33}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4;color:#444;margin:8px 0 18px} .check input{margin-top:2px;flex:0 0 auto} .check a{color:inherit}
+.btn{display:inline-block;width:100%;height:52px;line-height:52px;text-align:center;background:var(--ink);color:#fff;border:0;border-radius:0;font:inherit;font-size:13px;letter-spacing:.25em;text-transform:uppercase;cursor:pointer;text-decoration:none} .btn[disabled]{background:#bbb;cursor:not-allowed} .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--ink)}
+.sum{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin:6px 0} .sum.total{font-size:18px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.notice{font-size:13px;color:#444;padding:12px 14px;background:#f6f6f6;margin:12px 0} .notice.err{background:#fdecec;color:#7a1c1c}
+.pvz{max-height:260px;overflow:auto;border:1px solid var(--line);margin-bottom:14px} .pvz label{display:block;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.4;cursor:pointer} .pvz label:hover{background:#fafafa} .pvz input{margin-right:8px} .pvz small{color:var(--dim)}
+.suggest{position:relative} .suggest ul{position:absolute;left:0;right:0;top:100%;z-index:5;margin:0;padding:0;list-style:none;background:#fff;border:1px solid var(--line);border-top:0;max-height:200px;overflow:auto} .suggest li{padding:8px 12px;font-size:14px;cursor:pointer} .suggest li:hover{background:#fafafa}
+footer{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 24px;padding:48px 24px 0} footer a{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);text-decoration:none;transition:color .2s ease} footer a:hover{color:var(--ink)}
+.center{text-align:center;max-width:560px;margin:0 auto} .center p{font-size:16px;line-height:1.6} .center a{color:inherit}
+.text{max-width:640px;margin:0 auto} .text p{font-size:16px;line-height:1.65;margin:0 0 16px} .text h2{font-size:26px;margin:32px 0 10px} .text a{color:inherit} .text ul{padding-left:20px;font-size:16px;line-height:1.65;margin:0 0 16px}
+@media(max-width:600px){.name{font-size:11px;letter-spacing:.35em;text-indent:.35em} main{padding:36px 16px 64px} h2{font-size:30px}}
