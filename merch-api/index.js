@@ -8,7 +8,9 @@ const ENV = process.env;
 const parseBody = ev => {
   if (!ev.body) return {};
   const raw = ev.isBase64Encoded ? Buffer.from(ev.body, 'base64').toString() : ev.body;
-  try { return JSON.parse(raw); } catch (e) { throw new HttpError(400, 'bad_json'); }
+  let v; try { v = JSON.parse(raw); } catch (e) { throw new HttpError(400, 'bad_json'); }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new HttpError(400, 'bad_json');
+  return v;
 };
 const rawBody = ev => ev.isBase64Encoded ? Buffer.from(ev.body || '', 'base64').toString() : (ev.body || '');
 const header = (ev, name) => { const h = ev.headers || {}; const k = Object.keys(h).find(x => x.toLowerCase() === name); return k ? h[k] : ''; };
@@ -34,9 +36,12 @@ async function success(q) {
   const back = `${ENV.SITE}/merch/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
   const info = await orders.getPayInfo(id, k);
   if (!info) return redirect(`${ENV.SITE}/merch/`);
+  // Покупатель всегда попадает на страницу заказа; подтверждение продублирует notify.
   if (info.status === 'new' && info.tb_payment_id) {
-    const s = await ext.tbank.getState(info.tb_payment_id);
-    if (s && s.Success && s.Status === 'CONFIRMED' && Number.isFinite(Number(s.Amount))) await orders.confirmPaid(id, info.tb_payment_id, Number(s.Amount) / 100);
+    try {
+      const s = await ext.tbank.getState(info.tb_payment_id);
+      if (s && s.Success && s.Status === 'CONFIRMED' && Number.isFinite(Number(s.Amount))) await orders.confirmPaid(id, info.tb_payment_id, Number(s.Amount) / 100);
+    } catch (e) { console.error('success getState', id, e.message); }
   }
   return redirect(back);
 }
