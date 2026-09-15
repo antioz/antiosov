@@ -21,6 +21,7 @@
 - Коммит после каждой задачи, пуш в `main` (GitHub Pages деплоится из main).
 - Рабочая папка репо: `/Users/imac/Documents/новый/projects/Antiosov`. Все пути ниже — относительно неё.
 - Node локально: проверить `node -v` ≥ 18 (для `node --test`).
+- **YQL:** строковые литералы для колонок `Utf8` — только с суффиксом `u` (`'new'u`), для `Json` — `Json('…')`; безсуффиксный литерал имеет тип `String` и не проходит проверку типов. Предпочтительно передавать значения параметрами `V.s/V.j`.
 
 ## File Structure
 
@@ -85,6 +86,7 @@ $YC serverless function create --name merch-api --description "магазин м
 $YC serverless function allow-unauthenticated-invoke merch-api
 $YC iam access-key create --service-account-name merch-api --format json   # → S3_KEY / S3_SECRET, сохранить в .deploy.env и .env
 $YC iam api-key create --service-account-name merch-api --scopes yc.postbox.send --format json  # → SMTP_USER (id) / SMTP_PASS (secret)
+$YC resource-manager folder add-access-binding $F --role postbox.admin --subject serviceAccount:$SA   # для создания адреса домена (шаг 1а)
 $YC ydb database get antiosov-merch --format json | python3 -c "import json,sys;d=json.load(sys.stdin);print('grpcs://'+d['endpoint'].split('/')[0].replace('grpcs://','')+'/?database='+d['database'])"
 $YC ydb database get antiosov-merch-test --format json | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['endpoint'], d['database'])"
 ```
@@ -98,6 +100,18 @@ EOF
 $YC storage bucket update --name antiosov-merch --policy-from-file /tmp/policy.json
 ```
 Права на бакет для SA: `$YC storage bucket update --name antiosov-merch --grants grant-type=grant-type-account,grantee-id=$SA,permission=permission-full-control`.
+
+- [ ] **Step 1а: Postbox — адрес домена и DNS (запускается первым, т.к. верификация DNS — самый долгий путь)**
+
+`yc` 1.34 без группы `postbox`: сначала `~/yandex-cloud/bin/yc components update`, затем `yc postbox --help`. Если группа есть:
+`~/yandex-cloud/bin/yc postbox identity create --domain antiosov.ru --format json`.
+Если нет — SES-совместимый API статическим ключом SA (`S3_KEY/S3_SECRET`, роль `postbox.admin`): одноразовый скрипт `merch-api/scripts/postbox-identity.js` — SigV4 как в `s3.deleteObject`, но `POST https://postbox.cloud.yandex.net/v2/email/identities`, service `ses`, JSON-тело `{"EmailIdentity":"antiosov.ru"}`, `x-amz-content-sha256` = sha256 тела. Ответ содержит `DkimAttributes.Tokens[]`. Если и это не выходит — веб-консоль (Postbox → Адреса → Добавить домен), записи снять оттуда. Рабочий путь зафиксировать в README.
+
+Выдать пользователю для RU-CENTER (имя → тип → значение):
+- `<token1>._domainkey.antiosov.ru` → CNAME → `<token1>.dkim.postbox.cloud.yandex.net`
+- `<token2>._domainkey.antiosov.ru` → CNAME → `<token2>.dkim.postbox.cloud.yandex.net`
+- `_dmarc.antiosov.ru` → TXT → `v=DMARC1; p=none; rua=mailto:antiosina@gmail.com`
+Проверка позже: `dig +short CNAME <token1>._domainkey.antiosov.ru`; статус адреса → `SUCCESS`.
 
 - [ ] **Step 2: Скелет папки и .gitignore**
 
@@ -172,13 +186,13 @@ test('query: SELECT 1', async () => {
 });
 
 test('tx: два параллельных инкремента одного счётчика дают +2', async () => {
-  await db.query(`UPSERT INTO counters (name, value) VALUES ('t_inc', 0);`);
+  await db.query(`UPSERT INTO counters (name, value) VALUES ('t_inc'u, 0);`);
   const inc = () => db.tx(async run => {
-    const [[c]] = await run(`SELECT value FROM counters WHERE name = 't_inc';`);
-    await run(`DECLARE $v AS Int32; UPSERT INTO counters (name, value) VALUES ('t_inc', $v);`, { $v: db.V.i(c.value + 1) });
+    const [[c]] = await run(`SELECT value FROM counters WHERE name = 't_inc'u;`);
+    await run(`DECLARE $v AS Int32; UPSERT INTO counters (name, value) VALUES ('t_inc'u, $v);`, { $v: db.V.i(c.value + 1) });
   });
   await Promise.all([inc(), inc()]);
-  const [[c]] = await db.query(`SELECT value FROM counters WHERE name = 't_inc';`);
+  const [[c]] = await db.query(`SELECT value FROM counters WHERE name = 't_inc'u;`);
   assert.equal(c.value, 2);
 });
 ```
@@ -284,8 +298,8 @@ const { getDriver } = require('./lib/ydb');
   const d = await getDriver();
   const ddl = fs.readFileSync(path.join(__dirname, 'schema.yql'), 'utf8');
   for (const stmt of ddl.split(';').map(s => s.trim()).filter(Boolean)) {
-    await d.queryClient.do({ fn: async s => { await s.execute({ text: stmt + ';' }); } });
-    console.log('ok:', stmt.split('(')[0].trim());
+    try { await d.queryClient.do({ fn: async s => { await s.execute({ text: stmt + ';' }); } }); console.log('ok:', stmt.split('(')[0].trim()); }
+    catch (e) { if (/already exists/i.test(String(e.message))) console.log('exists:', stmt.split('(')[0].trim()); else throw e; }
   }
   await d.destroy(); process.exit(0);
 })().catch(e => { console.error(e); process.exit(1); });
@@ -356,11 +370,14 @@ test('email/name', () => {
   assert.equal(u.validName(' Дима '), 'Дима');
   assert.equal(u.validName('Д'), null);
 });
-test('json response has CORS', () => {
-  process.env.SITE = 'https://antiosov.ru';
-  const r = u.json(200, { a: 1 });
-  assert.equal(r.headers['Access-Control-Allow-Origin'], 'https://antiosov.ru');
-  assert.equal(JSON.parse(r.body).a, 1);
+test('json response has CORS; DEV_ORIGIN echoed only when it matches', () => {
+  process.env.SITE = 'https://antiosov.ru'; process.env.DEV_ORIGIN = 'http://localhost:5500';
+  u.setOrigin('http://evil.example');
+  assert.equal(u.json(200, { a: 1 }).headers['Access-Control-Allow-Origin'], 'https://antiosov.ru');
+  u.setOrigin('http://localhost:5500');
+  assert.equal(u.json(200, { a: 1 }).headers['Access-Control-Allow-Origin'], 'http://localhost:5500');
+  u.setOrigin('');
+  assert.equal(JSON.parse(u.json(200, { a: 1 }).body).a, 1);
 });
 ```
 `merch-api/test/jwt.test.js`:
@@ -375,7 +392,7 @@ test('sign/verify roundtrip', () => {
 test('expired and tampered rejected', () => {
   assert.equal(jwt.verify(jwt.sign({ x: 1 }, -1)), null);
   const t = jwt.sign({ x: 1 }, 60);
-  assert.equal(jwt.verify(t.slice(0, -2) + 'zz'), null);
+  assert.equal(jwt.verify(t.slice(0, -1) + (t.endsWith('A') ? 'B' : 'A')), null);
 });
 ```
 `merch-api/test/s3.test.js`:
@@ -405,10 +422,10 @@ class HttpError extends Error {
   constructor(code, error, extra) { super(error); this.code = code; this.error = error; this.extra = extra; }
 }
 
-const cors = () => {
-  const h = { 'Access-Control-Allow-Origin': ENV.SITE || 'https://antiosov.ru', 'Vary': 'Origin' };
-  return h;
-};
+// CORS: боевой origin — SITE; для локальной разработки эхо DEV_ORIGIN, если запрос пришёл с него.
+let reqOrigin = '';
+const setOrigin = o => { reqOrigin = o || ''; };
+const cors = () => ({ 'Access-Control-Allow-Origin': (ENV.DEV_ORIGIN && reqOrigin === ENV.DEV_ORIGIN) ? reqOrigin : (ENV.SITE || 'https://antiosov.ru'), 'Vary': 'Origin' });
 const json = (code, obj, extraHeaders = {}) => ({
   statusCode: code,
   headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors(), ...extraHeaders },
@@ -432,7 +449,7 @@ const validName = s => { const v = String(s || '').trim().replace(/\s+/g, ' '); 
 const randomKey = () => crypto.randomBytes(8).toString('hex');
 const nowIso = () => new Date().toISOString();
 
-module.exports = { HttpError, json, text, redirect, envInt, validPhone, validEmail, validName, randomKey, nowIso, cors };
+module.exports = { HttpError, json, text, redirect, envInt, validPhone, validEmail, validName, randomKey, nowIso, cors, setOrigin };
 ```
 
 - [ ] **Step 3: lib/jwt.js**
@@ -749,7 +766,7 @@ const nodemailer = require('nodemailer');
 const ENV = process.env;
 let transport = null;
 function getTransport() {
-  if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, socketTimeout: 8000 });
+  if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 5000, socketTimeout: 5000 });
   return transport;
 }
 async function send({ to, subject, text, html }) {
@@ -842,7 +859,7 @@ git commit -m "merch-api: Yandex Delivery client, Postbox mail, ext registry" &&
   - `confirmPaid(orderId, paymentId, amountRub) → {ok, reason}`; при `ok` выполняет побочки. При статусе `expired|cancelled` — `ext.tbank.cancel` + письмо владельцу, `{ok:false, reason:'late_refunded'}`.
   - `gc() → number` (сколько просрочено).
   - `getStatus(id, k) → {id,status,total,is_preorder,preorder_ship_by}|null`
-  - `getPayUrl(id, k) → url|null` (только `new`)
+  - `getPayInfo(id, k) → {status,total,tb_payment_id,tb_payment_url}|null`; `getPayUrl(id, k) → url|null` (только `new`)
   - `transition(id, to, {note}) → order` — `paid→packed`, `packed→shipped` (письмо), `shipped→done`; `HttpError(409,'bad_transition')`.
   - `cancel(id) → order` — из `new` (снять резерв), из `paid|packed` (`ext.tbank.cancel`, счётчики, письмо).
   - `retryYd(id) → order`.
@@ -868,12 +885,12 @@ ext.yd.mode = () => 'test';
 ext.yd.createRequest = async o => { calls.yd.push(o.id); return { request_id: 'R' + o.id, track_url: 'https://t/' + o.id }; };
 
 const P = 'test-tee';
-async function seed(stock) {
-  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p;`, { $p: db.V.s(P) });
-  await db.query(`DECLARE $p AS Utf8; UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
-    VALUES ($p, 'Тест-футболка', 'md', 1500, '[]', 300, '{"x":30,"y":20,"z":3}', '["M","L"]', true, '2026-10-15', true, 1, CurrentUtcTimestamp());`, { $p: db.V.s(P) });
+async function seed(stock, preorder = false) {
+  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p; DELETE FROM orders WHERE product_id = $p;`, { $p: db.V.s(P) });
+  await db.query(`DECLARE $p AS Utf8; DECLARE $pre AS Bool; UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
+    VALUES ($p, 'Тест-футболка'u, 'md'u, 1500, Json('[]'), 300, Json('{"x":30,"y":20,"z":3}'), Json('["M","L"]'), $pre, '2026-10-15'u, true, 1, CurrentUtcTimestamp());`, { $p: db.V.s(P), $pre: db.V.b(preorder) });
   await db.query(`DECLARE $p AS Utf8; DECLARE $st AS Int32;
-    UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, 'M', $st, 0, 0), ($p, 'L', 0, 0, 0);`, { $p: db.V.s(P), $st: db.V.i(stock) });
+    UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, 'M'u, $st, 0, 0), ($p, 'L'u, 0, 0, 0);`, { $p: db.V.s(P), $st: db.V.i(stock) });
 }
 const input = (over = {}) => ({ product_id: P, size: 'M', qty: 1, name: 'Тест Тестов', phone: '89990000000', email: 'buyer@example.com', pvz_id: 'PVZ1', pvz_address: 'Москва, пункт 1', consent: true, ...over });
 
@@ -881,7 +898,7 @@ test('createOrder: резерв, Init, номер и ключ', async () => {
   await seed(2);
   const r = await orders.createOrder(input());
   assert.match(r.id, /^M-\d{6}$/); assert.equal(r.k.length, 16); assert.ok(r.paymentUrl.includes(r.id));
-  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M';`, { $p: db.V.s(P) });
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) });
   assert.equal(v.reserved, 1);
   const st = await orders.getStatus(r.id, r.k); assert.equal(st.status, 'new'); assert.equal(st.total, 1800);
   assert.equal(await orders.getStatus(r.id, 'wrongkey'), null);
@@ -889,10 +906,11 @@ test('createOrder: резерв, Init, номер и ключ', async () => {
 });
 
 test('гонка: последняя единица — один из двух получает 409', async () => {
-  await seed(1);
+  await seed(1, false);
   const rs = await Promise.allSettled([orders.createOrder(input()), orders.createOrder(input())]);
   const ok = rs.filter(r => r.status === 'fulfilled'), bad = rs.filter(r => r.status === 'rejected');
   assert.equal(ok.length, 1); assert.equal(bad.length, 1); assert.equal(bad[0].reason.error, 'sold_out');
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) }); assert.equal(v.reserved, 1);
 });
 
 test('confirmPaid: идемпотентен, списывает, шлёт 2 письма и заявку', async () => {
@@ -900,7 +918,7 @@ test('confirmPaid: идемпотентен, списывает, шлёт 2 пи
   const r = await orders.createOrder(input({ qty: 2 }));
   const rs = await Promise.all([orders.confirmPaid(r.id, 'P1', 3300), orders.confirmPaid(r.id, 'P1', 3300)]);
   assert.equal(rs.filter(x => x.ok).length, 1);
-  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT stock, reserved FROM variants WHERE product_id=$p AND size='M';`, { $p: db.V.s(P) });
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT stock, reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) });
   assert.deepEqual([v.stock, v.reserved], [1, 0]);
   assert.equal(calls.mail.length, 2); assert.deepEqual(calls.yd, [r.id]);
   const o = await orders.getOrder(r.id); assert.equal(o.status, 'paid'); assert.equal(o.yd_request_id, 'R' + r.id);
@@ -913,13 +931,13 @@ test('confirmPaid: неверная сумма → не оплачен', async (
 });
 
 test('предзаказ: без резерва, при оплате растёт preorder_count', async () => {
-  await seed(1); calls.init.length = 0;
+  await seed(1, true); calls.init.length = 0;
   const r = await orders.createOrder(input({ size: 'L', qty: 2 }));
   assert.equal(calls.init.at(-1).receiptItems[0].method, 'full_prepayment');
-  let [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved, preorder_count FROM variants WHERE product_id=$p AND size='L';`, { $p: db.V.s(P) });
+  let [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved, preorder_count FROM variants WHERE product_id=$p AND size='L'u;`, { $p: db.V.s(P) });
   assert.deepEqual([v.reserved, v.preorder_count], [0, 0]);
   await orders.confirmPaid(r.id, 'P2', 3300);
-  [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT preorder_count FROM variants WHERE product_id=$p AND size='L';`, { $p: db.V.s(P) });
+  [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT preorder_count FROM variants WHERE product_id=$p AND size='L'u;`, { $p: db.V.s(P) });
   assert.equal(v.preorder_count, 2);
   assert.equal((await orders.getStatus(r.id, r.k)).is_preorder, true);
 });
@@ -928,14 +946,14 @@ test('gc: просроченный new → expired, резерв снят', asyn
   await seed(1); const r = await orders.createOrder(input());
   await db.query(`DECLARE $id AS Utf8; UPDATE orders SET created_at = CurrentUtcTimestamp() - Interval("PT30M") WHERE id = $id;`, { $id: db.V.s(r.id) });
   assert.equal(await orders.gc(), 1);
-  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M';`, { $p: db.V.s(P) });
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) });
   assert.equal(v.reserved, 0);
   assert.equal(await orders.gc(), 0);
 });
 
 test('поздняя оплата expired → возврат и письмо владельцу', async () => {
   await seed(1); const r = await orders.createOrder(input()); calls.cancel.length = 0; calls.mail.length = 0;
-  await db.query(`DECLARE $id AS Utf8; UPDATE orders SET status = 'expired' WHERE id = $id;`, { $id: db.V.s(r.id) });
+  await db.query(`DECLARE $id AS Utf8; UPDATE orders SET status = 'expired'u WHERE id = $id;`, { $id: db.V.s(r.id) });
   const x = await orders.confirmPaid(r.id, 'P7', 1800);
   assert.equal(x.reason, 'late_refunded'); assert.deepEqual(calls.cancel, ['P7']); assert.equal(calls.mail.length, 1);
 });
@@ -949,7 +967,7 @@ test('переходы и отмена с возвратом', async () => {
   await assert.rejects(orders.cancel(r.id), e => e.error === 'bad_transition'); // из shipped нельзя
   const r2 = await orders.createOrder(input()); await orders.confirmPaid(r2.id, 'P4', 1800); calls.cancel.length = 0;
   const o = await orders.cancel(r2.id); assert.equal(o.status, 'cancelled'); assert.deepEqual(calls.cancel, ['P4']);
-  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT stock, reserved FROM variants WHERE product_id=$p AND size='M';`, { $p: db.V.s(P) });
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT stock, reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) });
   assert.deepEqual([v.stock, v.reserved], [0, 0]); // 2 − 1 (shipped) − 1 (cancelled после оплаты: на склад не возвращается автоматически)
 });
 
@@ -1022,9 +1040,9 @@ async function createOrder(input) {
     } else if (available <= 0 && product.preorder_allowed && var_.preorder_count + v.qty <= envInt('PREORDER_MAX', 20)) {
       is_preorder = true;
     } else throw new HttpError(409, 'sold_out');
-    const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order';`);
+    const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order'u;`);
     const n = (c ? c.value : 0) + 1;
-    await run(`DECLARE $n AS Int32; UPSERT INTO counters (name, value) VALUES ('order', $n);`, { $n: db.V.i(n) });
+    await run(`DECLARE $n AS Int32; UPSERT INTO counters (name, value) VALUES ('order'u, $n);`, { $n: db.V.i(n) });
     const id = 'M-' + String(n).padStart(6, '0');
     await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; DECLARE $pre AS Bool;
       DECLARE $pi AS Int32; DECLARE $pd AS Int32; DECLARE $t AS Int32; DECLARE $n AS Utf8; DECLARE $ph AS Utf8; DECLARE $e AS Utf8;
@@ -1032,8 +1050,8 @@ async function createOrder(input) {
       UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
         customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
         yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note)
-      VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new', $p, $s, $q, $pre, $pi, $pd, $t, $n, $ph, $e, $addr, $pvz, $pvza, $dm, $ydenv, $days,
-        '', '', '', '', '', '', '', CurrentUtcTimestamp(), '');`,
+      VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, $s, $q, $pre, $pi, $pd, $t, $n, $ph, $e, $addr, $pvz, $pvza, $dm, $ydenv, $days,
+        ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u);`,
       { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $s: db.V.s(v.size), $q: db.V.i(v.qty), $pre: db.V.b(is_preorder), $pi: db.V.i(product.price), $pd: db.V.i(price_delivery), $t: db.V.i(total),
         $n: db.V.s(v.name), $ph: db.V.s(v.phone), $e: db.V.s(v.email), $addr: db.V.s(v.address_text), $pvz: db.V.s(v.pvz_id), $pvza: db.V.s(v.pvz_address),
         $dm: db.V.s(ext.yd.mode() === 'off' ? 'flat' : 'yandex'), $ydenv: db.V.s(ext.yd.mode()), $days: db.V.i(delivery.days || 0) });
@@ -1065,15 +1083,15 @@ async function releaseNew(id, to) {
   return db.tx(async run => {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (!o || o.status !== 'new') return false;
-    await run(`DECLARE $id AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new';`, { $id: db.V.s(id), $to: db.V.s(to) });
-    if (!o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = reserved - $q WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
+    await run(`DECLARE $id AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(id), $to: db.V.s(to) });
+    if (!o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
     return true;
   });
 }
 
 async function gc() {
   const cutoff = new Date(Date.now() - envInt('RESERVE_MIN', 20) * 60000);
-  const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders VIEW by_status WHERE status = 'new' AND created_at < $c LIMIT 100;`, { $c: db.V.ts(cutoff) });
+  const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders VIEW by_status WHERE status = 'new'u AND created_at < $c LIMIT 100;`, { $c: db.V.ts(cutoff) });
   let n = 0; for (const r of rows) if (await releaseNew(r.id, 'expired')) n++;
   return n;
 }
@@ -1091,11 +1109,11 @@ async function confirmPaid(orderId, paymentId, amountRub) {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, total, product_id, size, qty, is_preorder, tb_payment_id FROM orders WHERE id = $id;`, { $id: db.V.s(orderId) });
     if (!o) return { ok: false, reason: 'no_order' };
     if (o.status !== 'new') return { ok: false, reason: o.status };
-    if (Number(amountRub) !== o.total) { console.warn('amount mismatch', orderId, amountRub, o.total); return { ok: false, reason: 'amount' }; }
-    await run(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; UPDATE orders SET status = 'paid', tb_payment_id = $pid, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new';`, { $id: db.V.s(orderId), $pid: db.V.s(paymentId) });
+    if (Number(amountRub) !== o.total) { console.error('AMOUNT MISMATCH', orderId, amountRub, o.total); return { ok: false, reason: 'amount' }; }
+    await run(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; UPDATE orders SET status = 'paid'u, tb_payment_id = $pid, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(orderId), $pid: db.V.s(paymentId) });
     const P = { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) };
     if (o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = preorder_count + $q WHERE product_id = $p AND size = $s;`, P);
-    else await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET stock = stock - $q, reserved = reserved - $q WHERE product_id = $p AND size = $s;`, P);
+    else await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET stock = Greatest(stock - $q, 0), reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, P);
     return { ok: true };
   });
   if (!r.ok) {
@@ -1105,6 +1123,7 @@ async function confirmPaid(orderId, paymentId, amountRub) {
       try { await ext.mail.send({ to: ENV.OWNER_EMAIL, ...mail.tplOwnerLatePayment(o, paymentId) }); } catch (e) { console.error('mail', e.message); }
       return { ok: false, reason: 'late_refunded' };
     }
+    if (r.reason === 'amount') { const o = await loadOrderWithProduct(orderId); try { await ext.mail.send({ to: ENV.OWNER_EMAIL, subject: `Сумма платежа не совпала: ${orderId}`, text: `Заказ ${orderId}: ожидалось ${o.total} ₽, банк подтвердил ${amountRub} ₽, платёж ${paymentId}. Заказ оставлен в new — разберись вручную.`, html: '' }); } catch (e) { console.error('mail', e.message); } }
     return r;
   }
   await afterPaid(orderId);
@@ -1127,7 +1146,9 @@ async function afterPaid(id) {
 async function createYd(o) {
   try {
     const r = await ext.yd.createRequest(o, o.product);
-    await db.query(`DECLARE $id AS Utf8; DECLARE $r AS Utf8; DECLARE $t AS Utf8; UPDATE orders SET yd_request_id = $r, yd_track_url = $t, yd_error = '', updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(o.id), $r: db.V.s(r.request_id), $t: db.V.s(r.track_url || '') });
+    const got = Math.ceil(parseFloat(String(r.price || '0').replace(/[^\d.]/g, ''))) || 0;
+    const err = (got && got !== o.price_delivery) ? `price_diff:${got - o.price_delivery}` : '';
+    await db.query(`DECLARE $id AS Utf8; DECLARE $r AS Utf8; DECLARE $t AS Utf8; DECLARE $e AS Utf8; UPDATE orders SET yd_request_id = $r, yd_track_url = $t, yd_error = $e, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(o.id), $r: db.V.s(r.request_id), $t: db.V.s(r.track_url || ''), $e: db.V.s(err) });
   } catch (e) { console.error('yd', o.id, e.message); await setField(o.id, 'yd_error', String(e.message).slice(0, 500)); }
 }
 
@@ -1138,10 +1159,11 @@ async function getStatus(id, k) {
   const p = await getProduct(o.product_id, { admin: true });
   return { id, status: o.status, total: o.total, is_preorder: o.is_preorder, preorder_ship_by: p ? p.preorder_ship_by : '' };
 }
-async function getPayUrl(id, k) {
-  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, tb_payment_url FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
-  return (o && o.k === k && o.status === 'new' && o.tb_payment_url) ? o.tb_payment_url : null;
+async function getPayInfo(id, k) {
+  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, tb_payment_id, tb_payment_url FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+  return (o && k && o.k === k) ? { status: o.status, total: o.total, tb_payment_id: o.tb_payment_id, tb_payment_url: o.tb_payment_url } : null;
 }
+async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }
 
 // ---------- админ ----------
 const NEXT = { paid: 'packed', packed: 'shipped', shipped: 'done' };
@@ -1168,7 +1190,7 @@ async function cancel(id) {
   await db.tx(async run => {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (o.status !== 'paid' && o.status !== 'packed') throw new HttpError(409, 'bad_transition');
-    await run(`DECLARE $id AS Utf8; DECLARE $from AS Utf8; DECLARE $r AS Utf8; UPDATE orders SET status = 'cancelled', tb_refund_id = $r, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = $from;`, { $id: db.V.s(id), $from: db.V.s(o.status), $r: db.V.s(String(res.PaymentId || cur.tb_payment_id)) });
+    await run(`DECLARE $id AS Utf8; DECLARE $from AS Utf8; DECLARE $r AS Utf8; UPDATE orders SET status = 'cancelled'u, tb_refund_id = $r, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = $from;`, { $id: db.V.s(id), $from: db.V.s(o.status), $r: db.V.s(String(res.PaymentId || cur.tb_payment_id)) });
     if (cur.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = preorder_count - $q WHERE product_id = $p AND size = $s;`, { $p: db.V.s(cur.product_id), $s: db.V.s(cur.size), $q: db.V.i(cur.qty) });
   });
   const full = await loadOrderWithProduct(id);
@@ -1187,7 +1209,7 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = loadOrderWithProduct;
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, getStatus, getPayUrl, transition, cancel, retryYd, setNote, listOrders, getOrder, QTY_MAX };
+module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, getStatus, getPayInfo, getPayUrl, transition, cancel, retryYd, setNote, listOrders, getOrder, QTY_MAX };
 ```
 
 - [ ] **Step 3: Прогнать**
@@ -1222,16 +1244,16 @@ require('./_env');
 const test = require('node:test'); const assert = require('node:assert');
 const ext = require('../lib/ext'); const db = require('../lib/ydb'); const { tbToken } = require('../lib/tbank');
 ext.tbank.init = async a => ({ paymentId: 'PH1', paymentUrl: 'https://pay.test/' + a.orderId });
-ext.tbank.getState = async () => ({ Success: true, Status: 'CONFIRMED' });
+ext.tbank.getState = async () => ({ Success: true, Status: 'CONFIRMED', Amount: 50000 });
 ext.tbank.cancel = async () => ({ Success: true });
 ext.mail.send = async () => {}; ext.yd.mode = () => 'off'; ext.yd.quote = async () => ({ price_rub: 400, days: null }); ext.yd.createRequest = async () => ({ request_id: 'x', track_url: '' });
 const { handler } = require('../index');
 const ev = (a, { method = 'GET', body, q = {}, headers = {} } = {}) => ({ httpMethod: method, queryStringParameters: { a, ...q }, headers, body: body ? JSON.stringify(body) : undefined, isBase64Encoded: false });
 const P = 'test-h';
 test.before(async () => {
-  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
-    VALUES ($p, 'H', '', 100, '[]', 100, '{"x":1,"y":1,"z":1}', '[]', false, '', true, 1, CurrentUtcTimestamp());
-    UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, '-', 5, 0, 0);`, { $p: db.V.s(P) });
+  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM orders WHERE product_id = $p; UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
+    VALUES ($p, 'H'u, ''u, 100, Json('[]'), 100, Json('{"x":1,"y":1,"z":1}'), Json('[]'), false, ''u, true, 1, CurrentUtcTimestamp());
+    UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, '-'u, 5, 0, 0);`, { $p: db.V.s(P) });
 });
 test('OPTIONS → 204 с CORS', async () => { const r = await handler({ httpMethod: 'OPTIONS', queryStringParameters: {} }); assert.equal(r.statusCode, 204); assert.ok(r.headers['Access-Control-Allow-Headers'].includes('Authorization')); });
 test('catalog', async () => { const r = await handler(ev('catalog')); assert.equal(r.statusCode, 200); assert.ok(JSON.parse(r.body).products.some(p => p.id === P)); });
@@ -1271,7 +1293,7 @@ Run: `cd merch-api && node --test test/handler.test.js` → FAIL.
 // merch-api — Yandex Cloud Function (Node.js 18), HTTP-триггер. Маршрут в ?a=, тело — JSON.
 const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin');
 const { tbToken } = require('./lib/tbank');
-const { json, text, redirect, HttpError, cors } = require('./lib/util');
+const { json, text, redirect, HttpError, cors, setOrigin } = require('./lib/util');
 const ENV = process.env;
 
 const parseBody = ev => {
@@ -1295,19 +1317,21 @@ async function notify(ev) {
   return text(200, 'OK');
 }
 
+// PaymentId из URL не используется (его можно подменить) — берём сохранённый при Init.
 async function success(q) {
   const id = String(q.id || ''), k = String(q.k || '');
   const back = `${ENV.SITE}/merch/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
-  const st = await orders.getStatus(id, k);
-  if (!st) return redirect(`${ENV.SITE}/merch/`);
-  if (st.status === 'new' && q.PaymentId) {
-    const s = await ext.tbank.getState(String(q.PaymentId));
-    if (s && s.Success && s.Status === 'CONFIRMED') await orders.confirmPaid(id, String(q.PaymentId), Number(s.Amount) / 100 || st.total);
+  const info = await orders.getPayInfo(id, k);
+  if (!info) return redirect(`${ENV.SITE}/merch/`);
+  if (info.status === 'new' && info.tb_payment_id) {
+    const s = await ext.tbank.getState(info.tb_payment_id);
+    if (s && s.Success && s.Status === 'CONFIRMED' && Number.isFinite(Number(s.Amount))) await orders.confirmPaid(id, info.tb_payment_id, Number(s.Amount) / 100);
   }
   return redirect(back);
 }
 
 module.exports.handler = async function (event) {
+  setOrigin(header(event, 'origin'));
   const q = event.queryStringParameters || {};
   const method = (event.httpMethod || 'GET').toUpperCase();
   if (method === 'OPTIONS') return { statusCode: 204, headers: { ...cors(), 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '3600' }, body: '' };
@@ -1380,7 +1404,10 @@ async function upsertProduct(b) {
   const stocks = Object.fromEntries((Array.isArray(b.variants) ? b.variants : []).map(v => [String(v.size), Math.max(0, parseInt(v.stock, 10) || 0)]));
   await db.tx(async run => {
     const [have] = await run(`DECLARE $id AS Utf8; SELECT size, stock, reserved, preorder_count FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
-    for (const h of have) if (!want.includes(h.size)) await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
+    for (const h of have) if (!want.includes(h.size)) {
+      if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
+      await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
+    }
     for (const s of want) {
       const h = have.find(x => x.size === s);
       await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DECLARE $st AS Int32; DECLARE $r AS Int32; DECLARE $pc AS Int32;
@@ -1396,8 +1423,10 @@ async function route(a, method, body, q, auth) {
   requireAuth(auth);
   switch (a) {
     case 'admin/summary': {
-      const [paid, packed, pre] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' }), orders.listOrders({ status: 'paid' })]);
-      return json(200, { to_ship: paid.length + packed.length, preorders: pre.filter(o => o.is_preorder).length, yd_mode: require('./ext').yd.mode() });
+      const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
+      const open = [...paid, ...packed]; const mode = require('./ext').yd.mode();
+      return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
+        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
     }
     case 'admin/orders': return json(200, { orders: await orders.listOrders({ status: q.status || undefined }) });
     case 'admin/order': {
@@ -1457,20 +1486,9 @@ git commit -m "merch-api: HTTP router and admin routes" && git push origin main
 - Create: `merch-api/README.md`
 - Modify: `merch-api/.deploy.env` (не в git)
 
-- [ ] **Step 1: Postbox — адрес и DNS**
+- [ ] **Step 1: Postbox — проверить верификацию домена**
 
-Postbox не в `yc` 1.34. Сначала `~/yandex-cloud/bin/yc components update` и проверить `yc postbox --help`. Если группа появилась:
-```bash
-~/yandex-cloud/bin/yc postbox identity create --domain antiosov.ru --format json
-```
-Если нет — через SES-совместимый API статическим ключом SA с ролью `postbox.admin` (выдать: `yc resource-manager folder add-access-binding b1gkm69jqok5o2cpgn0p --role postbox.admin --subject serviceAccount:$SA`), запрос `POST https://postbox.cloud.yandex.net/v2/email/identities` body `{"EmailIdentity":"antiosov.ru"}` с подписью SigV4 (region `ru-central1`, service `ses`) — написать одноразовый скрипт `merch-api/scripts/postbox-identity.js` по образцу `s3.deleteObject` (тот же SigV4, но с JSON-телом и `x-amz-content-sha256` от тела). Ответ содержит `DkimAttributes.Tokens[]` → DNS.
-Если и это не выходит — создать адрес в веб-консоли (Postbox → Адреса → Добавить домен) и снять записи оттуда. Записать в README рабочий путь.
-
-Выдать пользователю для RU-CENTER (формат: имя → значение):
-- `<token1>._domainkey.antiosov.ru` CNAME `<token1>.dkim.postbox.cloud.yandex.net`
-- `<token2>._domainkey.antiosov.ru` CNAME `<token2>.dkim.postbox.cloud.yandex.net`
-- `_dmarc.antiosov.ru` TXT `v=DMARC1; p=none; rua=mailto:antiosina@gmail.com`
-Проверить после внесения: `dig +short CNAME <token1>._domainkey.antiosov.ru` → значение; статус адреса в Postbox → `SUCCESS`.
+Адрес создан и DNS выданы в Task 1 Step 1а. Здесь: `dig +short CNAME <token1>._domainkey.antiosov.ru` → значение есть; статус адреса в Postbox → `SUCCESS`. Если DNS ещё не внесены — продолжать деплой, письма проверить позже (Task 9).
 
 - [ ] **Step 2: Деплой**
 
@@ -1702,7 +1720,7 @@ footer{display:flex;justify-content:center;gap:24px;padding:48px 24px 0} footer 
       S.busy = false; $('#pay').disabled = false; $('#pay').textContent = 'Оплатить';
       const m = { sold_out: 'Этот размер только что разобрали.', validation: 'Проверьте поле: ' + ({ name: 'имя', phone: 'телефон', email: 'e-mail', address_text: 'адрес', pvz_id: 'пункт выдачи', size: 'размер', qty: 'количество', consent: 'согласие' }[err.data && err.data.field] || ''), payment_init: 'Платёжная система не отвечает, попробуйте через минуту.' }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
       if (err.data && err.data.field) { const fl = root.querySelector(`.field[data-f="${err.data.field}"]`); if (fl) fl.classList.add('err'); }
-      if (err.message === 'sold_out') { const r = await api('product', { q: { s: slug } }); P = r.product; renderSizes(); }
+      if (err.message === 'sold_out') { const r = await api('product', { q: { s: slug } }); P = r.product; renderSizes(); renderSum(); }
       $('#err').textContent = m; $('#err').style.display = '';
     }
   };
@@ -1753,14 +1771,14 @@ footer{display:flex;justify-content:center;gap:24px;padding:48px 24px 0} footer 
 cd /Users/imac/Documents/новый/projects/Antiosov && python3 -m http.server 5500 >/dev/null 2>&1 &
 open http://localhost:5500/merch/
 ```
-Для локальной работы CORS: `DEV_ORIGIN=http://localhost:5500` в `.deploy.env`; в `lib/util.js` добавить модульную переменную `let reqOrigin = ''` и `setOrigin(o){ reqOrigin = o || '' }`, а `cors()` возвращать `reqOrigin` если `reqOrigin === ENV.DEV_ORIGIN`, иначе `ENV.SITE`. В `index.js` первой строкой handler: `setOrigin(header(event, 'origin'))`. Экспортировать `setOrigin` из util.
+Для локальной работы CORS: `DEV_ORIGIN=http://localhost:5500` в `.deploy.env` (механизм `setOrigin` уже реализован в Task 2/5).
 Проверить: каталог рендерится (после добавления тестового товара в Task 8 — вернуться), карточка открывается по `?s=`, несуществующий slug → «Нет такой вещи».
 
 - [ ] **Step 7: sitemap и commit**
 
 В `sitemap.xml` добавить `<url><loc>https://antiosov.ru/merch/privacy/</loc></url>`.
 ```bash
-git add merch sitemap.xml merch-api/lib/util.js merch-api/index.js
+git add merch sitemap.xml
 git commit -m "merch: storefront — catalog, product page with order form, order status, privacy" && git push origin main
 ```
 Проверить через 1–2 минуты: `curl -s -o /dev/null -w '%{http_code}\n' https://antiosov.ru/merch/p/` → `200`.
@@ -1816,7 +1834,7 @@ table{width:100%;border-collapse:collapse;font-size:14px} td,th{padding:10px 8px
   async function orders(status) {
     const [{ orders }, s] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary')]);
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'new', 'cancelled', 'expired'];
-    app.innerHTML = tabs('orders') + `<div class="summary"><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span></div>
+    app.innerHTML = tabs('orders') + `<div class="summary"><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
       ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}</td><td>${esc(o.customer_name)}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;

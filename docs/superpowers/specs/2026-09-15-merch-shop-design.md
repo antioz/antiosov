@@ -36,7 +36,7 @@
 
 | a | метод | auth | назначение |
 |---|---|---|---|
-| catalog | GET | — | активные товары + варианты с `available = stock − reserved`; кэш 10 с, сброс при order |
+| catalog | GET | — | активные товары + варианты с `available = stock − reserved` (без кэша — объём не требует) |
 | product&s= | GET | — | один товар |
 | cities&q= | GET | — | подсказка городов (Яндекс `location/detect`); режим off → пусто |
 | pvz&geo_id= | GET | — | список ПВЗ Яндекса по городу; режим off → пусто |
