@@ -6,7 +6,8 @@ const ENV = process.env;
 const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
 
 function login(body) {
-  if (fails.n >= 5 && Date.now() - fails.at < 600000) throw new HttpError(429, 'too_many');
+  if (Date.now() - fails.at >= 600000) fails.n = 0;
+  if (fails.n >= 5) throw new HttpError(429, 'too_many');
   const a = Buffer.from(String(body.password || '')), b = Buffer.from(ENV.ADMIN_PASSWORD || '');
   if (!b.length || a.length !== b.length || !crypto.timingSafeEqual(a, b)) { fails.n++; fails.at = Date.now(); throw new HttpError(401, 'bad_password'); }
   fails.n = 0;
@@ -15,6 +16,8 @@ function login(body) {
 const requireAuth = auth => { const t = String(auth || '').replace(/^Bearer\s+/i, ''); const p = jwt.verify(t); if (!p || p.role !== 'admin') throw new HttpError(401, 'unauthorized'); };
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
+const PHOTO_KEY_RE = /^p\/[a-z0-9][a-z0-9-]{1,40}\/[0-9a-f]+\.(jpg|png)$/;
+const ORDER_STATUSES = ['new', 'paid', 'packed', 'shipped', 'done', 'cancelled', 'expired'];
 async function upsertProduct(b) {
   const id = String(b.id || ''); if (!SLUG_RE.test(id)) throw new HttpError(400, 'validation', { field: 'id' });
   const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
@@ -22,21 +25,21 @@ async function upsertProduct(b) {
   const sizes = Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
   const dims = b.dims_cm || {}; const dims_cm = { x: +dims.x || 30, y: +dims.y || 20, z: +dims.z || 3 };
   const images = Array.isArray(b.images) ? b.images.map(String) : [];
-  await db.query(`DECLARE $id AS Utf8; DECLARE $title AS Utf8; DECLARE $d AS Utf8; DECLARE $price AS Int32; DECLARE $img AS Json; DECLARE $w AS Int32; DECLARE $dims AS Json;
-    DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32;
-    UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
-    VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp());`,
-    { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
-      $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0) });
   // Варианты: набор размеров = sizes (или '-'); stock задаётся, reserved/preorder_count сохраняются.
   const want = sizes.length ? sizes : ['-'];
   const stocks = Object.fromEntries((Array.isArray(b.variants) ? b.variants : []).map(v => [String(v.size), Math.max(0, parseInt(v.stock, 10) || 0)]));
+  // Одна транзакция: сначала проверка занятых размеров (409 до любой записи), потом products + variants.
   await db.tx(async run => {
     const [have] = await run(`DECLARE $id AS Utf8; SELECT size, stock, reserved, preorder_count FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
-    for (const h of have) if (!want.includes(h.size)) {
-      if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
-      await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
-    }
+    const drop = have.filter(h => !want.includes(h.size));
+    for (const h of drop) if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
+    await run(`DECLARE $id AS Utf8; DECLARE $title AS Utf8; DECLARE $d AS Utf8; DECLARE $price AS Int32; DECLARE $img AS Json; DECLARE $w AS Int32; DECLARE $dims AS Json;
+      DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32;
+      UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
+      VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp());`,
+      { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
+        $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0) });
+    for (const h of drop) await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
     for (const s of want) {
       const h = have.find(x => x.size === s);
       await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DECLARE $st AS Int32; DECLARE $r AS Int32; DECLARE $pc AS Int32;
@@ -57,7 +60,11 @@ async function route(a, method, body, q, auth) {
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
         yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
     }
-    case 'admin/orders': return json(200, { orders: await orders.listOrders({ status: q.status || undefined }) });
+    case 'admin/orders': {
+      const st = q.status ? String(q.status) : undefined;
+      if (st && !ORDER_STATUSES.includes(st)) throw new HttpError(400, 'validation', { field: 'status' });
+      return json(200, { orders: await orders.listOrders({ status: st }) });
+    }
     case 'admin/order': {
       if (method === 'GET') { const o = await orders.getOrder(String(q.id || '')); return o ? json(200, { order: o }) : json(404, { error: 'no_order' }); }
       const id = String(body.id || '');
@@ -85,7 +92,7 @@ async function route(a, method, body, q, auth) {
         const key = `p/${pid}/${crypto.randomBytes(6).toString('hex')}.${ct === 'image/png' ? 'png' : 'jpg'}`;
         return json(200, { key, put_url: s3.presignPut(key, ct, 600), public_url: s3.publicUrl(key), content_type: ct });
       }
-      if (method === 'DELETE') { const key = String(body.key || ''); if (!key.startsWith('p/')) throw new HttpError(400, 'validation', { field: 'key' }); await s3.deleteObject(key); return json(200, { ok: true }); }
+      if (method === 'DELETE') { const key = String(body.key || ''); if (!PHOTO_KEY_RE.test(key)) throw new HttpError(400, 'validation', { field: 'key' }); await s3.deleteObject(key); return json(200, { ok: true }); }
       throw new HttpError(405, 'method');
     }
     default: return json(404, { error: 'not_found' });
