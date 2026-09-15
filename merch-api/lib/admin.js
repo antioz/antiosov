@@ -1,0 +1,94 @@
+// Админ-маршруты. Доступ по JWT (пароль в ADMIN_PASSWORD, 30 дней).
+const crypto = require('crypto');
+const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext');
+const { json, HttpError } = require('./util');
+const ENV = process.env;
+const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
+
+function login(body) {
+  if (fails.n >= 5 && Date.now() - fails.at < 600000) throw new HttpError(429, 'too_many');
+  const a = Buffer.from(String(body.password || '')), b = Buffer.from(ENV.ADMIN_PASSWORD || '');
+  if (!b.length || a.length !== b.length || !crypto.timingSafeEqual(a, b)) { fails.n++; fails.at = Date.now(); throw new HttpError(401, 'bad_password'); }
+  fails.n = 0;
+  return json(200, { token: jwt.sign({ role: 'admin' }, 30 * 86400) });
+}
+const requireAuth = auth => { const t = String(auth || '').replace(/^Bearer\s+/i, ''); const p = jwt.verify(t); if (!p || p.role !== 'admin') throw new HttpError(401, 'unauthorized'); };
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
+async function upsertProduct(b) {
+  const id = String(b.id || ''); if (!SLUG_RE.test(id)) throw new HttpError(400, 'validation', { field: 'id' });
+  const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
+  const price = parseInt(b.price, 10); if (!(price >= 1)) throw new HttpError(400, 'validation', { field: 'price' });
+  const sizes = Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
+  const dims = b.dims_cm || {}; const dims_cm = { x: +dims.x || 30, y: +dims.y || 20, z: +dims.z || 3 };
+  const images = Array.isArray(b.images) ? b.images.map(String) : [];
+  await db.query(`DECLARE $id AS Utf8; DECLARE $title AS Utf8; DECLARE $d AS Utf8; DECLARE $price AS Int32; DECLARE $img AS Json; DECLARE $w AS Int32; DECLARE $dims AS Json;
+    DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32;
+    UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
+    VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp());`,
+    { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
+      $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0) });
+  // Варианты: набор размеров = sizes (или '-'); stock задаётся, reserved/preorder_count сохраняются.
+  const want = sizes.length ? sizes : ['-'];
+  const stocks = Object.fromEntries((Array.isArray(b.variants) ? b.variants : []).map(v => [String(v.size), Math.max(0, parseInt(v.stock, 10) || 0)]));
+  await db.tx(async run => {
+    const [have] = await run(`DECLARE $id AS Utf8; SELECT size, stock, reserved, preorder_count FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
+    for (const h of have) if (!want.includes(h.size)) {
+      if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
+      await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
+    }
+    for (const s of want) {
+      const h = have.find(x => x.size === s);
+      await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DECLARE $st AS Int32; DECLARE $r AS Int32; DECLARE $pc AS Int32;
+        UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($id, $s, $st, $r, $pc);`,
+        { $id: db.V.s(id), $s: db.V.s(s), $st: db.V.i(stocks[s] != null ? stocks[s] : (h ? h.stock : 0)), $r: db.V.i(h ? h.reserved : 0), $pc: db.V.i(h ? h.preorder_count : 0) });
+    }
+  });
+  return orders.getProduct(id, { admin: true });
+}
+
+async function route(a, method, body, q, auth) {
+  if (a === 'admin/login') { if (method !== 'POST') throw new HttpError(405, 'method'); return login(body); }
+  requireAuth(auth);
+  switch (a) {
+    case 'admin/summary': {
+      const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
+      const open = [...paid, ...packed]; const mode = ext.yd.mode();
+      return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
+        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
+    }
+    case 'admin/orders': return json(200, { orders: await orders.listOrders({ status: q.status || undefined }) });
+    case 'admin/order': {
+      if (method === 'GET') { const o = await orders.getOrder(String(q.id || '')); return o ? json(200, { order: o }) : json(404, { error: 'no_order' }); }
+      const id = String(body.id || '');
+      switch (body.action) {
+        case 'next': { const cur = await orders.getOrder(id); if (!cur) throw new HttpError(404, 'no_order'); const to = { paid: 'packed', packed: 'shipped', shipped: 'done' }[cur.status]; if (!to) throw new HttpError(409, 'bad_transition'); return json(200, { order: await orders.transition(id, to) }); }
+        case 'cancel': return json(200, { order: await orders.cancel(id) });
+        case 'retry_yd': return json(200, { order: await orders.retryYd(id) });
+        case 'note': return json(200, { order: await orders.setNote(id, body.note) });
+        default: throw new HttpError(400, 'bad_action');
+      }
+    }
+    case 'admin/products': {
+      const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
+      return json(200, { products: ps.map(p => ({ ...p, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
+        variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) })) });
+    }
+    case 'admin/product': {
+      if (method === 'GET') { const p = await orders.getProduct(String(q.id || ''), { admin: true }); return p ? json(200, { product: p }) : json(404, { error: 'no_product' }); }
+      return json(200, { product: await upsertProduct(body) });
+    }
+    case 'admin/photo': {
+      if (method === 'POST') {
+        const pid = String(body.product_id || ''); if (!SLUG_RE.test(pid)) throw new HttpError(400, 'validation', { field: 'product_id' });
+        const ct = body.content_type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const key = `p/${pid}/${crypto.randomBytes(6).toString('hex')}.${ct === 'image/png' ? 'png' : 'jpg'}`;
+        return json(200, { key, put_url: s3.presignPut(key, ct, 600), public_url: s3.publicUrl(key), content_type: ct });
+      }
+      if (method === 'DELETE') { const key = String(body.key || ''); if (!key.startsWith('p/')) throw new HttpError(400, 'validation', { field: 'key' }); await s3.deleteObject(key); return json(200, { ok: true }); }
+      throw new HttpError(405, 'method');
+    }
+    default: return json(404, { error: 'not_found' });
+  }
+}
+module.exports = { route };
