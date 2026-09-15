@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Заказ — Мерч — Дмитрий Антиосов</title>
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../merch.css" />
+  <link rel="stylesheet" href="../../assets/reveal.css" />
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112564032', 'ym');
+
+    ym(112564032, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112564032" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</head>
+<body>
+<main>
+  <p class="name r in"><a href="/">Дмитрий Антиосов</a></p>
+  <div class="center" id="root"><p class="meta">проверяю оплату…</p></div>
+  <footer><a href="/merch/">← все вещи</a><a href="/merch/privacy/">персональные данные</a></footer>
+</main>
+<script src="../api.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search), id = q.get('id'), k = q.get('k'), root = document.getElementById('root');
+  const notFound = () => { root.innerHTML = '<p>Заказ не найден. <a href="/merch/">Все вещи</a></p>'; };
+  if (!id || !k) { notFound(); return; }
+  const payUrl = `${MERCH_API}?a=pay&id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
+  const render = s => {
+    const t = {
+      paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Письмо с подтверждением ушло на почту.${s.is_preorder ? `<br>Это предзаказ — отправлю до ${esc(s.preorder_ship_by || 'указанной даты')}.` : ''}`],
+      packed: ['Собираю', `Заказ <b>${esc(id)}</b> собран и скоро отправится.`],
+      shipped: ['В пути', `Заказ <b>${esc(id)}</b> отправлен — трек в письме.`],
+      done: ['Получен', `Заказ <b>${esc(id)}</b> выполнен. Спасибо.`],
+      new: ['Ждём оплату', `Заказ <b>${esc(id)}</b> ещё не оплачен.${q.get('fail') ? ' Оплата не прошла.' : ''}<br><br><a class="btn" href="${payUrl}">Вернуться к оплате</a><br><span class="meta">ссылка действует 20 минут</span>`],
+      expired: ['Время вышло', `Заказ <b>${esc(id)}</b> не был оплачен за 20 минут, резерв снят. <a href="/merch/">Оформить заново</a>.`],
+      cancelled: ['Отменён', `Заказ <b>${esc(id)}</b> отменён. Если была оплата — деньги вернутся на карту.`]
+    }[s.status] || ['Заказ', esc(s.status)];
+    document.title = t[0] + ' — Мерч — Дмитрий Антиосов';
+    root.innerHTML = `<h1 style="margin-bottom:24px">${t[0]}</h1><p>${t[1]}</p>`;
+  };
+  let tries = 0;
+  const poll = async () => {
+    try { const s = await api('status', { q: { id, k } }); render(s); if (s.status === 'new' && tries++ < 20) setTimeout(poll, 3000); }
+    catch (e) { if (e.message === 'no_order' || e.code === 404) notFound(); else if (tries++ < 5) setTimeout(poll, 3000); else root.innerHTML = '<p>Не удалось проверить заказ. Обновите страницу через минуту.</p>'; }
+  };
+  poll();
+})();
+</script>
+</body>
+</html>

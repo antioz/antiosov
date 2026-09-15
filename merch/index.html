@@ -4,20 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Мерч — Дмитрий Антиосов</title>
-  <meta name="description" content="Мерч Дмитрия Антиосова." />
+  <meta name="description" content="Мерч Дмитрия Антиосова. Вещи, которые можно носить." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://antiosov.ru/merch/" />
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://antiosov.ru/merch/" />
   <meta property="og:title" content="Мерч — Дмитрий Антиосов" />
-  <meta property="og:description" content="А мерч ещё сделать надо." />
+  <meta property="og:description" content="Вещи, которые можно носить." />
   <meta property="og:image" content="https://antiosov.ru/assets/og-words.png" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Мерч — Дмитрий Антиосов" />
-  <meta name="twitter:description" content="А мерч ещё сделать надо." />
+  <meta name="twitter:description" content="Вещи, которые можно носить." />
   <meta name="twitter:image" content="https://antiosov.ru/assets/og-words.png" />
 
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
@@ -27,53 +27,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
+  <link rel="stylesheet" href="merch.css" />
   <link rel="stylesheet" href="../assets/reveal.css" />
-
-  <style>
-    :root { --bg: #ffffff; --ink: #0a0a0a; --dim: #888888; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
-    main {
-      min-height: 100vh; min-height: 100svh;
-      display: flex; flex-direction: column; text-align: center;
-    }
-    .hero {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 48px 24px;
-    }
-    .name {
-      margin: 0 0 16px; font-size: 13px; font-weight: 400;
-      letter-spacing: 0.45em; text-indent: 0.45em; text-transform: uppercase;
-    }
-    .name a { color: inherit; text-decoration: none; }
-    h1 {
-      margin: 0 0 64px;
-      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
-      font-style: italic; font-weight: 300;
-      font-size: clamp(40px, 6.5vw, 88px); line-height: 1; letter-spacing: -0.01em;
-    }
-    .list { display: flex; flex-direction: column; gap: 28px; }
-    .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    .item .title {
-      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
-      font-style: italic; font-weight: 400; font-size: 34px; line-height: 1;
-      color: var(--ink); text-decoration: none; transition: color .2s ease;
-    }
-    a.title:hover { color: var(--dim); }
-    .item.soon .title { color: var(--dim); }
-    .item .meta { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
-    footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
-    footer a {
-      font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--dim); text-decoration: none; transition: color .2s ease;
-    }
-    footer a:hover { color: var(--ink); }
-    @media (max-width: 600px) {
-      .name { font-size: 11px; letter-spacing: 0.35em; text-indent: 0.35em; }
-      h1 { margin-bottom: 48px; }
-    }
-  </style>
 <!-- Yandex.Metrika counter -->
 <script type="text/javascript">
     (function(m,e,t,r,i,k,a){
@@ -90,20 +45,31 @@
 </head>
 <body>
   <main>
-    <div class="hero">
-      <h1 class="r" style="--i:1">Мерч</h1>
-
-      <div class="list">
-        <div class="item r" style="--i:2">
-          <span class="meta">а мерч ещё сделать надо</span>
-        </div>
-      </div>
-    </div>
-
-    <footer class="r" style="--i:5">
-      <a href="/">← на главную</a>
-    </footer>
+    <p class="name r" style="--i:0"><a href="/">Дмитрий Антиосов</a></p>
+    <h1 class="r" style="--i:1">Мерч</h1>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="meta r" style="--i:2;text-align:center;display:none">пока пусто — скоро</p>
+    <footer class="r" style="--i:3"><a href="/">← на главную</a><a href="/merch/privacy/">персональные данные</a></footer>
   </main>
+  <script src="api.js"></script>
+  <script>
+    (async () => {
+      const empty = document.getElementById('empty');
+      try {
+        const { products } = await api('catalog');
+        const g = document.getElementById('grid');
+        if (!products.length) empty.style.display = '';
+        g.innerHTML = products.map((p, i) => {
+          const avail = p.variants.some(v => v.available > 0), pre = !avail && p.preorder_allowed;
+          return `<a class="card r ${avail || pre ? '' : 'out'}" style="--i:${i + 2}" href="/merch/p/?s=${encodeURIComponent(p.id)}">
+            <div class="ph">${p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
+            <div class="t">${esc(p.title)}</div>
+            <div class="p">${rub(p.price)}${pre ? ' · <span class="meta">предзаказ</span>' : (avail ? '' : ' · <span class="meta">нет в наличии</span>')}</div></a>`;
+        }).join('');
+      } catch (e) { empty.textContent = 'магазин временно недоступен'; empty.style.display = ''; }
+      showAll();
+    })();
+  </script>
   <script src="../assets/reveal.js"></script>
 </body>
 </html>

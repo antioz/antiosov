@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Мерч — Дмитрий Антиосов</title>
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../merch.css" />
+  <link rel="stylesheet" href="../../assets/reveal.css" />
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112564032', 'ym');
+
+    ym(112564032, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112564032" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</head>
+<body>
+<main>
+  <p class="name r in"><a href="/">Дмитрий Антиосов</a></p>
+  <div id="root"><p class="meta" style="text-align:center">загружаю…</p></div>
+  <footer><a href="/merch/">← все вещи</a><a href="/merch/privacy/">персональные данные</a></footer>
+</main>
+<script src="../api.js"></script>
+<script>
+(async () => {
+  const root = document.getElementById('root');
+  const slug = new URLSearchParams(location.search).get('s') || '';
+  let P, ydMode;
+  try { const r = await api('product', { q: { s: slug } }); P = r.product; ydMode = r.yd_mode; }
+  catch (e) { root.innerHTML = '<p class="center">Нет такой вещи. <a href="/merch/">Все вещи</a></p>'; return; }
+  document.title = P.title + ' — Мерч — Дмитрий Антиосов';
+  const QTY_MAX = 5;
+  const S = { size: null, qty: 1, pvz: null, geo: null, quote: null, busy: false };
+  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  const variant = () => P.variants.find(v => v.size === (P.sizes.length ? S.size : '-'));
+  const isPre = () => { const v = variant(); return !!v && v.available <= 0 && P.preorder_allowed; };
+  const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
+
+  root.innerHTML = `<div class="product">
+    <div class="gallery">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      <div class="desc">${md(P.description_md)}</div>
+      ${P.sizes.length ? `<div class="meta">Размер</div><div class="sizes" id="sizes"></div>` : ''}
+      <div class="meta">Количество</div><div class="qty"><button type="button" id="minus" aria-label="меньше">−</button><span id="qty">1</span><button type="button" id="plus" aria-label="больше">+</button></div>
+      <div id="preNote" class="notice" style="display:none"></div>
+      <form id="f" novalidate>
+        <label class="field" data-f="name"><span>Имя</span><input name="name" autocomplete="name" required></label>
+        <label class="field" data-f="phone"><span>Телефон</span><input name="phone" type="tel" autocomplete="tel" required></label>
+        <label class="field" data-f="email"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+        ${ydMode === 'off'
+          ? `<label class="field" data-f="address_text"><span>Адрес доставки</span><textarea name="address_text" placeholder="Город, улица, дом, квартира, индекс" required></textarea></label>`
+          : `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
+             <div class="meta" id="pvzTitle" style="display:none">Пункт выдачи</div><div class="pvz" id="pvz" style="display:none"></div>`}
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Согласен на обработку персональных данных для исполнения заказа и доставки (<a href="/merch/privacy/" target="_blank">политика</a>)</span></label>
+        <div class="sum"><span>Товар</span><span id="sItem"></span></div>
+        <div class="sum"><span>Доставка</span><span id="sDel">—</span></div>
+        <div class="sum total"><span>Итого</span><span id="sTotal"></span></div>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:16px">Оплатить</button>
+      </form>
+    </div></div>`;
+  const $ = s => root.querySelector(s);
+
+  function renderSizes() {
+    const el = $('#sizes'); if (!el) return;
+    el.innerHTML = P.sizes.map(s => { const v = P.variants.find(x => x.size === s) || { available: 0 }; const pre = v.available <= 0 && P.preorder_allowed; const out = v.available <= 0 && !P.preorder_allowed;
+      return `<button type="button" data-s="${esc(s)}" class="${S.size === s ? 'on' : ''} ${pre ? 'pre' : ''} ${out ? 'out' : ''}" ${out ? 'disabled' : ''} title="${pre ? 'предзаказ' : (out ? 'нет в наличии' : '')}">${esc(s)}</button>`; }).join('');
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { S.size = b.dataset.s; S.qty = 1; renderSizes(); renderSum(); });
+  }
+  let sumSeq = 0;
+  async function renderSum() {
+    const seq = ++sumSeq;
+    const v = variant(); const pre = isPre();
+    if (v && S.qty > maxQty()) S.qty = Math.max(1, maxQty());
+    $('#qty').textContent = S.qty;
+    $('#preNote').style.display = pre ? '' : 'none';
+    if (pre) $('#preNote').textContent = `Этого размера сейчас нет — предзаказ, отправка до ${P.preorder_ship_by || 'указанной даты'}.`;
+    $('#sItem').textContent = rub(P.price * S.qty);
+    const canQuote = ydMode === 'off' || S.pvz;
+    if (canQuote && v) {
+      $('#sDel').textContent = 'считаю…';
+      try { const quote = await api('quote', { method: 'POST', body: { product_id: P.id, qty: S.qty, pvz_id: S.pvz && S.pvz.id } });
+        if (seq !== sumSeq) return;
+        S.quote = quote;
+        $('#sDel').textContent = rub(S.quote.price_delivery) + (S.quote.days ? `, ~${S.quote.days} дн.` : ''); $('#sTotal').textContent = rub(S.quote.total);
+      } catch (e) { if (seq !== sumSeq) return; S.quote = null; $('#sDel').textContent = 'не удалось посчитать'; $('#sTotal').textContent = '—'; }
+    } else { S.quote = null; $('#sDel').textContent = ydMode === 'off' ? '—' : 'выберите пункт выдачи'; $('#sTotal').textContent = rub(P.price * S.qty); }
+    if (S.busy) return;
+    $('#pay').disabled = !v || (!pre && v.available <= 0) || (ydMode !== 'off' && !S.pvz);
+    $('#pay').textContent = S.quote ? `Оплатить ${rub(S.quote.total)}` : 'Оплатить';
+  }
+  $('#minus').onclick = () => { if (S.qty > 1) { S.qty--; renderSum(); } };
+  $('#plus').onclick = () => { if (S.qty < maxQty()) { S.qty++; renderSum(); } };
+
+  if (ydMode !== 'off') {
+    const cityIn = root.querySelector('[name=city]'), list = $('#cities'); let t;
+    cityIn.oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+      const q = cityIn.value.trim(); if (q.length < 2) { list.style.display = 'none'; return; }
+      let cities = [];
+      try { cities = (await api('cities', { q: { q } })).cities || []; } catch (e) { cities = []; }
+      list.innerHTML = cities.map(c => `<li data-g="${esc(c.geo_id)}">${esc(c.name)}</li>`).join(''); list.style.display = cities.length ? '' : 'none';
+      list.querySelectorAll('li').forEach(li => li.onclick = async () => { cityIn.value = li.textContent; list.style.display = 'none'; S.geo = li.dataset.g; S.pvz = null;
+        let points = [];
+        try { points = (await api('pvz', { q: { geo_id: S.geo } })).points || []; } catch (e) { points = []; }
+        $('#pvzTitle').style.display = ''; $('#pvz').style.display = '';
+        $('#pvz').innerHTML = points.length ? points.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}">${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>В этом городе пунктов нет</label>';
+        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); renderSum(); });
+        renderSum(); });
+    }, 500); };
+    document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
+  }
+
+  const FIELD_RU = { name: 'имя', phone: 'телефон', email: 'e-mail', address_text: 'адрес', pvz_id: 'пункт выдачи', size: 'размер', qty: 'количество', consent: 'согласие' };
+  const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); if (S.busy) return;
+    const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+    if (P.sizes.length && !S.size) { showErr('Выберите размер.'); return; }
+    const body = { product_id: P.id, size: P.sizes.length ? S.size : '-', qty: S.qty, name: f.get('name'), phone: f.get('phone'), email: f.get('email'), consent: f.get('consent') === 'on',
+      address_text: f.get('address_text') || '', pvz_id: S.pvz && S.pvz.id, pvz_address: S.pvz && S.pvz.address };
+    if (!body.consent) { showErr('Нужно согласие на обработку данных.'); root.querySelector('.check').classList.add('err'); return; }
+    S.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+    try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+    catch (err) {
+      S.busy = false; $('#pay').disabled = false; $('#pay').textContent = S.quote ? `Оплатить ${rub(S.quote.total)}` : 'Оплатить';
+      const field = err.data && err.data.field;
+      const m = {
+        sold_out: 'Этот размер только что разобрали.',
+        validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+        payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+        no_product: 'Этой вещи больше нет в магазине.',
+        no_variant: 'Такого размера больше нет.',
+        bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+      }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+      if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+      if (err.message === 'sold_out' || err.message === 'no_variant') {
+        try { const r = await api('product', { q: { s: slug } }); P = r.product; } catch (e2) {}
+        renderSizes(); renderSum();
+      }
+      showErr(m);
+    }
+  };
+  renderSizes(); renderSum(); showAll();
+})();
+</script>
+<script src="../../assets/reveal.js"></script>
+</body>
+</html>

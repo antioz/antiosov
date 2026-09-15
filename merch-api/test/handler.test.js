@@ -17,7 +17,7 @@ test.before(async () => {
     VALUES ($p, 'H'u, ''u, 100, Json('[]'), 100, Json('{"x":1,"y":1,"z":1}'), Json('[]'), false, ''u, true, 1, CurrentUtcTimestamp());
     UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, '-'u, 5, 0, 0);`, { $p: db.V.s(P), $p2: db.V.s(P2) });
 });
-test('OPTIONS → 204 с CORS', async () => { const r = await handler({ httpMethod: 'OPTIONS', queryStringParameters: {} }); assert.equal(r.statusCode, 204); assert.ok(r.headers['Access-Control-Allow-Headers'].includes('Authorization')); });
+test('OPTIONS → 204 с CORS', async () => { const r = await handler({ httpMethod: 'OPTIONS', queryStringParameters: {} }); assert.equal(r.statusCode, 204); assert.ok(r.headers['Access-Control-Allow-Headers'].includes('X-Admin-Token')); });
 test('catalog', async () => { const r = await handler(ev('catalog')); assert.equal(r.statusCode, 200); assert.ok(JSON.parse(r.body).products.some(p => p.id === P)); });
 test('order → notify → status', async () => {
   const body = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000001', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true };
@@ -37,7 +37,7 @@ test('validation 400 with field', async () => {
 test('admin: login, orders, product upsert', async () => {
   let r = await handler(ev('admin/login', { method: 'POST', body: { password: 'wrong' } })); assert.equal(r.statusCode, 401);
   r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); const { token } = JSON.parse(r.body); assert.ok(token);
-  const H = { Authorization: 'Bearer ' + token };
+  const H = { 'X-Admin-Token': token };
   r = await handler(ev('admin/orders', { headers: H })); assert.equal(r.statusCode, 200); assert.ok(Array.isArray(JSON.parse(r.body).orders));
   r = await handler(ev('admin/orders')); assert.equal(r.statusCode, 401);
   r = await handler(ev('admin/product', { method: 'POST', headers: H, body: { id: 'test-h2', title: 'H2', description_md: '', price: 200, images: [], weight_g: 100, dims_cm: { x: 1, y: 1, z: 1 }, sizes: ['S'], preorder_allowed: false, preorder_ship_by: '', active: false, sort: 2, variants: [{ size: 'S', stock: 3 }] } }));
@@ -49,7 +49,7 @@ test('admin: login, orders, product upsert', async () => {
 
 const ORDER = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000002', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true };
 const mkOrder = async () => { const r = await handler(ev('order', { method: 'POST', body: ORDER })); assert.equal(r.statusCode, 200, r.body); return JSON.parse(r.body); };
-const login = async () => { const r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); return { Authorization: 'Bearer ' + JSON.parse(r.body).token }; };
+const login = async () => { const r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); return { 'X-Admin-Token': JSON.parse(r.body).token }; };
 test('parseBody: не-объект → 400 bad_json', async () => {
   for (const body of ['[1]', 'null', '42']) {
     const r = await handler({ httpMethod: 'POST', queryStringParameters: { a: 'order' }, headers: {}, body, isBase64Encoded: false });
@@ -81,9 +81,9 @@ test('success: getState бросает → всё равно 302 на заказ
 });
 test('admin: подделанный токен → 401; неверный status → 400', async () => {
   const H = await login();
-  const t = H.Authorization.slice(7); const parts = t.split('.'); parts[1] = Buffer.from(JSON.stringify({ role: 'admin', exp: 9999999999 })).toString('base64url');
-  let r = await handler(ev('admin/orders', { headers: { Authorization: 'Bearer ' + parts.join('.') } })); assert.equal(r.statusCode, 401);
-  r = await handler(ev('admin/orders', { headers: { Authorization: 'Bearer ' + t.slice(0, -2) + 'zz' } })); assert.equal(r.statusCode, 401);
+  const t = H['X-Admin-Token']; const parts = t.split('.'); parts[1] = Buffer.from(JSON.stringify({ role: 'admin', exp: 9999999999 })).toString('base64url');
+  let r = await handler(ev('admin/orders', { headers: { 'X-Admin-Token': parts.join('.') } })); assert.equal(r.statusCode, 401);
+  r = await handler(ev('admin/orders', { headers: { 'X-Admin-Token': t.slice(0, -2) + 'zz' } })); assert.equal(r.statusCode, 401);
   r = await handler(ev('admin/orders', { headers: H, q: { status: 'hacked' } })); assert.equal(r.statusCode, 400); assert.equal(JSON.parse(r.body).field, 'status');
   r = await handler(ev('admin/orders', { headers: H, q: { status: 'paid' } })); assert.equal(r.statusCode, 200);
 });
