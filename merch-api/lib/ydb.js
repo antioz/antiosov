@@ -31,7 +31,7 @@ async function query(yql, params = {}) {
 
 // Serverless YDB при конфликте блокировок отвечает на commit не ABORTED, а NotFound «Transaction not found»
 // (транзакция уже отменена сервером) — это тоже повод повторить fn целиком.
-const isRetryable = e => /ABORTED|locks invalidated|Transaction locks|TLI|Transaction not found/i.test(String(e && (e.message || e)));
+const isRetryable = e => /ABORTED|locks invalidated|Transaction locks|Transaction not found/i.test(String(e && (e.message || e)));
 
 async function tx(fn, retries = 5) {
   const d = await getDriver();
@@ -53,7 +53,10 @@ async function tx(fn, retries = 5) {
         }
       });
     } catch (e) {
-      if (attempt < retries && isRetryable(e)) continue;
+      if (attempt < retries && isRetryable(e)) {
+        await new Promise(r => setTimeout(r, 20 * attempt + Math.random() * 30));
+        continue;
+      }
       throw e;
     }
   }
