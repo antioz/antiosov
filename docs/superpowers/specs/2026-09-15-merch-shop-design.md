@@ -59,7 +59,7 @@
 `weight_g`, `dims_cm` (JSON `{x,y,z}`), `sizes` (JSON `[]`), `preorder_allowed` (bool),
 `preorder_ship_by` (date?), `active` (bool), `sort` (int), `updated_at`.
 
-**variants**: PK (`product_id`, `size`); `size = "-"` для безразмерных; `stock` (int), `reserved` (int).
+**variants**: PK (`product_id`, `size`); `size = "-"` для безразмерных; `stock` (int), `reserved` (int), `preorder_count` (int, оплаченные предзаказы, ждущие поступления).
 Инвариант: `0 ≤ reserved ≤ stock` для обычных; при предзаказе `stock` может быть 0, резерв ведётся
 в отдельном поле `preorder_count` (не ограничен). Списание — одна транзакция:
 `UPDATE variants SET reserved = reserved + $qty WHERE product_id=$p AND size=$s AND stock − reserved ≥ $qty`
