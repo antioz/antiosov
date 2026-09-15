@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS products (
+  id Utf8, title Utf8, description_md Utf8, price Int32, images Json, weight_g Int32,
+  dims_cm Json, sizes Json, preorder_allowed Bool, preorder_ship_by Utf8, active Bool,
+  sort Int32, updated_at Timestamp, PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS variants (
+  product_id Utf8, size Utf8, stock Int32, reserved Int32, preorder_count Int32,
+  PRIMARY KEY (product_id, size));
+CREATE TABLE IF NOT EXISTS orders (
+  id Utf8, k Utf8, created_at Timestamp, updated_at Timestamp, status Utf8,
+  product_id Utf8, size Utf8, qty Int32, is_preorder Bool,
+  price_item Int32, price_delivery Int32, total Int32,
+  customer_name Utf8, customer_phone Utf8, customer_email Utf8, address_text Utf8,
+  pvz_id Utf8, pvz_address Utf8, delivery_mode Utf8, yd_env Utf8, delivery_days Int32,
+  yd_request_id Utf8, yd_track_url Utf8, yd_error Utf8,
+  tb_payment_id Utf8, tb_payment_url Utf8, tb_refund_id Utf8, mail_error Utf8,
+  consent_at Timestamp, admin_note Utf8,
+  INDEX by_status GLOBAL ON (status),
+  PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS counters (name Utf8, value Int32, PRIMARY KEY (name));
