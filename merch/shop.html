@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Мерч — Дмитрий Антиосов</title>
+  <meta name="description" content="Мерч Дмитрия Антиосова. Вещи, которые можно носить." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://antiosov.ru/merch/shop.html" />
+  <meta name="robots" content="noindex" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://antiosov.ru/merch/" />
+  <meta property="og:title" content="Мерч — Дмитрий Антиосов" />
+  <meta property="og:description" content="Вещи, которые можно носить." />
+  <meta property="og:image" content="https://antiosov.ru/assets/og-words.png" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta property="og:site_name" content="Антиосов" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Мерч — Дмитрий Антиосов" />
+  <meta name="twitter:description" content="Вещи, которые можно носить." />
+  <meta name="twitter:image" content="https://antiosov.ru/assets/og-words.png" />
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="merch.css" />
+  <link rel="stylesheet" href="../assets/reveal.css" />
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112564032', 'ym');
+
+    ym(112564032, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/112564032" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+</head>
+<body>
+  <main>
+    <p class="name r" style="--i:0"><a href="/">Дмитрий Антиосов</a></p>
+    <h1 class="r" style="--i:1">Мерч</h1>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="meta r" style="--i:2;text-align:center;display:none">пока пусто — скоро</p>
+    <footer class="r" style="--i:3"><a href="/">← на главную</a><a href="/merch/privacy/">персональные данные</a></footer>
+  </main>
+  <script src="api.js"></script>
+  <script>
+    (async () => {
+      const empty = document.getElementById('empty');
+      try {
+        const { products } = await api('catalog');
+        const g = document.getElementById('grid');
+        if (!products.length) empty.style.display = '';
+        g.innerHTML = products.map((p, i) => {
+          const avail = p.variants.some(v => v.available > 0), pre = !avail && p.preorder_allowed;
+          return `<a class="card r ${avail || pre ? '' : 'out'}" style="--i:${i + 2}" href="/merch/p/?s=${encodeURIComponent(p.id)}">
+            <div class="ph">${p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
+            <div class="t">${esc(p.title)}</div>
+            <div class="p">${rub(p.price)}${pre ? ' · <span class="meta">предзаказ</span>' : (avail ? '' : ' · <span class="meta">нет в наличии</span>')}</div></a>`;
+        }).join('');
+      } catch (e) { empty.textContent = 'магазин временно недоступен'; empty.style.display = ''; }
+      showAll();
+    })();
+  </script>
+  <script src="../assets/reveal.js"></script>
+</body>
+</html>
