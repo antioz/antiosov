@@ -6,7 +6,9 @@ const ENV = process.env;
 const QTY_MAX = 5;
 
 const parseJson = (s, def) => { try { return s == null || s === '' ? def : JSON.parse(s); } catch (_) { return def; } };
-const parseProduct = p => p && ({ ...p, images: parseJson(p.images, []), dims_cm: parseJson(p.dims_cm, {}), sizes: parseJson(p.sizes, []) });
+const asArr = x => Array.isArray(x) ? x : [];
+const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d === 'object' && [n('x'), n('y'), n('z')].every(v => Number.isFinite(v) && v > 0)) ? { x: n('x'), y: n('y'), z: n('z') } : { x: 30, y: 20, z: 3 }; };
+const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])) });
 const withUrls = p => p && ({ ...p, image_urls: p.images.map(k => s3.publicUrl(k)) });
 const bySizeOrder = sizes => (a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size);
 
@@ -158,7 +160,8 @@ async function confirmPaid(orderId, paymentId, amountRub) {
     }
     return r;
   }
-  await afterPaid(orderId);
+  // Статус уже paid — сбой побочных эффектов не должен ронять notify (банк повторит, но следующий вызов увидит paid и ничего не сделает).
+  try { await afterPaid(orderId); } catch (e) { console.error('afterPaid', orderId, e.message); }
   return { ok: true };
 }
 
@@ -219,7 +222,10 @@ async function transition(id, to, { note } = {}) {
 async function cancel(id) {
   const cur = await loadOrderWithProduct(id);
   if (!cur) throw new HttpError(404, 'no_order');
-  if (cur.status === 'new') { await releaseNew(id, 'cancelled'); return loadOrderWithProduct(id); }
+  if (cur.status === 'new') {
+    if (!(await releaseNew(id, 'cancelled'))) { const now = await loadOrderWithProduct(id); throw new HttpError(409, 'bad_transition', { from: now && now.status, to: 'cancelled' }); }
+    return loadOrderWithProduct(id);
+  }
   if (cur.status !== 'paid' && cur.status !== 'packed') throw new HttpError(409, 'bad_transition', { from: cur.status, to: 'cancelled' });
   const res = await ext.tbank.cancel(cur.tb_payment_id);
   if (!res || res.Success === false) throw new HttpError(502, 'refund_failed', { tb: res });

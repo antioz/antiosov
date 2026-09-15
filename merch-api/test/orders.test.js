@@ -108,3 +108,31 @@ test('catalog: available и предзаказ', async () => {
   const c = (await orders.catalog()).find(p => p.id === P);
   assert.deepEqual(c.variants.map(v => [v.size, v.available]), [['M', 1], ['L', 0]]);
 });
+
+test('createOrder: сбой Init → 502 payment_init, резерв снят, заказ cancelled', async () => {
+  await seed(2);
+  const init = ext.tbank.init, err = console.error; console.error = () => {}; // домен логирует "init failed"
+  ext.tbank.init = async () => { throw new Error('boom'); };
+  try {
+    await assert.rejects(orders.createOrder(input()), e => e.error === 'payment_init' && e.code === 502);
+  } finally { ext.tbank.init = init; console.error = err; }
+  const [[v]] = await db.query(`DECLARE $p AS Utf8; SELECT reserved FROM variants WHERE product_id=$p AND size='M'u;`, { $p: db.V.s(P) });
+  assert.equal(v.reserved, 0);
+  const [os] = await db.query(`DECLARE $p AS Utf8; SELECT status FROM orders WHERE product_id=$p;`, { $p: db.V.s(P) });
+  for (const o of os) assert.equal(o.status, 'cancelled');
+});
+
+test('предзаказ: PREORDER_MAX ограничивает сумму предзаказов', async () => {
+  await seed(1, true);
+  const prev = process.env.PREORDER_MAX; process.env.PREORDER_MAX = '2';
+  try {
+    const r = await orders.createOrder(input({ size: 'L', qty: 2 }));
+    await orders.confirmPaid(r.id, 'P8', 3300);
+    await assert.rejects(orders.createOrder(input({ size: 'L', qty: 1 })), e => e.error === 'sold_out');
+  } finally { if (prev === undefined) delete process.env.PREORDER_MAX; else process.env.PREORDER_MAX = prev; }
+});
+
+test('getStatus: только публичные поля, без PII', async () => {
+  await seed(1); const r = await orders.createOrder(input());
+  assert.deepEqual(Object.keys(await orders.getStatus(r.id, r.k)).sort(), ['id', 'is_preorder', 'preorder_ship_by', 'status', 'total']);
+});
