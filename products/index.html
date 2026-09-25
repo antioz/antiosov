@@ -33,11 +33,13 @@
 <script src="/assets/consent.js" defer></script>
 </head>
 <body>
-  <main>
-    <p class="name r" style="--i:0"><a href="/">Дмитрий Антиосов</a></p>
-    <h1 class="r" style="--i:1">Продукты</h1>
-    <div id="grid" class="grid"></div>
-    <p id="empty" class="meta r" style="--i:2;text-align:center;display:none">пока пусто — скоро</p>
+  <main id="main">
+    <div class="hero">
+      <p class="name r" style="--i:0"><a href="/">Дмитрий Антиосов</a></p>
+      <h1 class="r" style="--i:1">Продукты</h1>
+      <div id="grid" class="grid"></div>
+      <p id="empty" class="meta r" style="--i:2;text-align:center;display:none">первый продукт — скоро</p>
+    </div>
     <footer class="r" style="--i:3"><a href="/">← на главную</a><a href="/merch/privacy/">персональные данные</a></footer>
   </main>
   <script src="../merch/api.js"></script>
@@ -47,7 +49,7 @@
       try {
         const { products } = await api('catalog', { q: { kind: 'digital' } });
         const g = document.getElementById('grid');
-        if (!products.length) empty.style.display = '';
+        if (!products.length) { empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
         g.innerHTML = products.map((p, i) => {
           const soon = p.has_file === false;
           return `<a class="card r" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
@@ -55,7 +57,7 @@
             <div class="t">${esc(p.title)}</div>
             <div class="p">${rub(p.price)}${soon ? ' · <span class="meta">скоро</span>' : ''}</div></a>`;
         }).join('');
-      } catch (e) { empty.textContent = 'раздел временно недоступен'; empty.style.display = ''; }
+      } catch (e) { empty.textContent = 'раздел временно недоступен'; empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
       showAll();
     })();
   </script>
