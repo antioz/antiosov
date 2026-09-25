@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Продукты — Дмитрий Антиосов</title>
+  <meta name="description" content="Цифровые продукты Дмитрия Антиосова: скиллы для ИИ. Купили один раз — скачиваете сколько нужно." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://antiosov.ru/products/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://antiosov.ru/products/" />
+  <meta property="og:title" content="Продукты — Дмитрий Антиосов" />
+  <meta property="og:description" content="Скиллы для ИИ. Купили один раз — скачиваете сколько нужно." />
+  <meta property="og:image" content="https://antiosov.ru/assets/og-words.png" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta property="og:site_name" content="Антиосов" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Продукты — Дмитрий Антиосов" />
+  <meta name="twitter:description" content="Скиллы для ИИ. Купили один раз — скачиваете сколько нужно." />
+  <meta name="twitter:image" content="https://antiosov.ru/assets/og-words.png" />
+
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../merch/merch.css" />
+  <link rel="stylesheet" href="products.css" />
+  <link rel="stylesheet" href="../assets/reveal.css" />
+<script src="/assets/consent.js" defer></script>
+</head>
+<body>
+  <main>
+    <p class="name r" style="--i:0"><a href="/">Дмитрий Антиосов</a></p>
+    <h1 class="r" style="--i:1">Продукты</h1>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="meta r" style="--i:2;text-align:center;display:none">пока пусто — скоро</p>
+    <footer class="r" style="--i:3"><a href="/">← на главную</a><a href="/merch/privacy/">персональные данные</a></footer>
+  </main>
+  <script src="../merch/api.js"></script>
+  <script>
+    (async () => {
+      const empty = document.getElementById('empty');
+      try {
+        const { products } = await api('catalog', { q: { kind: 'digital' } });
+        const g = document.getElementById('grid');
+        if (!products.length) empty.style.display = '';
+        g.innerHTML = products.map((p, i) => {
+          const soon = p.has_file === false;
+          return `<a class="card r" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
+            <div class="ph">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
+            <div class="t">${esc(p.title)}</div>
+            <div class="p">${rub(p.price)}${soon ? ' · <span class="meta">скоро</span>' : ''}</div></a>`;
+        }).join('');
+      } catch (e) { empty.textContent = 'раздел временно недоступен'; empty.style.display = ''; }
+      showAll();
+    })();
+  </script>
+  <script src="../assets/reveal.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // YDB: драйвер кэшируется на уровне модуля (переживает вызовы функции в одном инстансе).
-// query()  — один YQL в авто-транзакции (serializable RW, commit).
+// query()  — один YQL в авто-транзакции (serializable RW, commit); конфликт блокировок → повтор до 5 раз.
 // tx(fn)   — интерактивная транзакция; fn(run) выполняет несколько YQL; конфликт
 //            (ABORTED / locks invalidated) → повтор всей fn до 5 раз. Так реализуется
 //            оптимистичная блокировка: «прочитал остаток → проверил → записал».
@@ -24,14 +24,20 @@ async function getDriver() {
 
 const rows = r => r.resultSets.map(rs => TypedData.createNativeObjects(rs).map(o => ({ ...o })));
 
-async function query(yql, params = {}) {
-  const d = await getDriver();
-  return d.tableClient.withSessionRetry(s => s.executeQuery(yql, params, AUTO_TX).then(rows));
-}
-
 // Serverless YDB при конфликте блокировок отвечает на commit не ABORTED, а NotFound «Transaction not found»
 // (транзакция уже отменена сервером) — это тоже повод повторить fn целиком.
 const isRetryable = e => /ABORTED|locks invalidated|Transaction locks|Transaction not found/i.test(String(e && (e.message || e)));
+const pause = attempt => new Promise(r => setTimeout(r, 20 * attempt + Math.random() * 30));
+
+// Авто-транзакция при конфликте блокировок (скан orders параллельно с записью) отменяется целиком, ничего не закоммичено —
+// повтор безопасен. withSessionRetry SDK такие отказы не повторяет.
+async function query(yql, params = {}, retries = 5) {
+  const d = await getDriver();
+  for (let attempt = 0; ; attempt++) {
+    try { return await d.tableClient.withSessionRetry(s => s.executeQuery(yql, params, AUTO_TX).then(rows)); }
+    catch (e) { if (attempt < retries && isRetryable(e)) { await pause(attempt); continue; } throw e; }
+  }
+}
 
 async function tx(fn, retries = 5) {
   const d = await getDriver();
@@ -54,7 +60,7 @@ async function tx(fn, retries = 5) {
       });
     } catch (e) {
       if (attempt < retries && isRetryable(e)) {
-        await new Promise(r => setTimeout(r, 20 * attempt + Math.random() * 30));
+        await pause(attempt);
         continue;
       }
       throw e;

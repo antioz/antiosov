@@ -34,9 +34,9 @@ async function notify(ev) {
 // PaymentId из URL не используется (его можно подменить) — берём сохранённый при Init.
 async function success(q) {
   const id = String(q.id || ''), k = String(q.k || '');
-  const back = `${ENV.SITE}/merch/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
   const info = await orders.getPayInfo(id, k);
   if (!info) return redirect(`${ENV.SITE}/merch/`);
+  const back = orders.orderPage(info.kind, id, k);
   // Покупатель всегда попадает на страницу заказа; подтверждение продублирует notify.
   if (info.status === 'new' && info.tb_payment_id) {
     try {
@@ -56,7 +56,7 @@ module.exports.handler = async function (event) {
     const a = String(q.a || '');
     if (a.startsWith('admin/')) return await admin.route(a, method, method === 'GET' ? {} : parseBody(event), q, header(event, 'x-admin-token'));
     switch (a) {
-      case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
+      case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(q.kind === 'digital' ? 'digital' : 'physical'), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
       case 'product': { const p = await orders.getProduct(String(q.s || '')); return p ? json(200, { product: p, yd_mode: ext.yd.mode() }) : json(404, { error: 'no_product' }); }
       case 'cities': return json(200, { cities: await ext.yd.cities(String(q.q || '')) });
       case 'pvz': return json(200, { points: await ext.yd.pvz(String(q.geo_id || '')) });
@@ -70,7 +70,11 @@ module.exports.handler = async function (event) {
       }
       case 'order': { if (method !== 'POST') return json(405, { error: 'method' }); return json(200, await orders.createOrder(parseBody(event))); }
       case 'status': { const s = await orders.getStatus(String(q.id || ''), String(q.k || '')); return s ? json(200, s) : json(404, { error: 'no_order' }); }
-      case 'pay': { const u = await orders.getPayUrl(String(q.id || ''), String(q.k || '')); return u ? redirect(u) : redirect(`${ENV.SITE}/merch/order/?id=${encodeURIComponent(q.id || '')}&k=${encodeURIComponent(q.k || '')}`); }
+      case 'pay': {
+        const id = String(q.id || ''), k = String(q.k || ''); const i = await orders.getPayInfo(id, k);
+        return (i && i.status === 'new' && i.tb_payment_url) ? redirect(i.tb_payment_url) : redirect(orders.orderPage(i && i.kind, id, k));
+      }
+      case 'download': { if (method !== 'GET') return json(405, { error: 'method' }); return redirect(await orders.download(String(q.id || ''), String(q.k || ''))); }
       case 'success': return await success(q);
       case 'notify': return await notify(event);
       default: return json(404, { error: 'not_found' });

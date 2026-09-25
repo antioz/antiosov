@@ -8,17 +8,24 @@ const QTY_MAX = 5;
 const parseJson = (s, def) => { try { return s == null || s === '' ? def : JSON.parse(s); } catch (_) { return def; } };
 const asArr = x => Array.isArray(x) ? x : [];
 const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d === 'object' && [n('x'), n('y'), n('z')].every(v => Number.isFinite(v) && v > 0)) ? { x: n('x'), y: n('y'), z: n('z') } : { x: 30, y: 20, z: 3 }; };
-const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])) });
+// kind: NULL/пусто у старых товаров = physical. has_file — наружу вместо file_key (ключ архива публично не отдаём).
+const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])),
+  kind: p.kind === 'digital' ? 'digital' : 'physical', file_key: p.file_key || '', has_file: !!p.file_key });
+// Цифровой заказ помечается delivery_mode = 'none' в самой строке заказа: releaseNew/confirmPaid/cancel решают по заказу,
+// не завися от того, что админ позже поменяет kind у товара.
+const isDigital = o => !!o && o.delivery_mode === 'none';
+const DL_STATUSES = ['paid', 'done'];
 const withUrls = p => p && ({ ...p, image_urls: p.images.map(k => s3.publicUrl(k)) });
 const bySizeOrder = sizes => (a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size);
 
 // ---------- каталог ----------
-async function catalog() {
+// kind: 'physical' (витрина мерча, по умолчанию) | 'digital' (/products/).
+async function catalog(kind = 'physical') {
   const [ps, vs] = await db.query(`SELECT * FROM products WHERE active = true ORDER BY sort, id; SELECT * FROM variants;`);
   const byP = {};
   for (const v of vs) (byP[v.product_id] = byP[v.product_id] || []).push({ size: v.size, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count });
-  return ps.map(parseProduct).map(withUrls).map(p => ({
-    id: p.id, title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
+  return ps.map(parseProduct).filter(p => p.kind === kind).map(withUrls).map(p => ({
+    id: p.id, kind: p.kind, has_file: p.has_file, title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
     preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by,
     variants: (byP[p.id] || []).sort(bySizeOrder(p.sizes)),
   }));
@@ -28,6 +35,7 @@ async function getProduct(id, { admin = false } = {}) {
   const [[p], vs] = await db.query(`DECLARE $id AS Utf8; SELECT * FROM products WHERE id = $id; SELECT * FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
   if (!p || (!admin && !p.active)) return null;
   const prod = withUrls(parseProduct(p));
+  if (!admin) delete prod.file_key;
   prod.variants = vs.map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count }))
     .sort(bySizeOrder(prod.sizes));
   return prod;
@@ -49,8 +57,10 @@ function validate(i) {
 
 async function createOrder(input) {
   await gc();
+  const found = await getProduct(String(input.product_id || ''), { admin: true });
+  const product = found && found.active ? found : null;
+  if (found && found.kind === 'digital') { if (!product) throw new HttpError(404, 'no_product'); return createDigitalOrder(input, product); }
   const v = validate(input);
-  const product = await getProduct(String(input.product_id || ''));
   if (!product) throw new HttpError(404, 'no_product');
   if (!(product.sizes.length ? product.sizes.includes(v.size) : v.size === '-')) throw new HttpError(400, 'validation', { field: 'size' });
   const delivery = await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
@@ -107,13 +117,52 @@ async function createOrder(input) {
   return { id, k, paymentUrl: pay.paymentUrl };
 }
 
+// Цифровой товар: только e-mail + оферта + согласие (минимизация ПД), qty=1, без резерва и вариантов, без доставки.
+async function createDigitalOrder(i, product) {
+  const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
+  const email = validEmail(i.email) || bad('email');
+  if (i.offer !== true && i.offer !== 'true') bad('offer');
+  if (i.consent !== true && i.consent !== 'true') bad('consent');
+  if (!product.has_file) throw new HttpError(409, 'no_file');
+  const k = randomKey(), total = product.price;
+  const id = await db.tx(async run => {
+    const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order'u;`);
+    const n = (c ? c.value : 0) + 1;
+    await run(`DECLARE $n AS Int32; UPSERT INTO counters (name, value) VALUES ('order'u, $n);`, { $n: db.V.i(n) });
+    const id = 'M-' + String(n).padStart(6, '0');
+    await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $pi AS Int32; DECLARE $e AS Utf8;
+      UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
+        customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
+        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note, download_count)
+      VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, '-'u, 1, false, $pi, 0, $pi,
+        ''u, ''u, $e, ''u, ''u, ''u, 'none'u, ''u, 0, ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u, 0);`,
+      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $pi: db.V.i(total), $e: db.V.s(email) });
+    return id;
+  });
+  let pay;
+  try {
+    pay = await ext.tbank.init({
+      orderId: id, amountRub: total, description: `Заказ ${id}: ${product.title}`, email, dueDate: new Date(Date.now() + envInt('RESERVE_MIN', 20) * 60000),
+      receiptItems: [{ name: product.title, price_rub: total, qty: 1, object: 'intellectual_activity', method: 'full_payment' }],
+      successUrl: `${ENV.SELF_URL}?a=success&id=${id}&k=${k}`, failUrl: `${ENV.SITE}/products/order/?id=${id}&k=${k}&fail=1`, notifyUrl: `${ENV.SELF_URL}?a=notify`,
+    });
+  } catch (e) {
+    console.error('init failed', id, e.message);
+    await releaseNew(id, 'cancelled');
+    throw new HttpError(502, 'payment_init');
+  }
+  await db.query(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; DECLARE $url AS Utf8; UPDATE orders SET tb_payment_id = $pid, tb_payment_url = $url, updated_at = CurrentUtcTimestamp() WHERE id = $id;`,
+    { $id: db.V.s(id), $pid: db.V.s(String(pay.paymentId)), $url: db.V.s(String(pay.paymentUrl)) });
+  return { id, k, paymentUrl: pay.paymentUrl };
+}
+
 // new → expired|cancelled с возвратом резерва (одна транзакция). Возвращает true, если перевёл.
 async function releaseNew(id, to) {
   return db.tx(async run => {
-    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (!o || o.status !== 'new') return false;
     await run(`DECLARE $id AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(id), $to: db.V.s(to) });
-    if (!o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
+    if (!o.is_preorder && !isDigital(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
     return true;
   });
 }
@@ -142,23 +191,26 @@ async function purgePd() {
 
 // ---------- оплата ----------
 // run — функция транзакции (читать внутри tx) или null (авто-транзакция).
+// Поля для админки (предупреждение перед возвратом скачанного): kind заказа и отметки скачивания, NULL → 0/null.
+const orderExtras = o => ({ kind: isDigital(o) ? 'digital' : 'physical', downloaded_at: o.downloaded_at || null, download_count: o.download_count || 0 });
 async function loadOrderWithProduct(run, id) {
   if (id === undefined) { id = run; run = null; }
   const q = run || db.query;
   const [[o]] = await q(`DECLARE $id AS Utf8; SELECT * FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
   if (!o) return null;
   const product = await getProduct(o.product_id, { admin: true });
-  return { ...o, product_title: product ? product.title : o.product_id, preorder_ship_by: product ? product.preorder_ship_by : '', product };
+  return { ...o, product_title: product ? product.title : o.product_id, preorder_ship_by: product ? product.preorder_ship_by : '', product, ...orderExtras(o) };
 }
 
 async function confirmPaid(orderId, paymentId, amountRub) {
   const r = await db.tx(async run => {
-    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, total, product_id, size, qty, is_preorder, tb_payment_id FROM orders WHERE id = $id;`, { $id: db.V.s(orderId) });
+    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, total, product_id, size, qty, is_preorder, tb_payment_id, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(orderId) });
     if (!o) return { ok: false, reason: 'no_order' };
     if (o.status !== 'new') return { ok: false, reason: o.status };
     if (Number(amountRub) !== o.total) { console.error('AMOUNT MISMATCH', orderId, amountRub, o.total); return { ok: false, reason: 'amount' }; }
     await run(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; UPDATE orders SET status = 'paid'u, tb_payment_id = $pid, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(orderId), $pid: db.V.s(String(paymentId)) });
     const P = { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) };
+    if (isDigital(o)) return { ok: true };
     if (o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = preorder_count + $q WHERE product_id = $p AND size = $s;`, P);
     else await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET stock = Greatest(stock - $q, 0), reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, P);
     return { ok: true };
@@ -191,7 +243,7 @@ async function afterPaid(id) {
   const o = await loadOrderWithProduct(id);
   const errs = [];
   try { await ext.mail.send({ to: ENV.OWNER_EMAIL, ...mail.tplOwnerNewOrder(o) }); } catch (e) { errs.push('owner:' + e.message); }
-  try { await ext.mail.send({ to: o.customer_email, ...mail.tplCustomerPaid(o) }); } catch (e) { errs.push('customer:' + e.message); }
+  try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
   if (errs.length) await setField(id, 'mail_error', errs.join(' | ').slice(0, 500));
   if (o.delivery_mode === 'yandex') await createYd(o);
 }
@@ -208,23 +260,41 @@ async function createYd(o) {
 
 // ---------- публичные чтения ----------
 async function getStatus(id, k) {
-  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, is_preorder, product_id FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, is_preorder, product_id, delivery_mode, downloaded_at FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
   if (!o || !k || o.k !== k) return null;
   const p = await getProduct(o.product_id, { admin: true });
-  return { id, status: o.status, total: o.total, is_preorder: o.is_preorder, preorder_ship_by: p ? p.preorder_ship_by : '' };
+  const dig = isDigital(o);
+  return { id, status: o.status, total: o.total, is_preorder: o.is_preorder, preorder_ship_by: p ? p.preorder_ship_by : '',
+    kind: dig ? 'digital' : 'physical', can_download: dig && DL_STATUSES.includes(o.status), downloaded: !!o.downloaded_at };
 }
 async function getPayInfo(id, k) {
-  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, tb_payment_id, tb_payment_url FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
-  return (o && k && o.k === k) ? { status: o.status, total: o.total, tb_payment_id: o.tb_payment_id, tb_payment_url: o.tb_payment_url } : null;
+  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, tb_payment_id, tb_payment_url, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+  return (o && k && o.k === k) ? { status: o.status, total: o.total, tb_payment_id: o.tb_payment_id, tb_payment_url: o.tb_payment_url, kind: isDigital(o) ? 'digital' : 'physical' } : null;
+}
+// Страница заказа на сайте: мерч и цифровые товары живут в разных разделах.
+const orderPage = (kind, id, k) => `${ENV.SITE}/${kind === 'digital' ? 'products' : 'merch'}/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
+
+// Скачивание архива: первое — отметка downloaded_at (основание правила возврата), каждое — download_count + 1.
+// Возвращает presigned GET (10 минут) с именем <product_id>.zip.
+async function download(id, k) {
+  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, product_id, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+  if (!o || !k || o.k !== k || !isDigital(o)) throw new HttpError(404, 'no_order');
+  if (!DL_STATUSES.includes(o.status)) throw new HttpError(403, 'not_paid');
+  const p = await getProduct(o.product_id, { admin: true });
+  if (!p || !p.file_key) throw new HttpError(409, 'no_file');
+  await db.query(`DECLARE $id AS Utf8; UPDATE orders SET downloaded_at = COALESCE(downloaded_at, CurrentUtcTimestamp()), download_count = COALESCE(download_count, 0) + 1, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(id) });
+  return s3.presignGet(p.file_key, 600, `${p.id}.zip`);
 }
 async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }
 
 // ---------- админ ----------
 const NEXT = { paid: 'packed', packed: 'shipped', shipped: 'done' };
+const NEXT_DIGITAL = {}; // цифровой: переходов нет — packed/shipped закрыли бы покупателю скачивание (can_download только paid|done)
+const nextStatus = o => (isDigital(o) ? NEXT_DIGITAL : NEXT)[o.status];
 async function transition(id, to, { note } = {}) {
   const o = await db.tx(async run => {
-    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
-    if (!o || NEXT[o.status] !== to) throw new HttpError(409, 'bad_transition', { from: o && o.status, to });
+    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+    if (!o || nextStatus(o) !== to) throw new HttpError(409, 'bad_transition', { from: o && o.status, to });
     await run(`DECLARE $id AS Utf8; DECLARE $from AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = $from;`, { $id: db.V.s(id), $from: db.V.s(o.status), $to: db.V.s(to) });
     if (to === 'shipped' && o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = Greatest(preorder_count - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
     return o;
@@ -246,10 +316,10 @@ async function cancel(id) {
   const res = await ext.tbank.cancel(cur.tb_payment_id);
   if (!res || res.Success === false) throw new HttpError(502, 'refund_failed', { tb: res });
   await db.tx(async run => {
-    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+    const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (!o || (o.status !== 'paid' && o.status !== 'packed')) throw new HttpError(409, 'bad_transition', { from: o && o.status, to: 'cancelled' });
     await run(`DECLARE $id AS Utf8; DECLARE $from AS Utf8; DECLARE $r AS Utf8; UPDATE orders SET status = 'cancelled'u, tb_refund_id = $r, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = $from;`, { $id: db.V.s(id), $from: db.V.s(o.status), $r: db.V.s(String(res.PaymentId || cur.tb_payment_id)) });
-    if (o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = Greatest(preorder_count - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
+    if (o.is_preorder && !isDigital(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = Greatest(preorder_count - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
   });
   const full = await loadOrderWithProduct(id);
   try { await ext.mail.send({ to: full.customer_email, ...mail.tplCustomerCancelled(full) }); } catch (e) { await setField(id, 'mail_error', 'cancelled:' + e.message); }
@@ -263,8 +333,8 @@ async function listOrders({ status } = {}) {
     ? await db.query(`DECLARE $st AS Utf8; SELECT * FROM orders VIEW by_status WHERE status = $st; SELECT id, title FROM products;`, { $st: db.V.s(status) })
     : await db.query(`SELECT * FROM orders; SELECT id, title FROM products;`);
   const titles = Object.fromEntries(ps.map(p => [p.id, p.title]));
-  return rows.sort((a, b) => b.created_at - a.created_at).map(o => ({ ...o, product_title: titles[o.product_id] || o.product_id }));
+  return rows.sort((a, b) => b.created_at - a.created_at).map(o => ({ ...o, product_title: titles[o.product_id] || o.product_id, ...orderExtras(o) }));
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, orderPage, nextStatus, isDigital, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };

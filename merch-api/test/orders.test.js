@@ -134,7 +134,7 @@ test('предзаказ: PREORDER_MAX ограничивает сумму пр�
 
 test('getStatus: только публичные поля, без PII', async () => {
   await seed(1); const r = await orders.createOrder(input());
-  assert.deepEqual(Object.keys(await orders.getStatus(r.id, r.k)).sort(), ['id', 'is_preorder', 'preorder_ship_by', 'status', 'total']);
+  assert.deepEqual(Object.keys(await orders.getStatus(r.id, r.k)).sort(), ['can_download', 'downloaded', 'id', 'is_preorder', 'kind', 'preorder_ship_by', 'status', 'total']); // kind/can_download/downloaded — спека 2026-09-25
 });
 
 test('createOrder: без акцепта оферты → 400 offer', async () => {
