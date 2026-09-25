@@ -20,7 +20,7 @@ test.before(async () => {
 test('OPTIONS → 204 с CORS', async () => { const r = await handler({ httpMethod: 'OPTIONS', queryStringParameters: {} }); assert.equal(r.statusCode, 204); assert.ok(r.headers['Access-Control-Allow-Headers'].includes('X-Admin-Token')); });
 test('catalog', async () => { const r = await handler(ev('catalog')); assert.equal(r.statusCode, 200); assert.ok(JSON.parse(r.body).products.some(p => p.id === P)); });
 test('order → notify → status', async () => {
-  const body = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000001', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true };
+  const body = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000001', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true, offer: true };
   let r = await handler(ev('order', { method: 'POST', body })); assert.equal(r.statusCode, 200, r.body);
   const { id, k, paymentUrl } = JSON.parse(r.body); assert.ok(paymentUrl);
   r = await handler(ev('status', { q: { id, k } })); assert.equal(JSON.parse(r.body).status, 'new');
@@ -31,7 +31,7 @@ test('order → notify → status', async () => {
   r = await handler(ev('status', { q: { id, k } })); assert.equal(JSON.parse(r.body).status, 'paid');
 });
 test('validation 400 with field', async () => {
-  const r = await handler(ev('order', { method: 'POST', body: { product_id: P, qty: 1, name: 'x', phone: '1', email: 'a', consent: true } }));
+  const r = await handler(ev('order', { method: 'POST', body: { product_id: P, qty: 1, name: 'x', phone: '1', email: 'a', consent: true, offer: true } }));
   assert.equal(r.statusCode, 400); assert.equal(JSON.parse(r.body).field, 'name');
 });
 test('admin: login, orders, product upsert', async () => {
@@ -47,7 +47,7 @@ test('admin: login, orders, product upsert', async () => {
   const ph = JSON.parse(r.body); assert.ok(ph.put_url.includes('X-Amz-Signature')); assert.ok(ph.key.startsWith('p/test-h2/'));
 });
 
-const ORDER = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000002', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true };
+const ORDER = { product_id: P, size: '-', qty: 1, name: 'Иван Иванов', phone: '+79990000002', email: 'a@b.ru', address_text: 'Москва, ул. Тестовая, 1', consent: true, offer: true };
 const mkOrder = async () => { const r = await handler(ev('order', { method: 'POST', body: ORDER })); assert.equal(r.statusCode, 200, r.body); return JSON.parse(r.body); };
 const login = async () => { const r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); return { 'X-Admin-Token': JSON.parse(r.body).token }; };
 test('parseBody: не-объект → 400 bad_json', async () => {
