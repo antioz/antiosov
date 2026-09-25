@@ -4,3 +4,11 @@
 .fine{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--dim)} .fine a{color:inherit}
 .soon{margin:10px 0 0;text-align:center}
 .center .btn{max-width:360px}
+
+/* Пустой каталог — как заглушка /merch/: заголовок по центру экрана, подвал внизу */
+main.empty{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;padding-top:0;padding-bottom:0}
+main.empty .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0}
+main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty footer{padding:24px 0 48px}
+/* Товаров пока мало — сетка по центру, а не прижата влево */
+#grid{grid-template-columns:repeat(auto-fit,minmax(240px,300px));justify-content:center}
+@media(max-width:560px){#grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
