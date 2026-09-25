@@ -92,8 +92,10 @@
 
   <!-- закрыто -->
   <section id="wall" class="wall r" style="--i:3">
-    <p>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
-    <form class="payform" id="payform" novalidate>
+    <!-- продажа приостановлена 25.09.2026; вернуть: убрать hidden у формы и первого абзаца, удалить абзац «временно недоступна» -->
+    <p hidden>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
+    <p>Полная версия временно недоступна.</p>
+    <form class="payform" id="payform" novalidate hidden>
       <input class="email" id="email" type="email" name="email" placeholder="email для чека" autocomplete="email" required />
       <button class="btn" id="pay" type="submit">Открыть за 500 ₽</button>
     </form>
