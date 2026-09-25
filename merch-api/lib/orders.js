@@ -38,6 +38,7 @@ function validate(i) {
   const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
   const name = validName(i.name) || bad('name'); const phone = validPhone(i.phone) || bad('phone'); const email = validEmail(i.email) || bad('email');
   const qty = parseInt(i.qty, 10); if (!(qty >= 1 && qty <= QTY_MAX)) bad('qty');
+  if (i.offer !== true && i.offer !== 'true') bad('offer');
   if (i.consent !== true && i.consent !== 'true') bad('consent');
   const size = String(i.size || '-');
   const off = ext.yd.mode() === 'off';
@@ -117,11 +118,26 @@ async function releaseNew(id, to) {
   });
 }
 
+let lastPurge = 0;
 async function gc() {
   const cutoff = new Date(Date.now() - envInt('RESERVE_MIN', 20) * 60000);
   const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders VIEW by_status WHERE status = 'new'u AND created_at < $c LIMIT 100;`, { $c: db.V.ts(cutoff) });
   let n = 0; for (const r of rows) if (await releaseNew(r.id, 'expired')) n++;
+  // purgePd сканирует всю таблицу orders — не чаще раза в 6 часов на экземпляр функции, а не на каждый запрос каталога.
+  if (Date.now() - lastPurge > 6 * 3600000) { lastPurge = Date.now(); try { await purgePd(); } catch (e) { console.error('purgePd', e.message); } }
   return n;
+}
+
+// Срок хранения ПД из политики и согласия (/merch/privacy/, /consent/) — 3 года с даты заказа. Потом заказ обезличивается:
+// контакты и адрес стираются, номер, товар и суммы остаются для учёта. Возвращает число обезличенных заказов.
+async function purgePd() {
+  const cutoff = new Date(Date.now() - envInt('PD_RETENTION_DAYS', 1095) * 86400000);
+  const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders WHERE created_at < $c AND customer_email != ''u LIMIT 100;`, { $c: db.V.ts(cutoff) });
+  for (const r of rows) {
+    await db.query(`DECLARE $id AS Utf8; UPDATE orders SET customer_name = ''u, customer_phone = ''u, customer_email = ''u, address_text = ''u, pvz_address = ''u, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(r.id) });
+    console.log('purgePd', r.id);
+  }
+  return rows.length;
 }
 
 // ---------- оплата ----------
@@ -251,4 +267,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, getStatus, getPayInfo, getPayUrl, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };

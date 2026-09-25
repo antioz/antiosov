@@ -23,7 +23,7 @@ async function seed(stock, preorder = false) {
   await db.query(`DECLARE $p AS Utf8; DECLARE $st AS Int32;
     UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, 'M'u, $st, 0, 0), ($p, 'L'u, 0, 0, 0);`, { $p: db.V.s(P), $st: db.V.i(stock) });
 }
-const input = (over = {}) => ({ product_id: P, size: 'M', qty: 1, name: 'Тест Тестов', phone: '89990000000', email: 'buyer@example.com', pvz_id: 'PVZ1', pvz_address: 'Москва, пункт 1', consent: true, ...over });
+const input = (over = {}) => ({ product_id: P, size: 'M', qty: 1, name: 'Тест Тестов', phone: '89990000000', email: 'buyer@example.com', pvz_id: 'PVZ1', pvz_address: 'Москва, пункт 1', consent: true, offer: true, ...over });
 
 test('createOrder: резерв, Init, номер и ключ', async () => {
   await seed(2);
@@ -135,4 +135,21 @@ test('предзаказ: PREORDER_MAX ограничивает сумму пр�
 test('getStatus: только публичные поля, без PII', async () => {
   await seed(1); const r = await orders.createOrder(input());
   assert.deepEqual(Object.keys(await orders.getStatus(r.id, r.k)).sort(), ['id', 'is_preorder', 'preorder_ship_by', 'status', 'total']);
+});
+
+test('createOrder: без акцепта оферты → 400 offer', async () => {
+  await seed(1);
+  await assert.rejects(orders.createOrder(input({ offer: false })), e => e.code === 400 && e.extra.field === 'offer');
+});
+
+test('purgePd: заказы старше срока обезличены, свежие и суммы не тронуты', async () => {
+  await seed(3);
+  const old = await orders.createOrder(input()), fresh = await orders.createOrder(input());
+  await db.query(`DECLARE $id AS Utf8; UPDATE orders SET created_at = CurrentUtcTimestamp() - Interval("P1096D") WHERE id = $id;`, { $id: db.V.s(old.id) });
+  assert.equal(await orders.purgePd(), 1);
+  const o = await orders.getOrder(old.id), f = await orders.getOrder(fresh.id);
+  assert.deepEqual([o.customer_name, o.customer_phone, o.customer_email, o.address_text, o.pvz_address], ['', '', '', '', '']);
+  assert.equal(o.total, 1800); assert.equal(o.id, old.id);
+  assert.equal(f.customer_email, 'buyer@example.com');
+  assert.equal(await orders.purgePd(), 0);
 });
