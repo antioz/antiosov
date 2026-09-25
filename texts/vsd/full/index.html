@@ -50,6 +50,9 @@
     .email:focus { border-color: var(--ink); }
     .email::placeholder { color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; font-size: 11px; }
     .wall .note a { color: var(--ink); }
+    .check { display: flex; gap: 10px; align-items: flex-start; max-width: 320px; font-size: 13px; line-height: 1.4; color: #444; text-align: left; cursor: pointer; }
+    .check input { margin-top: 2px; flex: 0 0 auto; }
+    .check a { color: inherit; }
     .wall .note { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
 
     /* книга */
@@ -92,15 +95,16 @@
 
   <!-- закрыто -->
   <section id="wall" class="wall r" style="--i:3">
-    <!-- продажа приостановлена 25.09.2026; вернуть: убрать hidden у формы и первого абзаца, удалить абзац «временно недоступна» -->
-    <p hidden>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
-    <p>Полная версия временно недоступна.</p>
-    <form class="payform" id="payform" novalidate hidden>
+    <p>Вся книга целиком — здесь, на сайте, и PDF-файлом, чтобы забрать с собой.</p>
+    <form class="payform" id="payform" novalidate>
       <input class="email" id="email" type="email" name="email" placeholder="email для чека" autocomplete="email" required />
+      <label class="check"><input type="checkbox" id="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+      <label class="check"><input type="checkbox" id="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
       <button class="btn" id="pay" type="submit">Открыть за 500 ₽</button>
     </form>
     <div class="note" id="fail" hidden>оплата не прошла — попробуйте ещё раз</div>
     <div class="note" id="failEmail" hidden>нужен email — на него придёт чек</div>
+    <div class="note" id="failCheck" hidden>нужно принять оферту и дать согласие на обработку данных</div>
   </section>
 
 
@@ -191,6 +195,9 @@
         e.preventDefault();
         var email = document.getElementById('email').value.trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('failEmail').hidden = false; document.getElementById('email').focus(); return; }
+        document.getElementById('failEmail').hidden = true;
+        if (!document.getElementById('offer').checked || !document.getElementById('consent').checked) { document.getElementById('failCheck').hidden = false; return; }
+        document.getElementById('failCheck').hidden = true;
         if (!PAYWALL_URL) { modal.classList.add('open'); return; }
         location.href = PAYWALL_URL + '?a=pay&email=' + encodeURIComponent(email);
       });
