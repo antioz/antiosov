@@ -1,0 +1,6 @@
+/* Дополнения к ../merch/merch.css для раздела «Продукты». */
+.howto{margin:28px 0;padding:18px 20px;background:#f6f6f6;font-size:15px;line-height:1.6;text-align:left} .howto h3{margin:0 0 10px;font-family:var(--serif);font-style:italic;font-weight:400;font-size:26px;line-height:1.05}
+.howto ol{margin:0 0 10px;padding-left:22px} .howto li{margin:0 0 4px} .howto p{margin:0}
+.fine{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--dim)} .fine a{color:inherit}
+.soon{margin:10px 0 0;text-align:center}
+.center .btn{max-width:360px}

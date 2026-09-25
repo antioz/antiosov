@@ -38,3 +38,13 @@ test('письма владельцу не содержат ПД покупат�
     }
   }
 });
+
+test('цифровой заказ: «Доступ открыт» со ссылкой, владельцу — без ПД и без доставки', () => {
+  const d = { ...order, k: 'abc<def', size: '-', delivery_mode: 'none', price_delivery: 0, total: 111, price_item: 111, customer_name: '', customer_phone: '', address_text: '', product_title: '<b>Скилл</b>' };
+  const m = mail.tplCustomerAccess(d);
+  assert.ok(m.subject.includes('Доступ открыт') && m.subject.includes('M-000001'), m.subject);
+  assert.ok(m.text.includes('/products/order/?id=M-000001&k=abc%3Cdef'), m.text);
+  assert.ok(m.html.includes('<a href="') && !m.html.includes('<b>'), m.html);
+  const o = mail.tplOwnerNewOrder(d);
+  assert.ok(!o.text.includes('доставка') && !o.html.includes(d.customer_email) && !o.text.includes(d.customer_email), o.text);
+});

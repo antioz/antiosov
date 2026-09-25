@@ -51,4 +51,9 @@
     <changefreq>monthly</changefreq>
   </url>
   <url><loc>https://antiosov.ru/merch/privacy/</loc></url>
+  <url>
+    <loc>https://antiosov.ru/products/</loc>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+  </url>
 </urlset>

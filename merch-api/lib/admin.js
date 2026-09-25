@@ -17,16 +17,24 @@ const requireAuth = auth => { const t = String(auth || '').replace(/^Bearer\s+/i
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const PHOTO_KEY_RE = /^p\/[a-z0-9][a-z0-9-]{1,40}\/[0-9a-f]+\.(jpg|png)$/;
+const fileKeyOk = (id, key) => key === '' || (key.startsWith(`d/${id}/`) && /^[0-9a-f]+\.zip$/.test(key.slice(id.length + 3)));
 const ORDER_STATUSES = ['new', 'paid', 'packed', 'shipped', 'done', 'cancelled', 'expired'];
 async function upsertProduct(b) {
   const id = String(b.id || ''); if (!SLUG_RE.test(id)) throw new HttpError(400, 'validation', { field: 'id' });
   const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
   const price = parseInt(b.price, 10); if (!(price >= 1)) throw new HttpError(400, 'validation', { field: 'price' });
-  const sizes = Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
+  // kind/file_key: не пришли в теле (старая форма админки) → остаются как в БД; новый товар — physical без архива.
+  if (b.kind !== undefined && b.kind !== 'digital' && b.kind !== 'physical') throw new HttpError(400, 'validation', { field: 'kind' });
+  if (b.file_key !== undefined && b.file_key !== null && !fileKeyOk(id, String(b.file_key))) throw new HttpError(400, 'validation', { field: 'file_key' });
+  const [[prev]] = await db.query(`DECLARE $id AS Utf8; SELECT kind, file_key FROM products WHERE id = $id;`, { $id: db.V.s(id) });
+  const kind = b.kind !== undefined ? b.kind : (prev && prev.kind === 'digital' ? 'digital' : 'physical');
+  const file_key = (b.file_key !== undefined && b.file_key !== null) ? String(b.file_key) : ((prev && prev.file_key) || '');
+  const digital = kind === 'digital';
+  const sizes = digital ? [] : Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
   const dims = b.dims_cm || {}; const dims_cm = { x: +dims.x || 30, y: +dims.y || 20, z: +dims.z || 3 };
   const images = Array.isArray(b.images) ? b.images.map(String) : [];
   // Варианты: набор размеров = sizes (или '-'); stock задаётся, reserved/preorder_count сохраняются.
-  const want = sizes.length ? sizes : ['-'];
+  const want = digital ? [] : sizes.length ? sizes : ['-']; // у цифрового товара вариантов нет (остатка и резерва тоже)
   const stocks = Object.fromEntries((Array.isArray(b.variants) ? b.variants : []).map(v => [String(v.size), Math.max(0, parseInt(v.stock, 10) || 0)]));
   // Одна транзакция: сначала проверка занятых размеров (409 до любой записи), потом products + variants.
   await db.tx(async run => {
@@ -34,11 +42,12 @@ async function upsertProduct(b) {
     const drop = have.filter(h => !want.includes(h.size));
     for (const h of drop) if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
     await run(`DECLARE $id AS Utf8; DECLARE $title AS Utf8; DECLARE $d AS Utf8; DECLARE $price AS Int32; DECLARE $img AS Json; DECLARE $w AS Int32; DECLARE $dims AS Json;
-      DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32;
-      UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at)
-      VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp());`,
+      DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32; DECLARE $kind AS Utf8; DECLARE $fk AS Utf8;
+      UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at, kind, file_key)
+      VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp(), $kind, $fk);`,
       { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
-        $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0) });
+        $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(!digital && b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0),
+        $kind: db.V.s(kind), $fk: db.V.s(file_key) });
     for (const h of drop) await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
     for (const s of want) {
       const h = have.find(x => x.size === s);
@@ -56,7 +65,7 @@ async function route(a, method, body, q, auth) {
   switch (a) {
     case 'admin/summary': {
       const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
-      const open = [...paid, ...packed]; const mode = ext.yd.mode();
+      const open = [...paid, ...packed].filter(o => o.kind !== 'digital'); const mode = ext.yd.mode(); // цифровые не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
         yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
     }
@@ -69,7 +78,7 @@ async function route(a, method, body, q, auth) {
       if (method === 'GET') { const o = await orders.getOrder(String(q.id || '')); return o ? json(200, { order: o }) : json(404, { error: 'no_order' }); }
       const id = String(body.id || '');
       switch (body.action) {
-        case 'next': { const cur = await orders.getOrder(id); if (!cur) throw new HttpError(404, 'no_order'); const to = { paid: 'packed', packed: 'shipped', shipped: 'done' }[cur.status]; if (!to) throw new HttpError(409, 'bad_transition'); return json(200, { order: await orders.transition(id, to) }); }
+        case 'next': { const cur = await orders.getOrder(id); if (!cur) throw new HttpError(404, 'no_order'); const to = orders.nextStatus(cur); if (!to) throw new HttpError(409, 'bad_transition'); return json(200, { order: await orders.transition(id, to) }); }
         case 'cancel': return json(200, { order: await orders.cancel(id) });
         case 'retry_yd': return json(200, { order: await orders.retryYd(id) });
         case 'note': return json(200, { order: await orders.setNote(id, body.note) });
@@ -78,12 +87,19 @@ async function route(a, method, body, q, auth) {
     }
     case 'admin/products': {
       const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
-      return json(200, { products: ps.map(p => ({ ...p, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
+      return json(200, { products: ps.map(p => ({ ...p, kind: p.kind === 'digital' ? 'digital' : 'physical', file_key: p.file_key || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
         variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) })) });
     }
     case 'admin/product': {
       if (method === 'GET') { const p = await orders.getProduct(String(q.id || ''), { admin: true }); return p ? json(200, { product: p }) : json(404, { error: 'no_product' }); }
       return json(200, { product: await upsertProduct(body) });
+    }
+    // Архив цифрового товара: presigned PUT в закрытый d/<id>/ (публично открыт только p/*). Ключ потом сохраняется через admin/product.
+    case 'admin/file': {
+      if (method !== 'POST') throw new HttpError(405, 'method');
+      const pid = String(body.product_id || ''); if (!SLUG_RE.test(pid)) throw new HttpError(400, 'validation', { field: 'product_id' });
+      const key = `d/${pid}/${crypto.randomBytes(6).toString('hex')}.zip`;
+      return json(200, { key, put_url: s3.presignPut(key, 'application/zip', 600), content_type: 'application/zip' });
     }
     case 'admin/photo': {
       if (method === 'POST') {

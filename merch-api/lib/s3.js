@@ -1,5 +1,6 @@
 // Object Storage, AWS SigV4. presignPut — для загрузки фото из админки (подписывается точный
-// Content-Type, поэтому клиент обязан слать тот же заголовок). deleteObject — подписанный DELETE.
+// Content-Type, поэтому клиент обязан слать тот же заголовок). presignGet — выдача архива цифрового товара из закрытого d/*.
+// deleteObject — подписанный DELETE.
 const https = require('https'); const crypto = require('crypto');
 const ENV = process.env;
 const HOST = 'storage.yandexcloud.net', REGION = 'ru-central1', SERVICE = 's3';
@@ -23,6 +24,21 @@ function presignPut(key, contentType, ttlSec) {
   return `https://${HOST}${canonicalUri(key)}?${cq}&X-Amz-Signature=${signature}`;
 }
 
+// response-content-disposition входит в подпись: имя файла при скачивании задаём мы, а не ключ в бакете (d/<id>/<hex>.zip).
+function presignGet(key, ttlSec, filename) {
+  const date = amzDate(), day = date.slice(0, 8), scope = `${day}/${REGION}/${SERVICE}/aws4_request`;
+  const q = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256', 'X-Amz-Credential': `${ENV.S3_KEY}/${scope}`, 'X-Amz-Date': date,
+    'X-Amz-Expires': String(ttlSec), 'X-Amz-SignedHeaders': 'host',
+    ...(filename ? { 'response-content-disposition': `attachment; filename="${String(filename).replace(/["\\\r\n]/g, '')}"` } : {}),
+  };
+  const cq = Object.keys(q).sort().map(k => `${enc(k)}=${enc(q[k])}`).join('&');
+  const cr = ['GET', canonicalUri(key), cq, `host:${HOST}\n`, 'host', 'UNSIGNED-PAYLOAD'].join('\n');
+  const sts = ['AWS4-HMAC-SHA256', date, scope, sha(cr)].join('\n');
+  const signature = crypto.createHmac('sha256', signingKey(day)).update(sts).digest('hex');
+  return `https://${HOST}${canonicalUri(key)}?${cq}&X-Amz-Signature=${signature}`;
+}
+
 function deleteObject(key) {
   const date = amzDate(), day = date.slice(0, 8), scope = `${day}/${REGION}/${SERVICE}/aws4_request`;
   const payloadHash = sha('');
@@ -41,4 +57,4 @@ function deleteObject(key) {
 }
 
 const publicUrl = key => `https://${HOST}/${ENV.S3_BUCKET}/${key}`;
-module.exports = { presignPut, deleteObject, publicUrl };
+module.exports = { presignPut, presignGet, deleteObject, publicUrl };

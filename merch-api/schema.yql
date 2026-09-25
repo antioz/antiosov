@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS products (
   id Utf8, title Utf8, description_md Utf8, price Int32, images Json, weight_g Int32,
   dims_cm Json, sizes Json, preorder_allowed Bool, preorder_ship_by Utf8, active Bool,
-  sort Int32, updated_at Timestamp, PRIMARY KEY (id));
+  sort Int32, updated_at Timestamp, kind Utf8, file_key Utf8, PRIMARY KEY (id));
 CREATE TABLE IF NOT EXISTS variants (
   product_id Utf8, size Utf8, stock Int32, reserved Int32, preorder_count Int32,
   PRIMARY KEY (product_id, size));
@@ -13,7 +13,13 @@ CREATE TABLE IF NOT EXISTS orders (
   pvz_id Utf8, pvz_address Utf8, delivery_mode Utf8, yd_env Utf8, delivery_days Int32,
   yd_request_id Utf8, yd_track_url Utf8, yd_error Utf8,
   tb_payment_id Utf8, tb_payment_url Utf8, tb_refund_id Utf8, mail_error Utf8,
-  consent_at Timestamp, admin_note Utf8,
+  consent_at Timestamp, admin_note Utf8, downloaded_at Timestamp, download_count Int32,
   INDEX by_status GLOBAL ON (status),
   PRIMARY KEY (id));
 CREATE TABLE IF NOT EXISTS counters (name Utf8, value Int32, PRIMARY KEY (name));
+-- Существующая БД: CREATE TABLE IF NOT EXISTS колонки не добавит, поэтому ниже — ALTER (migrate.js считает «already exists» нормой).
+-- 2026-09-25 цифровые товары: kind ('digital'|'physical', NULL = physical), file_key (d/<id>/<hex>.zip), отметки скачивания.
+ALTER TABLE products ADD COLUMN kind Utf8;
+ALTER TABLE products ADD COLUMN file_key Utf8;
+ALTER TABLE orders ADD COLUMN downloaded_at Timestamp;
+ALTER TABLE orders ADD COLUMN download_count Int32;

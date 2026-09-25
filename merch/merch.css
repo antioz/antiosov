@@ -28,5 +28,6 @@ h2{margin:0 0 8px;font-family:var(--serif);font-style:italic;font-weight:400;fon
 .suggest{position:relative} .suggest ul{position:absolute;left:0;right:0;top:100%;z-index:5;margin:0;padding:0;list-style:none;background:#fff;border:1px solid var(--line);border-top:0;max-height:200px;overflow:auto} .suggest li{padding:8px 12px;font-size:14px;cursor:pointer} .suggest li:hover{background:#fafafa}
 footer{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 24px;padding:48px 24px 0} footer a{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);text-decoration:none;transition:color .2s ease} footer a:hover{color:var(--ink)}
 .center{text-align:center;max-width:560px;margin:0 auto} .center p{font-size:16px;line-height:1.6} .center a{color:inherit}
+.center a.btn{color:#fff;line-height:52px;max-width:360px} /* .center a перекрашивал текст кнопки-ссылки, а font:inherit у .btn сбрасывал line-height */
 .text{max-width:640px;margin:0 auto} .text p{font-size:16px;line-height:1.65;margin:0 0 16px} .text h2{font-size:26px;margin:32px 0 10px} .text a{color:inherit} .text ul{padding-left:20px;font-size:16px;line-height:1.65;margin:0 0 16px}
 @media(max-width:600px){.name{font-size:11px;letter-spacing:.35em;text-indent:.35em} main{padding:36px 16px 64px} h2{font-size:30px}}

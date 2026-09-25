@@ -25,11 +25,12 @@ ${lines.map(l => `<p style="margin:0 0 8px">${typeof l === 'string' ? esc(l) : l
 <p style="margin:24px 0 0;color:#888;font-size:13px;letter-spacing:.2em;text-transform:uppercase">antiosov.ru</p></div>`,
 });
 
+const digital = o => o.delivery_mode === 'none'; // признак цифрового заказа (см. orders.js)
 function tplOwnerNewOrder(o) {
   const site = ENV.SITE || 'https://antiosov.ru';
   const m = wrap(`Заказ ${o.id}`, [
-    item(o), `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
-    o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии',
+    item(o), digital(o) ? `Сумма: ${rub(o.total)}` : `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
+    digital(o) ? 'Цифровой товар: покупателю ушла ссылка на скачивание' : (o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии'),
     // Без персональных данных покупателя: письмо может уходить на зарубежную почту (152-ФЗ, трансграничная передача).
     // Имя, телефон, адрес — только в админке (Yandex Cloud, РФ).
     link(`${site}/merch/admin/#order/${o.id}`, 'Покупатель и адрес — в админке'),
@@ -44,6 +45,17 @@ function tplCustomerPaid(o) {
   ]);
   return { subject: `Заказ ${o.id} принят`, ...m };
 }
+// Цифровой товар: ссылка на страницу заказа с ключом k — там кнопка «Скачать» (presigned-ссылка живёт 10 минут, в письмо её не кладём).
+function tplCustomerAccess(o) {
+  const site = ENV.SITE || 'https://antiosov.ru';
+  const m = wrap('Доступ открыт', [
+    `Номер заказа: ${o.id}`, `${o.product_title}`, `Оплачено: ${rub(o.total)}`,
+    link(`${site}/products/order/?id=${encodeURIComponent(o.id)}&k=${encodeURIComponent(o.k)}`, 'Скачать и инструкция по установке'),
+    'Ссылка постоянная: скачивать можно сколько угодно раз, всегда последнюю версию.',
+    'Вернуть деньги можно, пока архив ни разу не скачан. Вопросы — просто ответьте на это письмо.',
+  ]);
+  return { subject: `Доступ открыт — заказ ${o.id}`, ...m };
+}
 function tplCustomerShipped(o) {
   const m = wrap('Заказ отправлен', [`Номер заказа: ${o.id}`, item(o), where(o),
     o.yd_track_url ? link(o.yd_track_url, 'Отследить посылку') : (o.admin_note ? `Трек: ${o.admin_note}` : 'Напишу, когда посылка будет в пункте выдачи.')]);
@@ -57,4 +69,4 @@ function tplOwnerLatePayment(o, paymentId) {
   const m = wrap(`Поздняя оплата ${o.id}`, [`Заказ был в статусе ${o.status}, платёж ${paymentId} подтверждён после срока.`, 'Сделан автоматический возврат через Т-Банк. Проверь в кабинете.', 'Данные покупателя — в админке (без ПД в письме).']);
   return { subject: `Поздняя оплата ${o.id} — возврат`, ...m };
 }
-module.exports = { send, tplOwnerNewOrder, tplCustomerPaid, tplCustomerShipped, tplCustomerCancelled, tplOwnerLatePayment };
+module.exports = { send, tplOwnerNewOrder, tplCustomerPaid, tplCustomerAccess, tplCustomerShipped, tplCustomerCancelled, tplOwnerLatePayment };

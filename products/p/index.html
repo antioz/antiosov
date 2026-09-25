@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Продукты — Дмитрий Антиосов</title>
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../../merch/merch.css" />
+  <link rel="stylesheet" href="../products.css" />
+  <link rel="stylesheet" href="../../assets/reveal.css" />
+<script src="/assets/consent.js" defer></script>
+</head>
+<body>
+<main>
+  <p class="name r in"><a href="/">Дмитрий Антиосов</a></p>
+  <div id="root"><p class="meta" style="text-align:center">загружаю…</p></div>
+  <footer><a href="/products/">← все продукты</a><a href="/merch/privacy/">персональные данные</a></footer>
+</main>
+<script src="../../merch/api.js"></script>
+<script src="../products.js"></script>
+<script>
+(async () => {
+  const root = document.getElementById('root');
+  const slug = new URLSearchParams(location.search).get('s') || '';
+  const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
+  let P;
+  try { P = (await api('product', { q: { s: slug } })).product; } catch (e) { nope(); return; }
+  if (P.kind !== 'digital') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
+  document.title = P.title + ' — Продукты — Дмитрий Антиосов';
+  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  const S = { busy: false, soon: !P.has_file };
+  const label = () => S.soon ? 'Скоро' : 'Купить за ' + rub(P.price);
+
+  root.innerHTML = `<div class="product">
+    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      <div class="desc">${md(P.description_md)}</div>
+      ${HOWTO}
+      <form id="f" novalidate>
+        <label class="field" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px">${label()}</button>
+        ${S.soon ? '<p class="meta soon" id="soon">архив ещё не готов — скоро</p>' : ''}
+        <p class="fine">Это цифровой товар: после оплаты архив можно скачивать сколько угодно раз. Вернуть деньги можно, пока архив ни разу не скачан — подробно в <a href="/offer/" target="_blank">оферте</a>.</p>
+      </form>
+    </div></div>`;
+  const $ = s => root.querySelector(s);
+  $('#pay').disabled = S.soon;
+
+  const FIELD_RU = { email: 'e-mail', consent: 'согласие', offer: 'оферта', product_id: 'товар' };
+  const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); if (S.busy || S.soon) return;
+    const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+    const body = { product_id: P.id, email: String(f.get('email') || '').trim(), offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт ссылка.'); $('[data-f="email"]').classList.add('err'); return; }
+    if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+    if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+    S.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+    try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+    catch (err) {
+      S.busy = false;
+      const field = err.data && err.data.field;
+      if (err.message === 'no_file') { S.soon = true; if (!$('#soon')) $('#pay').insertAdjacentHTML('afterend', '<p class="meta soon" id="soon">архив ещё не готов — скоро</p>'); }
+      $('#pay').disabled = S.soon; $('#pay').textContent = label();
+      const m = {
+        no_file: 'Товар временно недоступен — архив ещё не загружен. Загляните чуть позже.',
+        validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+        payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+        no_product: 'Этого продукта больше нет.',
+        bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+      }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+      if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+      showErr(m);
+    }
+  };
+  showAll();
+})();
+</script>
+<script src="../../assets/reveal.js"></script>
+</body>
+</html>
