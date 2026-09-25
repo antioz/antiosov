@@ -128,7 +128,7 @@ DNS-записи для регистратора (RU-CENTER):
 
 - `egtp7umel198887u1an6-1._domainkey.antiosov.ru` → CNAME → `egtp7umel198887u1an6-1.dkim.postbox.cloud.yandex.net`
 - `egtp7umel198887u1an6-2._domainkey.antiosov.ru` → CNAME → `egtp7umel198887u1an6-2.dkim.postbox.cloud.yandex.net`
-- `_dmarc.antiosov.ru` → TXT → `v=DMARC1; p=none; rua=mailto:antiosina@gmail.com`
+- `_dmarc.antiosov.ru` → TXT → `v=DMARC1; p=none; rua=mailto:dimaantiosov@yandex.ru`
 
 Проверка: `dig +short CNAME egtp7umel198887u1an6-1._domainkey.antiosov.ru` должен вернуть значение;
 `node scripts/postbox-identity.js get` → `DkimAttributes.Status: SUCCESS`, `VerifiedForSendingStatus: true`.
