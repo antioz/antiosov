@@ -76,3 +76,9 @@ test('бесплатные скачивания считаются: counters fre
   await setProduct({ until: soon(-1) }); await handler(ev('free', { q: { s: F } })); // после дедлайна не считается
   assert.equal((await orders.productStats())[F].free_downloads, 2);
 });
+
+test('во время акции платный заказ цифрового товара не создаётся: 409 free_now', async () => {
+  await setProduct({ until: soon(60) });
+  const o = await handler(ev('order', { method: 'POST', body: { product_id: F, email: 'a@b.ru', offer: true, consent: true } }));
+  assert.equal(o.statusCode, 409, o.body); assert.equal(body(o).error, 'free_now');
+});
