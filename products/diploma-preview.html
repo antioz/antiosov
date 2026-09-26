@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Диплом — предпросмотр</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <style>body{margin:0;padding:20px;background:#ddd;font:14px Arial,sans-serif} img{display:block;max-width:100%;height:auto;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,.3)} p{text-align:center}</style>
+</head>
+<body>
+  <!-- Проверка вёрстки диплома без оплаты: ?name=Имя&number=D-000123&date=2026-09-27T10:00:00Z. Ниоткуда не ссылается. -->
+  <img id="d" alt="Диплом">
+  <p><a id="dl" download="diplom-preview.png">Скачать PNG</a></p>
+  <script src="diploma.js"></script>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const c = drawDiploma(document.createElement('canvas'), { name: q.get('name') || 'Константин Константинопольский-Щедровицкий', number: q.get('number') || 'M-000042', title: 'Практикум «Как потратить сотку»', date: q.get('date') || new Date().toISOString() });
+    const u = c.toDataURL('image/png'); document.getElementById('d').src = u; document.getElementById('dl').href = u;
+  </script>
+</body>
+</html>

@@ -52,7 +52,7 @@
         const g = document.getElementById('grid');
         if (!products.length) { empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
         g.innerHTML = products.map((p, i) => {
-          const soon = p.has_file === false, ev = p.kind === 'event', left = Math.max(0, p.left | 0);
+          const soon = p.kind === 'digital' && p.has_file === false, ev = p.kind === 'event', left = Math.max(0, p.left | 0);
           return `<a class="card r${ev && !p.sales_open ? ' out' : ''}" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
             <div class="ph">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
             <div class="t">${esc(p.title)}</div>

@@ -26,6 +26,7 @@
 </main>
 <script src="../../merch/api.js"></script>
 <script src="../products.js"></script>
+<script src="../diploma.js"></script>
 <script>
 (async () => {
   const q = new URLSearchParams(location.search), id = q.get('id'), k = q.get('k'), root = document.getElementById('root');
@@ -40,8 +41,21 @@
   const ticketBlock = s => s.ticket ? `<div class="tk"><h2>Скачайте и сохраните билет</h2>
     <p class="fine">писем не будет — эта страница и есть ваш билет; сохраните картинку или ссылку</p>
     <img id="tkimg" alt="Электронный билет ${esc(s.ticket.number)}"><p><a class="btn" id="tkdl" download="bilet-${esc(s.ticket.number)}.png">Скачать билет (PNG)</a></p></div>` : '';
+  // Практикум: диплом — PNG рисуется на странице из status.diploma, писем нет.
+  const diplomaBlock = s => s.diploma ? `<div class="tk dip"><img id="dipimg" alt="Диплом № ${esc(s.diploma.number)}">
+    <p><a class="btn" id="dipdl" download="diplom-${esc(s.diploma.number)}.png">Скачать диплом</a></p>
+    <p class="fine">писем не будет — сохраните картинку или ссылку на эту страницу</p></div>`
+    : `<p class="meta">диплом печатается — обновите страницу через минуту</p>`;
   const render = s => {
-    const open = !!s.can_download, ev = s.kind === 'event';
+    const open = !!s.can_download, ev = s.kind === 'event', dip = s.kind === 'diploma' || !!s.diploma;
+    if (dip && (s.status === 'paid' || s.status === 'done')) {
+      document.title = 'Диплом — Продукты — Дмитрий Антиосов';
+      root.innerHTML = `<h1 style="margin-bottom:24px;font-size:clamp(34px,5.5vw,64px)">Поздравляю с успешным прохождением практикума</h1><p>Заказ <b>${esc(id)}</b> оплачен. Чек придёт на <span style="white-space:nowrap">e-mail</span> от банка.</p>${diplomaBlock(s)}`;
+      const img = document.getElementById('dipimg');
+      if (img) try { const u = drawDiploma(document.createElement('canvas'), s.diploma).toDataURL('image/png'); img.src = u; document.getElementById('dipdl').href = u; }
+        catch (e) { img.replaceWith(Object.assign(document.createElement('p'), { textContent: 'Не получилось нарисовать диплом — обновите страницу.' })); }
+      return;
+    }
     const t = ev ? {
       paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Чек придёт на <span style="white-space:nowrap">e-mail</span> от банка.`, ticketBlock(s)],
       done: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Чек придёт на <span style="white-space:nowrap">e-mail</span> от банка.`, ticketBlock(s)],
