@@ -12,21 +12,21 @@
 
 | a | метод | auth | назначение |
 |---|---|---|---|
-| catalog | GET | — | активные товары + варианты с `available = stock − reserved`; перед этим `gc`. По умолчанию только `physical` (витрина мерча); `&kind=digital` — раздел «Продукты»: цифровые и мероприятия (`event`). У товара `kind`, `has_file`; у мероприятия `event_at`, `venue`, `age_mark`, `left`, `sales_open` |
+| catalog | GET | — | активные товары + варианты с `available = stock − reserved`; перед этим `gc`. По умолчанию только `physical` (витрина мерча); `&kind=digital` — раздел «Продукты»: цифровые, мероприятия (`event`) и практикумы (`diploma`). У товара `kind`, `has_file`; у мероприятия `event_at`, `venue`, `age_mark`, `left`, `sales_open` |
 | product&s= | GET | — | один товар; `kind`, `has_file` (`file_key` наружу не отдаётся); мероприятие — плюс `event_at`, `venue`, `age_mark`, `left`, `sales_open`, `qty_max` |
 | cities&q= | GET | — | подсказка городов (Яндекс); режим `off` → пусто |
 | pvz&geo_id= | GET | — | список ПВЗ по городу; режим `off` → пусто |
 | quote | POST | — | стоимость и срок доставки до ПВЗ; режим `off` → `DELIVERY_FLAT` |
-| order | POST | — | создать заказ: валидация, резерв в транзакции, Т-Банк Init → `{id, k, paymentUrl}`. Цифровой товар: тело `{product_id, email, offer, consent}`, без резерва, чек `intellectual_activity`; нет архива → 409 `no_file`. Мероприятие: `{product_id, email, qty, offer, consent}`, резерв мест в `variants('-')`, чек `service`/`full_payment`, `delivery_mode='event'`; 409 `sold_out` `{left}` / `sales_closed` |
+| order | POST | — | создать заказ: валидация, резерв в транзакции, Т-Банк Init → `{id, k, paymentUrl}`. Цифровой товар: тело `{product_id, email, offer, consent}`, без резерва, чек `intellectual_activity`; нет архива → 409 `no_file`. Мероприятие: `{product_id, email, qty, offer, consent}`, резерв мест в `variants('-')`, чек `service`/`full_payment`, `delivery_mode='event'`; 409 `sold_out` `{left}` / `sales_closed`. Практикум (`diploma`): `{product_id, name, email, offer, consent}`, `name` 2–60 (буквы, пробел, `-`, `'`, `.`) → `customer_name`, qty 1, без резерва, `delivery_mode='diploma'`, чек `Практикум: <title>` `service`/`full_payment` |
 | pay&id=&k= | GET | k | 302 на сохранённый PaymentURL (один Init на заказ) |
-| status&id=&k= | GET | k | публичный статус без ПД; `k` — случайный ключ заказа; `kind`, `can_download` (digital и `paid`/`done`), `downloaded`; мероприятие после оплаты — `ticket {number, title, event_at, venue, age_mark, qty, price_item, total}` (страница рисует PNG) |
+| status&id=&k= | GET | k | публичный статус без ПД; `k` — случайный ключ заказа; `kind`, `can_download` (digital и `paid`/`done`), `downloaded`; мероприятие после оплаты — `ticket {number, title, event_at, venue, age_mark, qty, price_item, total}` (страница рисует PNG); практикум после оплаты — `diploma {number, name, title, date}` (`date` — ISO `updated_at` на момент оплаты; отдельной колонки даты оплаты нет) |
 | download&id=&k= | GET | k | цифровой заказ: 302 на presigned GET архива (600 с, `attachment; filename="<product_id>.zip"`); первое — `downloaded_at`, каждое — `download_count+1`. 403 `not_paid` / 404 `no_order` / 409 `no_file` |
 | notify | POST | подпись Т-Банка | вебхук: CONFIRMED → paid, письма, заявка Яндекс |
 | success | GET | — | возврат из Т-Банка → 302 на `/merch/order/?id=…&k=…` (цифровой и билет — `/products/order/`) |
 | admin/login | POST | пароль | → JWT (HMAC `SECRET`, 30 дней); неверный пароль → 401 `bad_password` |
 | admin/orders | GET | JWT | список заказов с фильтром по статусу; у каждого `kind`, `downloaded_at`, `download_count` |
 | admin/order | GET/POST | JWT | карточка / смена статуса / заметка / повтор заявки Яндекс / отмена с возвратом; `kind`, `downloaded_at`, `download_count`. Цифровой и билет: `next` → 409 `bad_transition`; отмена оплаченного билета возвращает места (`stock += qty`) |
-| admin/products | GET/POST | JWT | список / создать / изменить / остатки; `admin/product` принимает `kind` и `file_key` (`^d/<id>/[0-9a-f]+\.zip$` или пусто; не передан — не меняется); мероприятие — `kind:'event'`, `event_at` (ISO), `venue`, `age_mark` (0+…18+), места — `variants:[{size:'-',stock}]` |
+| admin/products | GET/POST | JWT | список / создать / изменить / остатки; `admin/product` принимает `kind` и `file_key` (`^d/<id>/[0-9a-f]+\.zip$` или пусто; не передан — не меняется); мероприятие — `kind:'event'`, `event_at` (ISO), `venue`, `age_mark` (0+…18+), места — `variants:[{size:'-',stock}]`; практикум — `kind:'diploma'` (варианты, архивы, акция и поля мероприятия сохраняются пустыми) |
 | admin/file | POST | JWT | `{product_id}` → `{key, put_url}`: presigned PUT архива в закрытый `d/<id>/` (application/zip, 10 мин) |
 | admin/photo | POST/DELETE | JWT | presigned PUT в бакет (image/jpeg, TTL 10 мин) / удаление |
 | gc | внутренний | — | в начале catalog/order: заказы `new` старше `RESERVE_MIN` минут → `expired`, резерв снимается |
