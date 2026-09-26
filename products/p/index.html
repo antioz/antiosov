@@ -110,10 +110,9 @@
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
       ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
-        <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a>
-        <p class="fine">Бесплатная версия — с объявлением от автора. Когда таймер дойдёт до нуля, останется только платная версия, без объявления. Почта не нужна.</p></div>` : ''}
+        <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a></div>` : ''}
       ${HOWTO}
-      ${P.free_active ? `<p class="or">Или сразу версия без объявления — ${rub(P.price)}</p>` : ''}
+      ${P.free_active ? `<p class="or">Или купить — ${rub(P.price)}</p>` : ''}
       <form id="f" novalidate>
         <label class="field" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
