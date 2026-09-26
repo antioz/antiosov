@@ -33,10 +33,11 @@
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   let P, skew = 0;
   try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
-  if (P.kind !== 'digital' && P.kind !== 'event') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
+  if (P.kind !== 'digital' && P.kind !== 'event' && P.kind !== 'diploma') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
   if (P.kind === 'event') return eventPage();
+  if (P.kind === 'diploma') return diplomaPage();
 
   // Мероприятие: билеты 1…min(qty_max, left), только e-mail для чека. Остаток и «продажа открыта» решает сервер.
   function eventPage() {
@@ -101,13 +102,59 @@
     };
     showAll();
   }
+  // Практикум (диплом): имя для диплома + e-mail для чека. Диплом рисуется на странице заказа после оплаты.
+  function diplomaPage() {
+    const D = { busy: false }, label = () => 'Пройти практикум за ' + rub(P.price);
+    root.innerHTML = `<div class="product">
+    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      <div class="desc">${md(P.description_md)}</div>
+      <form id="f" novalidate>
+        <label class="field" data-f="name"><span>Имя — впишу в диплом</span><input name="name" type="text" autocomplete="name" maxlength="60" required></label>
+        <label class="field" data-f="email"><span>E-mail — только для чека</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px">${label()}</button>
+        <p class="fine">Практикум засчитывается в момент оплаты: диплом появится на странице заказа сразу после неё. Подробно — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    const FIELD_RU = { name: 'имя', email: 'e-mail', consent: 'согласие', offer: 'оферта', product_id: 'товар' };
+    const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (D.busy) return;
+      const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, name: String(f.get('name') || '').replace(/\s+/g, ' ').trim(), email: String(f.get('email') || '').trim(), offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
+      if (!body.name) { showErr('Впишите имя — оно будет в дипломе.'); $('[data-f="name"]').classList.add('err'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт чек.'); $('[data-f="email"]').classList.add('err'); return; }
+      if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+      if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+      D.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        D.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
+        const field = err.data && err.data.field;
+        const m = {
+          validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+          no_product: 'Этого практикума больше нет.',
+          bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+        }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+        showErr(m);
+      }
+    };
+    showAll();
+  }
   const S = { busy: false, soon: !P.has_file };
   const label = () => S.soon ? 'Скоро' : 'Купить за ' + rub(P.price);
 
   root.innerHTML = `<div class="product">
     <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
-      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      <h2>${esc(P.title)}</h2>${P.free_active ? '' : `<div class="price">${rub(P.price)}</div>`}
       <div class="desc">${md(P.description_md)}</div>
       ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
         <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a></div>` : ''}

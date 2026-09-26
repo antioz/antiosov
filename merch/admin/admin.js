@@ -9,7 +9,8 @@
   const badge = o => `<span class="badge ${o.status}">${ST[o.status] || o.status}</span>${o.is_preorder ? ' <span class="badge pre">предзаказ</span>' : ''}`;
   const dd = s => new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const localDT = iso => { const d = new Date(iso), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
-  const isDigital = o => o.kind === 'digital' || o.delivery_mode === 'none';
+  const isDiploma = o => o.kind === 'diploma' || o.product_kind === 'diploma' || o.delivery_mode === 'diploma';
+  const isDigital = o => !isDiploma(o) && (o.kind === 'digital' || o.delivery_mode === 'none');
   const isEvent = o => o.kind === 'event' || o.delivery_mode === 'event';
   const dlMark = o => isDigital(o) ? `<br><small class="meta">${o.downloaded_at ? 'скачан ' + dd(o.downloaded_at) : 'не скачан'}</small>` : '';
   const item = o => `${esc(o.product_title)}${o.size && o.size !== '-' ? ' ' + esc(o.size) : ''} × ${o.qty}`;
@@ -28,15 +29,15 @@
     app.innerHTML = tabs('orders') + `<div class="summary"><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
+      ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
   }
 
   async function order(id) {
     const { order: o } = await A('admin/order', { q: { id } });
-    const ev = isEvent(o), dig = isDigital(o) && !ev, noShip = dig || ev;
+    const ev = isEvent(o), dip = isDiploma(o), dig = isDigital(o) && !ev, noShip = dig || ev || dip;
     app.innerHTML = tabs('orders') + `<p class="meta"><a href="#orders" style="color:inherit;text-decoration:none">← заказы</a></p><h2>${o.id} ${badge(o)}</h2>
-      <div class="kv"><b>Создан</b><span>${d(o.created_at)}</span><b>Товар</b><span>${item(o)} — ${rub(o.price_item)} × ${o.qty}</span>${ev ? `<b>Тип</b><span>мероприятие</span><b>Билетов</b><span>${o.qty}</span>` : dig ? `<b>Тип</b><span>цифровой</span><b>Скачивание</b><span>${o.downloaded_at ? `скачан ${d(o.downloaded_at)}${o.download_count ? ' · раз: ' + o.download_count : ''}` : 'не скачан'}</span>` : `<b>Доставка</b><span>${rub(o.price_delivery)} (${o.delivery_mode}${o.delivery_days ? ', ~' + o.delivery_days + ' дн.' : ''})</span>`}<b>Итого</b><span>${rub(o.total)}</span>
+      <div class="kv"><b>Создан</b><span>${d(o.created_at)}</span><b>Товар</b><span>${item(o)} — ${rub(o.price_item)} × ${o.qty}</span>${dip ? `<b>Тип</b><span>практикум (диплом)</span><b>Имя в дипломе</b><span>${esc(o.customer_name)}</span>` : ev ? `<b>Тип</b><span>мероприятие</span><b>Билетов</b><span>${o.qty}</span>` : dig ? `<b>Тип</b><span>цифровой</span><b>Скачивание</b><span>${o.downloaded_at ? `скачан ${d(o.downloaded_at)}${o.download_count ? ' · раз: ' + o.download_count : ''}` : 'не скачан'}</span>` : `<b>Доставка</b><span>${rub(o.price_delivery)} (${o.delivery_mode}${o.delivery_days ? ', ~' + o.delivery_days + ' дн.' : ''})</span>`}<b>Итого</b><span>${rub(o.total)}</span>
       <b>Покупатель</b><span>${noShip ? '' : `${esc(o.customer_name)}<br><a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a> · `}<a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></span>
       ${noShip ? '' : `<b>Куда</b><span>${esc(o.pvz_address || o.address_text)}</span>
       <b>Яндекс</b><span>${o.yd_request_id ? `заявка ${esc(o.yd_request_id)} ${o.yd_track_url ? `· <a href="${esc(o.yd_track_url)}" target="_blank">трек</a>` : ''}` : (o.delivery_mode === 'yandex' ? '<span class="badge">заявка не создана</span>' : 'вручную')}${o.yd_error ? `<br><small style="color:#7a1c1c">${esc(o.yd_error)}</small>` : ''}</span>`}
@@ -58,7 +59,7 @@
     const { products } = await A('admin/products');
     app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px">+ Добавить товар</a></p>
       <table><tr><th>Товар</th><th>Цена</th><th>Остатки (доступно / резерв / предзаказ)</th><th>Показ</th></tr>
-      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
+      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'diploma' ? 'практикум (диплом)' : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#product/' + r.dataset.id); bindLogout();
   }
 
@@ -72,7 +73,7 @@
       ${f('id', 'Slug (латиница, для адреса страницы)', p.id, 'text', isNew ? '' : 'readonly')}${f('title', 'Название', p.title)}
       <label class="field"><span>Описание (абзацы — пустой строкой)</span><textarea name="description_md" style="min-height:140px">${esc(p.description_md)}</textarea></label>
       ${f('price', 'Цена, ₽', p.price, 'number', 'min="1"')}
-      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${p.kind !== 'digital' && p.kind !== 'event' ? 'selected' : ''}>вещь</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option><option value="event" ${p.kind === 'event' ? 'selected' : ''}>мероприятие</option></select></label>
+      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${!['digital', 'event', 'diploma'].includes(p.kind) ? 'selected' : ''}>вещь</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option><option value="event" ${p.kind === 'event' ? 'selected' : ''}>мероприятие</option><option value="diploma" ${p.kind === 'diploma' ? 'selected' : ''}>практикум (диплом)</option></select></label>
       <div id="ev"><label class="field"><span>Дата и время начала (ваше местное время)</span><input type="datetime-local" name="event_at" value="${p.event_at ? localDT(p.event_at) : ''}"></label>
         ${f('venue', 'Место (адрес)', p.venue || '')}
         <label class="field"><span>Возрастной знак</span><select name="age_mark"><option value="">—</option>${['0+', '6+', '12+', '16+', '18+'].map(a => `<option ${p.age_mark === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
