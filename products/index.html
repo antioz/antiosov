@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Продукты — Дмитрий Антиосов</title>
-  <meta name="description" content="Цифровые продукты Дмитрия Антиосова: скиллы для ИИ. Купили один раз — скачиваете сколько нужно." />
+  <meta name="description" content="Цифровые продукты Дмитрия Антиосова: скиллы для ИИ — купили один раз, скачиваете сколько нужно. И билеты на вечера." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://antiosov.ru/products/" />
 
@@ -52,11 +52,11 @@
         const g = document.getElementById('grid');
         if (!products.length) { empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
         g.innerHTML = products.map((p, i) => {
-          const soon = p.has_file === false;
-          return `<a class="card r" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
+          const soon = p.has_file === false, ev = p.kind === 'event', left = Math.max(0, p.left | 0);
+          return `<a class="card r${ev && !p.sales_open ? ' out' : ''}" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
             <div class="ph">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
             <div class="t">${esc(p.title)}</div>
-            <div class="p">${p.free_active ? `бесплатно · <span class="meta">ещё ${countdown(p.free_until, skew).short}</span>` : rub(p.price) + (soon ? ' · <span class="meta">скоро</span>' : '')}</div></a>`;
+            ${ev ? `<div class="p">${esc(evWhen(p.event_at))}</div><div class="p">${rub(p.price)}</div><div class="p"><span class="meta">${!left ? 'мест нет' : !p.sales_open ? 'продажа закрыта' : 'осталось ' + seats(left)}</span></div></a>` : `<div class="p">${p.free_active ? `бесплатно · <span class="meta">ещё ${countdown(p.free_until, skew).short}</span>` : rub(p.price) + (soon ? ' · <span class="meta">скоро</span>' : '')}</div></a>`}`;
         }).join('');
       } catch (e) { empty.textContent = 'раздел временно недоступен'; empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
       showAll();
