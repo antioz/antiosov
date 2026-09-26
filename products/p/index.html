@@ -36,6 +36,8 @@
 (async () => {
   const root = document.getElementById('root');
   const slug = new URLSearchParams(location.search).get('s') || ((location.pathname.match(/^\/products\/([a-z0-9][a-z0-9-]*)\/(?:index\.html)?$/) || [])[1]) || ''; // короткий адрес /products/<slug>/
+  // Открыли по старому адресу ?s= — показать в адресной строке короткий, если такая страница есть (её собирает products/build-pages.py).
+  if (slug && location.pathname.startsWith('/products/p/')) fetch(`/products/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) { const q = new URLSearchParams(location.search); q.delete('s'); history.replaceState(null, '', `/products/${encodeURIComponent(slug)}/${q.toString() ? '?' + q : ''}${location.hash}`); } }).catch(() => {});
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   let P, skew = 0;
   try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
