@@ -33,12 +33,12 @@ const row = async id => (await db.query(`DECLARE $id AS Utf8; SELECT * FROM orde
 const variantsOf = async p => (await db.query(`DECLARE $p AS Utf8; SELECT * FROM variants WHERE product_id = $p;`, { $p: db.V.s(p) }))[0];
 const login = async () => { const r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); return { 'X-Admin-Token': body(r).token }; };
 
-test('catalog: по умолчанию только physical, &kind=digital — только digital', async () => {
+test('catalog: по умолчанию только physical, &kind=digital — раздел «Продукты» (digital и event)', async () => {
   const all = body(await handler(ev('catalog'))).products;
   assert.ok(!all.some(p => p.id === D), 'цифровой товар в витрине мерча');
   assert.ok(all.every(p => p.kind === 'physical'));
   const dig = body(await handler(ev('catalog', { q: { kind: 'digital' } }))).products;
-  assert.ok(dig.some(p => p.id === D)); assert.ok(dig.every(p => p.kind === 'digital'));
+  assert.ok(dig.some(p => p.id === D)); assert.ok(dig.every(p => p.kind === 'digital' || p.kind === 'event'));
   assert.ok(dig.every(p => !('file_key' in p) && typeof p.has_file === 'boolean'));
   assert.equal(dig.find(p => p.id === D).has_file, true); assert.equal(dig.find(p => p.id === D2).has_file, false);
 });
