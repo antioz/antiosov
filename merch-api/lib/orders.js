@@ -8,7 +8,7 @@ const QTY_MAX = 5;
 const parseJson = (s, def) => { try { return s == null || s === '' ? def : JSON.parse(s); } catch (_) { return def; } };
 const asArr = x => Array.isArray(x) ? x : [];
 const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d === 'object' && [n('x'), n('y'), n('z')].every(v => Number.isFinite(v) && v > 0)) ? { x: n('x'), y: n('y'), z: n('z') } : { x: 30, y: 20, z: 3 }; };
-const KINDS = ['physical', 'digital', 'event'];
+const KINDS = ['physical', 'digital', 'event', 'diploma'];
 // kind: NULL/пусто у старых товаров = physical. has_file — наружу вместо file_key (ключ архива публично не отдаём).
 const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])),
   kind: KINDS.includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', has_file: !!p.file_key,
@@ -21,7 +21,11 @@ const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), 
 const isDigital = o => !!o && o.delivery_mode === 'none';
 // Билет на мероприятие: delivery_mode = 'event'. Места — variants(size='-'): резерв/списание как у мерча «в наличии», предзаказа нет.
 const isEvent = o => !!o && o.delivery_mode === 'event';
-const orderKind = o => isDigital(o) ? 'digital' : isEvent(o) ? 'event' : 'physical';
+// Шуточный «практикум»: delivery_mode = 'diploma'. Ни вариантов, ни резерва, ни архива — после оплаты только диплом-картинка на странице заказа.
+const isDiploma = o => !!o && o.delivery_mode === 'diploma';
+// Заказ без складских вариантов: резерв не ставится и не снимается, остаток не списывается.
+const noStock = o => isDigital(o) || isDiploma(o);
+const orderKind = o => isDigital(o) ? 'digital' : isEvent(o) ? 'event' : isDiploma(o) ? 'diploma' : 'physical';
 // Продажа открыта, пока не наступило начало и есть свободные места (left = stock - reserved). Время решает сервер.
 const eventInfo = (p, vs) => { const v = (vs || []).find(x => x.size === '-'); const left = v ? Math.max(0, v.stock - v.reserved) : 0;
   return { event_at: p.event_at, venue: p.venue, age_mark: p.age_mark, left, sales_open: !!p.event_at && Date.parse(p.event_at) > Date.now() && left > 0 }; };
@@ -30,12 +34,12 @@ const withUrls = p => p && ({ ...p, image_urls: p.images.map(k => s3.publicUrl(k
 const bySizeOrder = sizes => (a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size);
 
 // ---------- каталог ----------
-// kind: 'physical' (витрина мерча, по умолчанию) | 'digital' (/products/: цифровые товары и мероприятия).
+// kind: 'physical' (витрина мерча, по умолчанию) | 'digital' (/products/: цифровые товары, мероприятия и практикумы).
 async function catalog(kind = 'physical') {
   const [ps, vs] = await db.query(`SELECT * FROM products WHERE active = true ORDER BY sort, id; SELECT * FROM variants;`);
   const byP = {};
   for (const v of vs) (byP[v.product_id] = byP[v.product_id] || []).push({ size: v.size, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count });
-  const inSection = p => kind === 'digital' ? p.kind === 'digital' || p.kind === 'event' : p.kind === kind;
+  const inSection = p => kind === 'digital' ? ['digital', 'event', 'diploma'].includes(p.kind) : p.kind === kind;
   return ps.map(parseProduct).filter(inSection).map(withUrls).map(p => ({
     id: p.id, kind: p.kind, has_file: p.has_file, free_active: p.free_active, free_until: p.free_active ? p.free_until : '', title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
     preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by,
@@ -75,6 +79,7 @@ async function createOrder(input) {
   const product = found && found.active ? found : null;
   if (found && found.kind === 'digital') { if (!product) throw new HttpError(404, 'no_product'); return createDigitalOrder(input, product); }
   if (found && found.kind === 'event') { if (!product) throw new HttpError(404, 'no_product'); return createEventOrder(input, product); }
+  if (found && found.kind === 'diploma') { if (!product) throw new HttpError(404, 'no_product'); return createDiplomaOrder(input, product); }
   const v = validate(input);
   if (!product) throw new HttpError(404, 'no_product');
   if (!(product.sizes.length ? product.sizes.includes(v.size) : v.size === '-')) throw new HttpError(400, 'validation', { field: 'size' });
@@ -216,6 +221,50 @@ async function createEventOrder(i, product) {
     { $id: db.V.s(id), $pid: db.V.s(String(pay.paymentId)), $url: db.V.s(String(pay.paymentUrl)) });
   return { id, k, paymentUrl: pay.paymentUrl };
 }
+// Имя для диплома: буквы (кириллица/латиница, ё), пробел, дефис, апостроф, точка; 2–60 символов после схлопывания пробелов.
+const DIPLOMA_NAME_RE = /^[A-Za-zА-Яа-яЁё '’.-]+$/;
+const validDiplomaName = s => { const v = String(s == null ? '' : s).trim().replace(/\s+/g, ' ');
+  return v.length >= 2 && v.length <= 60 && DIPLOMA_NAME_RE.test(v) && /[A-Za-zА-Яа-яЁё]/.test(v) ? v : null; };
+
+// Практикум (диплом): имя (печатается на дипломе) + e-mail (для чека) + оферта + согласие, qty=1, без резерва.
+// Писем покупателю нет: диплом — картинка на странице заказа, чек присылает банк.
+async function createDiplomaOrder(i, product) {
+  const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
+  const name = validDiplomaName(i.name) || bad('name');
+  const email = validEmail(i.email) || bad('email');
+  if (i.offer !== true && i.offer !== 'true') bad('offer');
+  if (i.consent !== true && i.consent !== 'true') bad('consent');
+  const k = randomKey(), total = product.price;
+  const id = await db.tx(async run => {
+    const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order'u;`);
+    const n = (c ? c.value : 0) + 1;
+    await run(`DECLARE $n AS Int32; UPSERT INTO counters (name, value) VALUES ('order'u, $n);`, { $n: db.V.i(n) });
+    const id = 'M-' + String(n).padStart(6, '0');
+    await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $pi AS Int32; DECLARE $n AS Utf8; DECLARE $e AS Utf8;
+      UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
+        customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
+        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note)
+      VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, '-'u, 1, false, $pi, 0, $pi,
+        $n, ''u, $e, ''u, ''u, ''u, 'diploma'u, ''u, 0, ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u);`,
+      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $pi: db.V.i(total), $n: db.V.s(name), $e: db.V.s(email) });
+    return id;
+  });
+  let pay;
+  try {
+    pay = await ext.tbank.init({
+      orderId: id, amountRub: total, description: `Заказ ${id}: ${product.title}`, email, dueDate: new Date(Date.now() + envInt('RESERVE_MIN', 20) * 60000),
+      receiptItems: [{ name: 'Практикум: ' + product.title, price_rub: product.price, qty: 1, object: 'service', method: 'full_payment' }],
+      successUrl: `${ENV.SELF_URL}?a=success&id=${id}&k=${k}`, failUrl: `${ENV.SITE}/products/order/?id=${id}&k=${k}&fail=1`, notifyUrl: `${ENV.SELF_URL}?a=notify`,
+    });
+  } catch (e) {
+    console.error('init failed', id, e.message);
+    await releaseNew(id, 'cancelled');
+    throw new HttpError(502, 'payment_init');
+  }
+  await db.query(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; DECLARE $url AS Utf8; UPDATE orders SET tb_payment_id = $pid, tb_payment_url = $url, updated_at = CurrentUtcTimestamp() WHERE id = $id;`,
+    { $id: db.V.s(id), $pid: db.V.s(String(pay.paymentId)), $url: db.V.s(String(pay.paymentUrl)) });
+  return { id, k, paymentUrl: pay.paymentUrl };
+}
 // ДД.ММ.ГГГГ ЧЧ:ММ по Москве — для чека.
 const mskDate = iso => new Date(iso).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
 
@@ -225,7 +274,7 @@ async function releaseNew(id, to) {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (!o || o.status !== 'new') return false;
     await run(`DECLARE $id AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(id), $to: db.V.s(to) });
-    if (!o.is_preorder && !isDigital(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
+    if (!o.is_preorder && !noStock(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
     return true;
   });
 }
@@ -273,7 +322,7 @@ async function confirmPaid(orderId, paymentId, amountRub) {
     if (Number(amountRub) !== o.total) { console.error('AMOUNT MISMATCH', orderId, amountRub, o.total); return { ok: false, reason: 'amount' }; }
     await run(`DECLARE $id AS Utf8; DECLARE $pid AS Utf8; UPDATE orders SET status = 'paid'u, tb_payment_id = $pid, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'new'u;`, { $id: db.V.s(orderId), $pid: db.V.s(String(paymentId)) });
     const P = { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) };
-    if (isDigital(o)) return { ok: true };
+    if (noStock(o)) return { ok: true };
     if (o.is_preorder) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = preorder_count + $q WHERE product_id = $p AND size = $s;`, P);
     else await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET stock = Greatest(stock - $q, 0), reserved = Greatest(reserved - $q, 0) WHERE product_id = $p AND size = $s;`, P);
     return { ok: true };
@@ -306,7 +355,7 @@ async function afterPaid(id) {
   const o = await loadOrderWithProduct(id);
   const errs = [];
   try { await ext.mail.send({ to: ENV.OWNER_EMAIL, ...mail.tplOwnerNewOrder(o) }); } catch (e) { errs.push('owner:' + e.message); }
-  if (!isEvent(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
+  if (!isEvent(o) && !isDiploma(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
   if (errs.length) await setField(id, 'mail_error', errs.join(' | ').slice(0, 500));
   if (o.delivery_mode === 'yandex') await createYd(o);
 }
@@ -323,7 +372,7 @@ async function createYd(o) {
 
 // ---------- публичные чтения ----------
 async function getStatus(id, k) {
-  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, is_preorder, product_id, delivery_mode, downloaded_at, qty, price_item FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
+  const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, is_preorder, product_id, delivery_mode, downloaded_at, qty, price_item, customer_name, updated_at FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
   if (!o || !k || o.k !== k) return null;
   const p = await getProduct(o.product_id, { admin: true });
   const dig = isDigital(o);
@@ -331,14 +380,17 @@ async function getStatus(id, k) {
     kind: orderKind(o), can_download: dig && DL_STATUSES.includes(o.status), downloaded: !!o.downloaded_at };
   // Билет (реквизиты формы приказа Минкультуры № 702) — только после оплаты; страница рисует из него PNG.
   if (isEvent(o) && DL_STATUSES.includes(o.status) && p) s.ticket = { number: id, title: p.title, event_at: p.event_at, venue: p.venue, age_mark: p.age_mark, qty: o.qty, price_item: o.price_item, total: o.total };
+  // Диплом практикума — только после оплаты. Отдельной даты оплаты в orders нет: берётся updated_at (у оплаченного диплома его меняет лишь оплата,
+  // а позже — только заметка админа или ошибка письма владельцу).
+  if (isDiploma(o) && DL_STATUSES.includes(o.status)) s.diploma = { number: id, name: o.customer_name || '', title: p ? p.title : o.product_id, date: o.updated_at ? new Date(o.updated_at).toISOString() : new Date().toISOString() };
   return s;
 }
 async function getPayInfo(id, k) {
   const [[o]] = await db.query(`DECLARE $id AS Utf8; SELECT k, status, total, tb_payment_id, tb_payment_url, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
   return (o && k && o.k === k) ? { status: o.status, total: o.total, tb_payment_id: o.tb_payment_id, tb_payment_url: o.tb_payment_url, kind: orderKind(o) } : null;
 }
-// Страница заказа на сайте: мерч — в /merch/, цифровые товары и билеты — в /products/.
-const orderPage = (kind, id, k) => `${ENV.SITE}/${kind === 'digital' || kind === 'event' ? 'products' : 'merch'}/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
+// Страница заказа на сайте: мерч — в /merch/, цифровые товары, билеты и практикумы — в /products/.
+const orderPage = (kind, id, k) => `${ENV.SITE}/${['digital', 'event', 'diploma'].includes(kind) ? 'products' : 'merch'}/order/?id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
 
 // Скачивание архива: первое — отметка downloaded_at (основание правила возврата), каждое — download_count + 1.
 // Возвращает presigned GET (10 минут) с именем <product_id>.zip.
@@ -365,7 +417,7 @@ async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i &
 // ---------- админ ----------
 const NEXT = { paid: 'packed', packed: 'shipped', shipped: 'done' };
 const NEXT_DIGITAL = {}; // цифровой: переходов нет — packed/shipped закрыли бы покупателю скачивание (can_download только paid|done)
-const nextStatus = o => (isDigital(o) || isEvent(o) ? NEXT_DIGITAL : NEXT)[o.status]; // у билета тоже нет «собран/отправлен»
+const nextStatus = o => (isDigital(o) || isEvent(o) || isDiploma(o) ? NEXT_DIGITAL : NEXT)[o.status]; // у билета и практикума тоже нет «собран/отправлен»
 async function transition(id, to, { note } = {}) {
   const o = await db.tx(async run => {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
@@ -396,7 +448,7 @@ async function cancel(id) {
     await run(`DECLARE $id AS Utf8; DECLARE $from AS Utf8; DECLARE $r AS Utf8; UPDATE orders SET status = 'cancelled'u, tb_refund_id = $r, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = $from;`, { $id: db.V.s(id), $from: db.V.s(o.status), $r: db.V.s(String(res.PaymentId || cur.tb_payment_id)) });
     // Билет: место возвращается в продажу.
     if (isEvent(o)) await run(`DECLARE $p AS Utf8; DECLARE $q AS Int32; UPDATE variants SET stock = stock + $q WHERE product_id = $p AND size = '-'u;`, { $p: db.V.s(o.product_id), $q: db.V.i(o.qty) });
-    if (o.is_preorder && !isDigital(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = Greatest(preorder_count - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
+    if (o.is_preorder && !noStock(o)) await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET preorder_count = Greatest(preorder_count - $q, 0) WHERE product_id = $p AND size = $s;`, { $p: db.V.s(o.product_id), $s: db.V.s(o.size), $q: db.V.i(o.qty) });
   });
   const full = await loadOrderWithProduct(id);
   try { await ext.mail.send({ to: full.customer_email, ...mail.tplCustomerCancelled(full) }); } catch (e) { await setField(id, 'mail_error', 'cancelled:' + e.message); }
@@ -414,4 +466,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };

@@ -25,12 +25,12 @@ ${lines.map(l => `<p style="margin:0 0 8px">${typeof l === 'string' ? esc(l) : l
 <p style="margin:24px 0 0;color:#888;font-size:13px;letter-spacing:.2em;text-transform:uppercase">antiosov.ru</p></div>`,
 });
 
-const digital = o => o.delivery_mode === 'none' || o.delivery_mode === 'event'; // без доставки: цифровой товар или билет (см. orders.js)
+const digital = o => ['none', 'event', 'diploma'].includes(o.delivery_mode); // без доставки: цифровой товар, билет или практикум (см. orders.js)
 function tplOwnerNewOrder(o) {
   const site = ENV.SITE || 'https://antiosov.ru';
   const m = wrap(`Заказ ${o.id}`, [
     item(o), digital(o) ? `Сумма: ${rub(o.total)}` : `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
-    o.delivery_mode === 'event' ? 'Билеты: покупатель скачивает билет на странице заказа' : digital(o) ? 'Цифровой товар: покупателю ушла ссылка на скачивание' : (o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии'),
+    o.delivery_mode === 'event' ? 'Билеты: покупатель скачивает билет на странице заказа' : o.delivery_mode === 'diploma' ? 'Практикум: покупатель получает диплом на странице заказа' : digital(o) ? 'Цифровой товар: покупателю ушла ссылка на скачивание' : (o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии'),
     // Без персональных данных покупателя: письмо может уходить на зарубежную почту (152-ФЗ, трансграничная передача).
     // Имя, телефон, адрес — только в админке (Yandex Cloud, РФ).
     link(`${site}/merch/admin/#order/${o.id}`, 'Покупатель и адрес — в админке'),

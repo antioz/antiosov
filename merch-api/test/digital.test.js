@@ -33,12 +33,12 @@ const row = async id => (await db.query(`DECLARE $id AS Utf8; SELECT * FROM orde
 const variantsOf = async p => (await db.query(`DECLARE $p AS Utf8; SELECT * FROM variants WHERE product_id = $p;`, { $p: db.V.s(p) }))[0];
 const login = async () => { const r = await handler(ev('admin/login', { method: 'POST', body: { password: process.env.ADMIN_PASSWORD } })); return { 'X-Admin-Token': body(r).token }; };
 
-test('catalog: по умолчанию только physical, &kind=digital — раздел «Продукты» (digital и event)', async () => {
+test('catalog: по умолчанию только physical, &kind=digital — раздел «Продукты» (digital, event, diploma)', async () => {
   const all = body(await handler(ev('catalog'))).products;
   assert.ok(!all.some(p => p.id === D), 'цифровой товар в витрине мерча');
   assert.ok(all.every(p => p.kind === 'physical'));
   const dig = body(await handler(ev('catalog', { q: { kind: 'digital' } }))).products;
-  assert.ok(dig.some(p => p.id === D)); assert.ok(dig.every(p => p.kind === 'digital' || p.kind === 'event'));
+  assert.ok(dig.some(p => p.id === D)); assert.ok(dig.every(p => ['digital', 'event', 'diploma'].includes(p.kind)));
   assert.ok(dig.every(p => !('file_key' in p) && typeof p.has_file === 'boolean'));
   assert.equal(dig.find(p => p.id === D).has_file, true); assert.equal(dig.find(p => p.id === D2).has_file, false);
 });
@@ -179,6 +179,6 @@ test('admin: product kind/file_key с валидацией, admin/file, admin/or
   // Физические заказы параллельных тест-файлов удаляются их очисткой — берём первый, который ещё существует
   let ph = null; for (const x of list.filter(x => x.kind === 'physical')) if ((ph = await orders.getOrder(x.id))) break;
   if (ph) assert.deepEqual([ph.kind, ph.download_count, ph.downloaded_at], ['physical', 0, null]);
-  const phys = list.find(x => x.kind !== 'digital'); if (phys) { assert.equal(phys.kind, 'physical'); assert.equal(phys.download_count, 0); }
+  const phys = list.find(x => ['flat', 'yandex'].includes(x.delivery_mode)); if (phys) { assert.equal(phys.kind, 'physical'); assert.equal(phys.download_count, 0); }
   const s = body(await handler(ev('admin/summary', { headers: H }))); assert.ok(Number.isFinite(s.to_ship));
 });

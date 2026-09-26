@@ -25,7 +25,7 @@ async function upsertProduct(b) {
   const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
   const price = parseInt(b.price, 10); if (!(price >= 1)) throw new HttpError(400, 'validation', { field: 'price' });
   // kind/file_key: не пришли в теле (старая форма админки) → остаются как в БД; новый товар — physical без архива.
-  if (b.kind !== undefined && !['digital', 'physical', 'event'].includes(b.kind)) throw new HttpError(400, 'validation', { field: 'kind' });
+  if (b.kind !== undefined && !['digital', 'physical', 'event', 'diploma'].includes(b.kind)) throw new HttpError(400, 'validation', { field: 'kind' });
   if (b.event_at !== undefined && b.event_at !== null && b.event_at !== '' && !Number.isFinite(Date.parse(String(b.event_at)))) throw new HttpError(400, 'validation', { field: 'event_at' });
   if (b.age_mark !== undefined && b.age_mark !== null && b.age_mark !== '' && !AGE_MARKS.includes(String(b.age_mark))) throw new HttpError(400, 'validation', { field: 'age_mark' });
   if (b.file_key !== undefined && b.file_key !== null && !fileKeyOk(id, String(b.file_key))) throw new HttpError(400, 'validation', { field: 'file_key' });
@@ -34,19 +34,21 @@ async function upsertProduct(b) {
   const [[prev]] = await db.query(`DECLARE $id AS Utf8; SELECT kind, file_key, free_file_key, free_until, event_at, venue, age_mark FROM products WHERE id = $id;`, { $id: db.V.s(id) });
   // Поля акции, как kind/file_key: не пришли в теле → остаются как в БД. free_until хранится в ISO UTC.
   const keep = (v, old) => (v !== undefined && v !== null) ? String(v) : ((prev && old) || '');
-  const free_file_key = keep(b.free_file_key, prev && prev.free_file_key);
-  const free_until = (b.free_until !== undefined && b.free_until !== null) ? (b.free_until === '' ? '' : new Date(String(b.free_until)).toISOString()) : ((prev && prev.free_until) || '');
-  const kind = b.kind !== undefined ? b.kind : (prev && ['digital', 'event'].includes(prev.kind) ? prev.kind : 'physical');
+  let free_file_key = keep(b.free_file_key, prev && prev.free_file_key);
+  let free_until = (b.free_until !== undefined && b.free_until !== null) ? (b.free_until === '' ? '' : new Date(String(b.free_until)).toISOString()) : ((prev && prev.free_until) || '');
+  const kind = b.kind !== undefined ? b.kind : (prev && ['digital', 'event', 'diploma'].includes(prev.kind) ? prev.kind : 'physical');
   // Поля мероприятия: не пришли → как в БД. event_at — ISO UTC.
-  const event_at = (b.event_at !== undefined && b.event_at !== null) ? (b.event_at === '' ? '' : new Date(String(b.event_at)).toISOString()) : ((prev && prev.event_at) || '');
-  const venue = keep(b.venue, prev && prev.venue).trim().slice(0, 300), age_mark = keep(b.age_mark, prev && prev.age_mark);
-  const file_key = (b.file_key !== undefined && b.file_key !== null) ? String(b.file_key) : ((prev && prev.file_key) || '');
-  const digital = kind === 'digital', event = kind === 'event';
-  const sizes = (digital || event) ? [] : Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
+  let event_at = (b.event_at !== undefined && b.event_at !== null) ? (b.event_at === '' ? '' : new Date(String(b.event_at)).toISOString()) : ((prev && prev.event_at) || '');
+  let venue = keep(b.venue, prev && prev.venue).trim().slice(0, 300), age_mark = keep(b.age_mark, prev && prev.age_mark);
+  let file_key = (b.file_key !== undefined && b.file_key !== null) ? String(b.file_key) : ((prev && prev.file_key) || '');
+  const digital = kind === 'digital', event = kind === 'event', diploma = kind === 'diploma';
+  // Практикум (диплом): без вариантов, архивов, акции и полей мероприятия — сохраняется пусто, что бы ни пришло.
+  if (diploma) { file_key = ''; free_file_key = ''; free_until = ''; event_at = ''; venue = ''; age_mark = ''; }
+  const sizes = (digital || event || diploma) ? [] : Array.isArray(b.sizes) ? b.sizes.map(s => String(s).trim()).filter(Boolean) : [];
   const dims = b.dims_cm || {}; const dims_cm = { x: +dims.x || 30, y: +dims.y || 20, z: +dims.z || 3 };
   const images = Array.isArray(b.images) ? b.images.map(String) : [];
   // Варианты: набор размеров = sizes (или '-'); stock задаётся, reserved/preorder_count сохраняются.
-  const want = digital ? [] : sizes.length ? sizes : ['-']; // у цифрового товара вариантов нет (остатка и резерва тоже)
+  const want = (digital || diploma) ? [] : sizes.length ? sizes : ['-']; // у цифрового товара и практикума вариантов нет (остатка и резерва тоже)
   const stocks = Object.fromEntries((Array.isArray(b.variants) ? b.variants : []).map(v => [String(v.size), Math.max(0, parseInt(v.stock, 10) || 0)]));
   // Одна транзакция: сначала проверка занятых размеров (409 до любой записи), потом products + variants.
   await db.tx(async run => {
@@ -58,7 +60,7 @@ async function upsertProduct(b) {
       UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at, kind, file_key, free_file_key, free_until, event_at, venue, age_mark)
       VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp(), $kind, $fk, $ffk, $fu, $ea, $ve, $am);`,
       { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
-        $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(!digital && !event && b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0),
+        $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(!digital && !event && !diploma && b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0),
         $kind: db.V.s(kind), $fk: db.V.s(file_key), $ffk: db.V.s(free_file_key), $fu: db.V.s(free_until), $ea: db.V.s(event_at), $ve: db.V.s(venue), $am: db.V.s(age_mark) });
     for (const h of drop) await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
     for (const s of want) {
@@ -77,7 +79,7 @@ async function route(a, method, body, q, auth) {
   switch (a) {
     case 'admin/summary': {
       const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
-      const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые не ждут отправки
+      const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
         yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
     }
@@ -99,7 +101,7 @@ async function route(a, method, body, q, auth) {
     }
     case 'admin/products': {
       const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
-      return json(200, { products: ps.map(p => ({ ...p, kind: ['digital', 'event'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
+      return json(200, { products: ps.map(p => ({ ...p, kind: ['digital', 'event', 'diploma'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
         variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) })) });
     }
     case 'admin/product': {
