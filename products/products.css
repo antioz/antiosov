@@ -17,3 +17,8 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .free .meta{display:block;margin-bottom:6px} .free .timer{font-family:var(--serif);font-style:italic;font-size:44px;line-height:1.1;margin:0 0 16px;font-variant-numeric:tabular-nums}
 .free a.btn{color:#fff;line-height:52px} .free .fine{text-align:center}
 .or{margin:28px 0 10px;font-family:var(--serif);font-style:italic;font-size:24px;line-height:1.1}
+/* Мероприятия: карточка, форма билетов, страница заказа с билетом */
+.card .p + .p{margin-top:2px} .ev{margin:0 0 4px;font-size:15px;line-height:1.55} .ev b{font-weight:400;color:var(--dim);font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-right:8px}
+.age{display:inline-block;border:1px solid var(--ink);padding:0 6px;font-size:12px;letter-spacing:.05em;line-height:20px}
+.left{font-size:13px;letter-spacing:.1em;margin:0 0 18px}
+.tk h2{margin:36px 0 6px} .tk img{display:block;width:100%;max-width:420px;height:auto;margin:18px auto;border:1px solid var(--line)} .tk .fine{text-align:center;margin:0 0 4px;font-size:13px}

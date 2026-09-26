@@ -36,9 +36,19 @@
   const dlUrl = `${MERCH_API}?a=download&id=${enc(id)}&k=${enc(k)}`;
   const download = s => `<p><a class="btn" id="dl" href="${dlUrl}">Скачать</a>
     ${s.downloaded ? '' : '<span class="fine" id="refund" style="display:block">Вернуть деньги можно, пока архив ни разу не скачан</span>'}</p>${HOWTO}`;
+  // Мероприятие: билет — картинка PNG прямо на странице, писем нет.
+  const ticketBlock = s => s.ticket ? `<div class="tk"><h2>Скачайте и сохраните билет</h2>
+    <p class="fine">писем не будет — эта страница и есть ваш билет; сохраните картинку или ссылку</p>
+    <img id="tkimg" alt="Электронный билет ${esc(s.ticket.number)}"><p><a class="btn" id="tkdl" download="bilet-${esc(s.ticket.number)}.png">Скачать билет (PNG)</a></p></div>` : '';
   const render = s => {
-    const open = !!s.can_download;
-    const t = {
+    const open = !!s.can_download, ev = s.kind === 'event';
+    const t = ev ? {
+      paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Чек придёт на <span style="white-space:nowrap">e-mail</span> от банка.`, ticketBlock(s)],
+      done: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Чек придёт на <span style="white-space:nowrap">e-mail</span> от банка.`, ticketBlock(s)],
+      new: ['Ждём оплату', `Заказ <b>${esc(id)}</b> ещё не оплачен.${q.get('fail') ? ' Оплата не прошла.' : ''}<br><br><a class="btn" href="${payUrl}">Вернуться к оплате</a><br><span class="meta">места держатся 20 минут</span>`],
+      expired: ['Время вышло', `Заказ <b>${esc(id)}</b> не был оплачен за 20 минут, места вернулись в продажу. <a href="/products/">Оформить заново</a>.`],
+      cancelled: ['Отменён', `Заказ <b>${esc(id)}</b> отменён. Если была оплата — деньги вернутся на карту. <a href="/products/">Оформить заново</a>.`]
+    }[s.status] || ['Заказ', esc(s.status)] : {
       paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Ссылка на эту страницу ушла на почту — сюда можно вернуться и скачать архив ещё раз.`, open ? download(s) : ''],
       done: ['Готово', `Заказ <b>${esc(id)}</b> оплачен. Архив можно скачивать сколько нужно — всегда последняя версия.`, open ? download(s) : ''],
       new: ['Ждём оплату', `Заказ <b>${esc(id)}</b> ещё не оплачен.${q.get('fail') ? ' Оплата не прошла.' : ''}<br><br><a class="btn" href="${payUrl}">Вернуться к оплате</a><br><span class="meta">ссылка действует 20 минут</span>`],
@@ -49,6 +59,8 @@
     root.innerHTML = `<h1 style="margin-bottom:24px">${t[0]}</h1><p>${t[1]}</p>${t[2] || ''}`;
     const dl = document.getElementById('dl');
     if (dl) dl.addEventListener('click', () => { const r = document.getElementById('refund'); if (r) r.remove(); });
+    if (ev && document.getElementById('tkimg')) drawTicket(s.ticket).then(c => { const u = c.toDataURL('image/png'); document.getElementById('tkimg').src = u; document.getElementById('tkdl').href = u; })
+      .catch(() => { document.getElementById('tkimg').replaceWith(Object.assign(document.createElement('p'), { textContent: 'Не получилось нарисовать билет — обновите страницу.' })); });
   };
   let tries = 0;
   const poll = async () => {

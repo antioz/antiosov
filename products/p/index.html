@@ -33,9 +33,74 @@
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   let P, skew = 0;
   try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
-  if (P.kind !== 'digital') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
+  if (P.kind !== 'digital' && P.kind !== 'event') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  if (P.kind === 'event') return eventPage();
+
+  // Мероприятие: билеты 1…min(qty_max, left), только e-mail для чека. Остаток и «продажа открыта» решает сервер.
+  function eventPage() {
+    const E = { busy: false, qty: 1 };
+    const left = () => Math.max(0, P.left | 0), max = () => Math.max(1, Math.min(P.qty_max || 5, left()));
+    const label = () => !P.sales_open ? (left() ? 'Продажа закрыта' : 'Мест нет') : `Купить ${E.qty} ${plural(E.qty, 'билет', 'билета', 'билетов')} за ${rub(P.price * E.qty)}`;
+    root.innerHTML = `<div class="product">
+    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2>
+      <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))} <span class="meta">мск</span></p>
+      ${P.venue ? `<p class="ev"><b>где</b>${esc(P.venue)}</p>` : ''}
+      ${P.age_mark ? `<p class="ev"><span class="age">${esc(P.age_mark)}</span></p>` : ''}
+      <div class="price" style="margin-top:16px">${rub(P.price)} <span class="meta">за билет</span></div>
+      <div class="desc">${md(P.description_md)}</div>
+      <p class="left" id="left"></p>
+      <form id="f" novalidate>
+        <label class="field" data-f="qty"><span>Сколько билетов</span><select name="qty" id="qty"></select></label>
+        <label class="field" data-f="email"><span>E-mail для чека</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px"></button>
+        <p class="fine">Вернуть билет: за 10 дней и раньше — 100%, за 5–9 дней — 50%, за 3–4 дня — 30%, позже — нет. Если вечер отменится — 100%. Пишите на <a href="mailto:dimaantiosov@yandex.ru">dimaantiosov@yandex.ru</a> с номером заказа.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    const paint = () => { E.qty = Math.min(E.qty, max());
+      $('#left').textContent = left() ? 'Осталось мест: ' + left() : 'Мест нет';
+      $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !P.sales_open;
+      $('#pay').textContent = label(); $('#pay').disabled = !P.sales_open || E.busy; };
+    $('#qty').onchange = e => { E.qty = +e.target.value || 1; paint(); };
+    paint();
+    const FIELD_RU = { email: 'e-mail', qty: 'количество билетов', consent: 'согласие', offer: 'оферта', product_id: 'мероприятие' };
+    const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+    const reload = async () => { try { const r = await api('product', { q: { s: slug } }); if (r.product) P = r.product; } catch (e) {} };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (E.busy || !P.sales_open) return;
+      const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, email: String(f.get('email') || '').trim(), qty: E.qty, offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт чек.'); $('[data-f="email"]').classList.add('err'); return; }
+      if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+      if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+      E.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        const field = err.data && err.data.field;
+        if (err.message === 'sold_out' || err.message === 'sales_closed') await reload();
+        if (err.message === 'sales_closed') P.sales_open = false;
+        E.busy = false; paint();
+        const m = {
+          sold_out: left() ? `Столько мест уже нет — осталось ${left()}.` : 'Места закончились.',
+          sales_closed: 'Продажа закрыта.',
+          validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+          no_product: 'Этого мероприятия больше нет.',
+          bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+        }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+        showErr(m);
+      }
+    };
+    showAll();
+  }
   const S = { busy: false, soon: !P.has_file };
   const label = () => S.soon ? 'Скоро' : 'Купить за ' + rub(P.price);
 

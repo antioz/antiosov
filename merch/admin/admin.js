@@ -10,6 +10,7 @@
   const dd = s => new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const localDT = iso => { const d = new Date(iso), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
   const isDigital = o => o.kind === 'digital' || o.delivery_mode === 'none';
+  const isEvent = o => o.kind === 'event' || o.delivery_mode === 'event';
   const dlMark = o => isDigital(o) ? `<br><small class="meta">${o.downloaded_at ? 'скачан ' + dd(o.downloaded_at) : 'не скачан'}</small>` : '';
   const item = o => `${esc(o.product_title)}${o.size && o.size !== '-' ? ' ' + esc(o.size) : ''} × ${o.qty}`;
   const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else alert('Ошибка: ' + (e.data && e.data.error || e.message)); };
@@ -27,36 +28,37 @@
     app.innerHTML = tabs('orders') + `<div class="summary"><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
+      ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
   }
 
   async function order(id) {
     const { order: o } = await A('admin/order', { q: { id } });
-    const dig = isDigital(o);
+    const ev = isEvent(o), dig = isDigital(o) && !ev, noShip = dig || ev;
     app.innerHTML = tabs('orders') + `<p class="meta"><a href="#orders" style="color:inherit;text-decoration:none">← заказы</a></p><h2>${o.id} ${badge(o)}</h2>
-      <div class="kv"><b>Создан</b><span>${d(o.created_at)}</span><b>Товар</b><span>${item(o)} — ${rub(o.price_item)} × ${o.qty}</span>${dig ? `<b>Тип</b><span>цифровой</span><b>Скачивание</b><span>${o.downloaded_at ? `скачан ${d(o.downloaded_at)}${o.download_count ? ' · раз: ' + o.download_count : ''}` : 'не скачан'}</span>` : `<b>Доставка</b><span>${rub(o.price_delivery)} (${o.delivery_mode}${o.delivery_days ? ', ~' + o.delivery_days + ' дн.' : ''})</span>`}<b>Итого</b><span>${rub(o.total)}</span>
-      <b>Покупатель</b><span>${dig ? '' : `${esc(o.customer_name)}<br><a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a> · `}<a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></span>
-      ${dig ? '' : `<b>Куда</b><span>${esc(o.pvz_address || o.address_text)}</span>
+      <div class="kv"><b>Создан</b><span>${d(o.created_at)}</span><b>Товар</b><span>${item(o)} — ${rub(o.price_item)} × ${o.qty}</span>${ev ? `<b>Тип</b><span>мероприятие</span><b>Билетов</b><span>${o.qty}</span>` : dig ? `<b>Тип</b><span>цифровой</span><b>Скачивание</b><span>${o.downloaded_at ? `скачан ${d(o.downloaded_at)}${o.download_count ? ' · раз: ' + o.download_count : ''}` : 'не скачан'}</span>` : `<b>Доставка</b><span>${rub(o.price_delivery)} (${o.delivery_mode}${o.delivery_days ? ', ~' + o.delivery_days + ' дн.' : ''})</span>`}<b>Итого</b><span>${rub(o.total)}</span>
+      <b>Покупатель</b><span>${noShip ? '' : `${esc(o.customer_name)}<br><a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a> · `}<a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></span>
+      ${noShip ? '' : `<b>Куда</b><span>${esc(o.pvz_address || o.address_text)}</span>
       <b>Яндекс</b><span>${o.yd_request_id ? `заявка ${esc(o.yd_request_id)} ${o.yd_track_url ? `· <a href="${esc(o.yd_track_url)}" target="_blank">трек</a>` : ''}` : (o.delivery_mode === 'yandex' ? '<span class="badge">заявка не создана</span>' : 'вручную')}${o.yd_error ? `<br><small style="color:#7a1c1c">${esc(o.yd_error)}</small>` : ''}</span>`}
       <b>Платёж</b><span>${esc(o.tb_payment_id || '—')}${o.tb_refund_id ? ' · возврат ' + esc(o.tb_refund_id) : ''}${o.mail_error ? `<br><small style="color:#7a1c1c">почта: ${esc(o.mail_error)}</small>` : ''}</span></div>
-      <div class="row-actions">${NEXT[o.status] && !dig ? `<button class="btn" data-act="next">→ ${NEXT[o.status]}</button>` : ''}
+      <div class="row-actions">${NEXT[o.status] && !noShip ? `<button class="btn" data-act="next">→ ${NEXT[o.status]}</button>` : ''}
         ${['new', 'paid', 'packed'].includes(o.status) ? `<button class="btn ghost" data-act="cancel">Отменить${o.status !== 'new' ? ' и вернуть деньги' : ''}</button>` : ''}
         ${o.delivery_mode === 'yandex' && !o.yd_request_id && ['paid', 'packed'].includes(o.status) ? `<button class="btn ghost" data-act="retry_yd">Создать заявку Яндекс</button>` : ''}</div>
       <label class="field"><span>Заметка (при статусе «отправлен» без заявки Яндекса уходит покупателю как трек)</span><textarea id="note">${esc(o.admin_note)}</textarea></label><button class="btn ghost" id="saveNote" style="width:auto;padding:0 20px">Сохранить заметку</button>`;
     app.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
       if (b.dataset.act === 'cancel' && dig && o.status !== 'new' && o.downloaded_at && !confirm('Архив уже скачан — по оферте возврат не положен. Всё равно вернуть деньги?')) return;
-      if (b.dataset.act === 'cancel' && !confirm(o.status === 'new' ? 'Отменить заказ?' : `Отменить и вернуть ${rub(o.total)} покупателю?`)) return;
+      if (b.dataset.act === 'cancel' && !confirm(o.status === 'new' ? 'Отменить заказ?' : ev ? `Отменить и вернуть ${rub(o.total)}? Места вернутся в продажу.` : `Отменить и вернуть ${rub(o.total)} покупателю?`)) return;
       b.disabled = true; try { await A('admin/order', { method: 'POST', body: { id, action: b.dataset.act } }); order(id); } catch (e) { fail(e); b.disabled = false; } });
     app.querySelector('#saveNote').onclick = async () => { try { await A('admin/order', { method: 'POST', body: { id, action: 'note', note: app.querySelector('#note').value } }); order(id); } catch (e) { fail(e); } };
     bindLogout();
   }
 
+  const evRow = p => { const v = (p.variants || [])[0] || { stock: 0, reserved: 0 }; return `мероприятие · ${p.event_at ? d(p.event_at) : 'дата не задана'} · свободно ${v.stock - v.reserved} / резерв ${v.reserved}`; };
   async function products() {
     const { products } = await A('admin/products');
     app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px">+ Добавить товар</a></p>
       <table><tr><th>Товар</th><th>Цена</th><th>Остатки (доступно / резерв / предзаказ)</th><th>Показ</th></tr>
-      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
+      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#product/' + r.dataset.id); bindLogout();
   }
 
@@ -70,7 +72,11 @@
       ${f('id', 'Slug (латиница, для адреса страницы)', p.id, 'text', isNew ? '' : 'readonly')}${f('title', 'Название', p.title)}
       <label class="field"><span>Описание (абзацы — пустой строкой)</span><textarea name="description_md" style="min-height:140px">${esc(p.description_md)}</textarea></label>
       ${f('price', 'Цена, ₽', p.price, 'number', 'min="1"')}
-      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${p.kind !== 'digital' ? 'selected' : ''}>вещь</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option></select></label>
+      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${p.kind !== 'digital' && p.kind !== 'event' ? 'selected' : ''}>вещь</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option><option value="event" ${p.kind === 'event' ? 'selected' : ''}>мероприятие</option></select></label>
+      <div id="ev"><label class="field"><span>Дата и время начала (ваше местное время)</span><input type="datetime-local" name="event_at" value="${p.event_at ? localDT(p.event_at) : ''}"></label>
+        ${f('venue', 'Место (адрес)', p.venue || '')}
+        <label class="field"><span>Возрастной знак</span><select name="age_mark"><option value="">—</option>${['0+', '6+', '12+', '16+', '18+'].map(a => `<option ${p.age_mark === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+        ${f('seats', 'Свободных мест', (p.variants.find(v => v.size === '-') || { stock: 60 }).stock, 'number', 'min="0"')}</div>
       <div id="dig"><div class="meta" style="margin-bottom:6px">Архив (zip)</div><p id="arch" style="font-size:14px;margin:0 0 8px"></p>
         <input type="file" id="zip" accept=".zip,application/zip" ${isNew ? 'disabled title="сначала сохраните товар"' : ''}><p class="meta" id="zupl"></p>
         <div class="meta" style="margin:18px 0 6px">Бесплатная версия (zip, с объявлением)</div><p id="farch" style="font-size:14px;margin:0 0 8px"></p>
@@ -91,7 +97,7 @@
     const renderStock = () => { const want = sizesOf().length ? sizesOf() : ['-']; const cur = Object.fromEntries([...app.querySelectorAll('#stock input')].map(i => [i.dataset.s, i.value]));
       app.querySelector('#stock').innerHTML = want.map(s => { const v = p.variants.find(x => x.size === s); return `<label><span>${s === '-' ? 'штук' : s}</span><input type="number" min="0" data-s="${esc(s)}" value="${cur[s] != null ? cur[s] : (v ? v.stock : 0)}"></label>`; }).join(''); };
     F('sizes').oninput = renderStock; renderStock();
-    const renderKind = () => { const dig = F('kind').value === 'digital'; app.querySelector('#phys').style.display = dig ? 'none' : ''; app.querySelector('#dig').style.display = dig ? '' : 'none';
+    const renderKind = () => { const k = F('kind').value, dig = k === 'digital'; app.querySelector('#phys').style.display = k === 'physical' ? '' : 'none'; app.querySelector('#dig').style.display = dig ? '' : 'none'; app.querySelector('#ev').style.display = k === 'event' ? '' : 'none';
       app.querySelector('#arch').innerHTML = p.file_key ? `загружен <small class="meta">${esc(p.file_key)}</small>` : (isNew ? 'не загружен — сначала сохраните товар' : 'не загружен');
       app.querySelector('#farch').innerHTML = p.free_file_key ? `загружен <small class="meta">${esc(p.free_file_key)}</small>` : 'не загружен';
       const fu = F('free_until').value, left = fu ? new Date(fu) - Date.now() : 0;
@@ -130,7 +136,8 @@
       }
       app.querySelector('#upl').textContent = 'готово — не забудь «Сохранить»'; e.target.value = '';
     };
-    const bodyOf = () => ({ id: F('id').value.trim(), title: F('title').value, description_md: F('description_md').value, price: +F('price').value, images: p.images, weight_g: +F('weight_g').value,
+    const bodyOf = () => { const b = baseOf(); return b.kind !== 'event' ? b : { ...b, event_at: F('event_at').value ? new Date(F('event_at').value).toISOString() : '', venue: F('venue').value.trim(), age_mark: F('age_mark').value, variants: [{ size: '-', stock: Math.max(0, +F('seats').value | 0) }], sizes: [] }; };
+    const baseOf = () => ({ id: F('id').value.trim(), title: F('title').value, description_md: F('description_md').value, price: +F('price').value, images: p.images, weight_g: +F('weight_g').value,
         dims_cm: { x: +F('dx').value, y: +F('dy').value, z: +F('dz').value }, sizes: sizesOf(), preorder_allowed: F('preorder_allowed').checked, preorder_ship_by: F('preorder_ship_by').value, active: F('active').checked, sort: +F('sort').value,
         variants: [...app.querySelectorAll('#stock input')].map(i => ({ size: i.dataset.s, stock: +i.value })), kind: F('kind').value, file_key: p.file_key || '',
         free_file_key: p.free_file_key || '', free_until: F('free_until').value ? new Date(F('free_until').value).toISOString() : '' });
