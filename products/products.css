@@ -22,3 +22,4 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .age{display:inline-block;border:1px solid var(--ink);padding:0 6px;font-size:12px;letter-spacing:.05em;line-height:20px}
 .left{font-size:13px;letter-spacing:.1em;margin:0 0 18px}
 .tk h2{margin:36px 0 6px} .tk img{display:block;width:100%;max-width:420px;height:auto;margin:18px auto;border:1px solid var(--line)} .tk .fine{text-align:center;margin:0 0 4px;font-size:13px}
+[hidden]{display:none!important}
