@@ -22,7 +22,7 @@
 <main>
   <p class="name r in"><a href="/">Дмитрий Антиосов</a></p>
   <div id="root"><p class="meta" style="text-align:center">загружаю…</p></div>
-  <footer><a href="/products/">← все продукты</a><a href="/merch/privacy/">персональные данные</a></footer>
+  <footer><a href="/products/">← все продукты</a></footer>
 </main>
 <script src="../../merch/api.js"></script>
 <script src="../products.js"></script>
@@ -112,14 +112,14 @@
       ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
         <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a></div>` : ''}
       ${HOWTO}
-      <form id="f" novalidate>
+      <form id="f" novalidate${P.free_active ? ' hidden' : ''}>
         <label class="field" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
         <div id="err" class="notice err" style="display:none"></div>
         <button class="btn" id="pay" type="submit" style="margin-top:8px">${label()}</button>
         ${S.soon ? '<p class="meta soon" id="soon">архив ещё не готов — скоро</p>' : ''}
-        <p class="fine">Это цифровой товар: после оплаты архив можно скачивать сколько угодно раз. Вернуть деньги можно, пока архив ни разу не скачан — подробно в <a href="/offer/" target="_blank">оферте</a>.</p>
+        <p class="fine">Это цифровой товар: после оплаты архив можно скачивать сколько угодно раз. Вернуть деньги можно, пока архив ни разу не скачан — подробно в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
       </form>
     </div></div>`;
   const $ = s => root.querySelector(s);
