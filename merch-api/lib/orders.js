@@ -77,7 +77,7 @@ async function createOrder(input) {
   await gc();
   const found = await getProduct(String(input.product_id || ''), { admin: true });
   const product = found && found.active ? found : null;
-  if (found && found.kind === 'digital') { if (!product) throw new HttpError(404, 'no_product'); return createDigitalOrder(input, product); }
+  if (found && found.kind === 'digital') { if (!product) throw new HttpError(404, 'no_product'); if (product.free_active) throw new HttpError(409, 'free_now'); return createDigitalOrder(input, product); } // во время акции платить не за что
   if (found && found.kind === 'event') { if (!product) throw new HttpError(404, 'no_product'); return createEventOrder(input, product); }
   if (found && found.kind === 'diploma') { if (!product) throw new HttpError(404, 'no_product'); return createDiplomaOrder(input, product); }
   const v = validate(input);
