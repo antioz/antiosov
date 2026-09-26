@@ -403,14 +403,14 @@ async function download(id, k) {
   await db.query(`DECLARE $id AS Utf8; UPDATE orders SET downloaded_at = COALESCE(downloaded_at, CurrentUtcTimestamp()), download_count = COALESCE(download_count, 0) + 1, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(id) });
   return s3.presignGet(p.file_key, 600, `${p.id}.zip`);
 }
-// Бесплатный архив во время акции: без заказа и без ПД — presigned GET (10 минут) с именем <id>-free.zip.
+// Бесплатный архив во время акции: без заказа и без ПД — presigned GET (10 минут) с именем <id>.zip, как у платного.
 async function freeDownload(id) {
   const p = await getProduct(id, { admin: true });
   if (!p || !p.active || p.kind !== 'digital') throw new HttpError(404, 'no_product');
   if (!p.free_file_key) throw new HttpError(409, 'no_file');
   if (!p.free_active) throw new HttpError(410, 'promo_over');
   console.log('free download', id);
-  return s3.presignGet(p.free_file_key, 600, `${id}-free.zip`);
+  return s3.presignGet(p.free_file_key, 600, `${id}.zip`);
 }
 async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }
 

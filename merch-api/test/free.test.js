@@ -30,7 +30,7 @@ test('free во время акции → 302 на presigned бесплатно�
   await setProduct({ until: soon(60) });
   const r = await handler(ev('free', { q: { s: F } }));
   assert.equal(r.statusCode, 302); const loc = r.headers.Location;
-  assert.ok(loc.includes('/d/test-free/bb22.zip') && loc.includes('X-Amz-Signature') && loc.includes('test-free-free.zip'), loc);
+  assert.ok(loc.includes('/d/test-free/bb22.zip') && loc.includes('X-Amz-Signature') && loc.includes('filename%3D%22test-free.zip'), loc);
 });
 
 test('после дедлайна: free → 410 promo_over, free_active=false; покупка платной версии работает', async () => {
