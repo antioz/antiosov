@@ -43,11 +43,12 @@
     <footer class="r" style="--i:3"><a href="/">← на главную</a><a href="/merch/privacy/">персональные данные</a></footer>
   </main>
   <script src="../merch/api.js"></script>
+  <script src="products.js"></script>
   <script>
     (async () => {
       const empty = document.getElementById('empty');
       try {
-        const { products } = await api('catalog', { q: { kind: 'digital' } });
+        const { products, now } = await api('catalog', { q: { kind: 'digital' } }); const skew = now ? Date.parse(now) - Date.now() : 0;
         const g = document.getElementById('grid');
         if (!products.length) { empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
         g.innerHTML = products.map((p, i) => {
@@ -55,7 +56,7 @@
           return `<a class="card r" style="--i:${i + 2}" href="/products/p/?s=${encodeURIComponent(p.id)}">
             <div class="ph">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
             <div class="t">${esc(p.title)}</div>
-            <div class="p">${rub(p.price)}${soon ? ' · <span class="meta">скоро</span>' : ''}</div></a>`;
+            <div class="p">${p.free_active ? `бесплатно · <span class="meta">ещё ${countdown(p.free_until, skew).short}</span>` : rub(p.price) + (soon ? ' · <span class="meta">скоро</span>' : '')}</div></a>`;
         }).join('');
       } catch (e) { empty.textContent = 'раздел временно недоступен'; empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
       showAll();

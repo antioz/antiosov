@@ -23,3 +23,6 @@ ALTER TABLE products ADD COLUMN kind Utf8;
 ALTER TABLE products ADD COLUMN file_key Utf8;
 ALTER TABLE orders ADD COLUMN downloaded_at Timestamp;
 ALTER TABLE orders ADD COLUMN download_count Int32;
+-- 2026-09-26 бесплатный период: free_until (ISO UTC, пусто = акции нет), free_file_key (d/<id>/<hex>.zip — версия «с объявлением»).
+ALTER TABLE products ADD COLUMN free_until Utf8;
+ALTER TABLE products ADD COLUMN free_file_key Utf8;

@@ -10,7 +10,10 @@ const asArr = x => Array.isArray(x) ? x : [];
 const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d === 'object' && [n('x'), n('y'), n('z')].every(v => Number.isFinite(v) && v > 0)) ? { x: n('x'), y: n('y'), z: n('z') } : { x: 30, y: 20, z: 3 }; };
 // kind: NULL/пусто у старых товаров = physical. has_file — наружу вместо file_key (ключ архива публично не отдаём).
 const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])),
-  kind: p.kind === 'digital' ? 'digital' : 'physical', file_key: p.file_key || '', has_file: !!p.file_key });
+  kind: p.kind === 'digital' ? 'digital' : 'physical', file_key: p.file_key || '', has_file: !!p.file_key,
+  // Бесплатный период: до free_until отдаётся free_file_key (версия «с объявлением»). free_active считает сервер — таймер на странице лишь показывает.
+  free_file_key: p.free_file_key || '', has_free_file: !!p.free_file_key, free_until: p.free_until || '',
+  free_active: !!p.free_file_key && !!p.free_until && Date.parse(p.free_until) > Date.now() });
 // Цифровой заказ помечается delivery_mode = 'none' в самой строке заказа: releaseNew/confirmPaid/cancel решают по заказу,
 // не завися от того, что админ позже поменяет kind у товара.
 const isDigital = o => !!o && o.delivery_mode === 'none';
@@ -25,7 +28,7 @@ async function catalog(kind = 'physical') {
   const byP = {};
   for (const v of vs) (byP[v.product_id] = byP[v.product_id] || []).push({ size: v.size, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count });
   return ps.map(parseProduct).filter(p => p.kind === kind).map(withUrls).map(p => ({
-    id: p.id, kind: p.kind, has_file: p.has_file, title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
+    id: p.id, kind: p.kind, has_file: p.has_file, free_active: p.free_active, free_until: p.free_active ? p.free_until : '', title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
     preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by,
     variants: (byP[p.id] || []).sort(bySizeOrder(p.sizes)),
   }));
@@ -35,7 +38,7 @@ async function getProduct(id, { admin = false } = {}) {
   const [[p], vs] = await db.query(`DECLARE $id AS Utf8; SELECT * FROM products WHERE id = $id; SELECT * FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
   if (!p || (!admin && !p.active)) return null;
   const prod = withUrls(parseProduct(p));
-  if (!admin) delete prod.file_key;
+  if (!admin) { delete prod.file_key; delete prod.free_file_key; if (!prod.free_active) prod.free_until = ''; }
   prod.variants = vs.map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count }))
     .sort(bySizeOrder(prod.sizes));
   return prod;
@@ -285,6 +288,15 @@ async function download(id, k) {
   await db.query(`DECLARE $id AS Utf8; UPDATE orders SET downloaded_at = COALESCE(downloaded_at, CurrentUtcTimestamp()), download_count = COALESCE(download_count, 0) + 1, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(id) });
   return s3.presignGet(p.file_key, 600, `${p.id}.zip`);
 }
+// Бесплатный архив во время акции: без заказа и без ПД — presigned GET (10 минут) с именем <id>-free.zip.
+async function freeDownload(id) {
+  const p = await getProduct(id, { admin: true });
+  if (!p || !p.active || p.kind !== 'digital') throw new HttpError(404, 'no_product');
+  if (!p.free_file_key) throw new HttpError(409, 'no_file');
+  if (!p.free_active) throw new HttpError(410, 'promo_over');
+  console.log('free download', id);
+  return s3.presignGet(p.free_file_key, 600, `${id}-free.zip`);
+}
 async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }
 
 // ---------- админ ----------
@@ -337,4 +349,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, orderPage, nextStatus, isDigital, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };

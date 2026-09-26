@@ -4,3 +4,8 @@ window.HOWTO = `<div class="howto"><h3>Как установить</h3><ol>
   <li>Откройте чат со своим ИИ: Claude, ChatGPT, Codex или любым другим.</li>
   <li>Приложите архив и напишите: «Установи этот скилл».</li></ol>
   <p>ИИ установит его сам или подскажет, куда нажать. Если скиллы он не поддерживает, напишите: «Прочитай SKILL.md и работай по нему».</p></div>`;
+
+// Обратный отсчёт до iso с поправкой на часы сервера (skew = серверное время − локальное). Время решает сервер, таймер только показывает.
+window.countdown = (iso, skew) => { const ms = Math.max(0, Date.parse(iso) - (Date.now() + skew)), z = n => String(n).padStart(2, '0');
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4), sec = Math.floor(ms % 6e4 / 1e3);
+  return { ms, text: (d ? d + ' д ' : '') + z(h) + ':' + z(m) + ':' + z(sec), short: d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин` }; };
