@@ -31,8 +31,8 @@
   const root = document.getElementById('root');
   const slug = new URLSearchParams(location.search).get('s') || '';
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
-  let P;
-  try { P = (await api('product', { q: { s: slug } })).product; } catch (e) { nope(); return; }
+  let P, skew = 0;
+  try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
   if (P.kind !== 'digital') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
@@ -44,7 +44,11 @@
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
+      ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
+        <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a>
+        <p class="fine">Бесплатная версия — с объявлением от автора. Когда таймер дойдёт до нуля, останется только платная версия, без объявления. Почта не нужна.</p></div>` : ''}
       ${HOWTO}
+      ${P.free_active ? `<p class="or">Или сразу версия без объявления — ${rub(P.price)}</p>` : ''}
       <form id="f" novalidate>
         <label class="field" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
@@ -85,6 +89,9 @@
       showErr(m);
     }
   };
+  // Таймер тикает раз в секунду; на нуле карточка перерисовывается уже без бесплатной кнопки (сервер к этому моменту отдаёт только платную).
+  if (P.free_active) { const t = setInterval(() => { const c = countdown(P.free_until, skew); const el = document.getElementById('timer'); if (el) el.textContent = c.text; if (c.ms <= 0) { clearInterval(t); location.reload(); } }, 1000); }
+  if (new URLSearchParams(location.search).get('free') === 'promo_over') showErr('Бесплатный период закончился — осталась платная версия.');
   showAll();
 })();
 </script>

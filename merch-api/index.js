@@ -56,8 +56,8 @@ module.exports.handler = async function (event) {
     const a = String(q.a || '');
     if (a.startsWith('admin/')) return await admin.route(a, method, method === 'GET' ? {} : parseBody(event), q, header(event, 'x-admin-token'));
     switch (a) {
-      case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(q.kind === 'digital' ? 'digital' : 'physical'), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
-      case 'product': { const p = await orders.getProduct(String(q.s || '')); return p ? json(200, { product: p, yd_mode: ext.yd.mode() }) : json(404, { error: 'no_product' }); }
+      case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(q.kind === 'digital' ? 'digital' : 'physical'), now: new Date().toISOString(), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
+      case 'product': { const p = await orders.getProduct(String(q.s || '')); return p ? json(200, { product: p, yd_mode: ext.yd.mode(), now: new Date().toISOString() }) : json(404, { error: 'no_product' }); }
       case 'cities': return json(200, { cities: await ext.yd.cities(String(q.q || '')) });
       case 'pvz': return json(200, { points: await ext.yd.pvz(String(q.geo_id || '')) });
       case 'quote': {
@@ -73,6 +73,13 @@ module.exports.handler = async function (event) {
       case 'pay': {
         const id = String(q.id || ''), k = String(q.k || ''); const i = await orders.getPayInfo(id, k);
         return (i && i.status === 'new' && i.tb_payment_url) ? redirect(i.tb_payment_url) : redirect(orders.orderPage(i && i.kind, id, k));
+      }
+      // Ссылку открывает браузер: акция кончилась/нет файла → назад на карточку (она покажет покупку), а не JSON с ошибкой.
+      case 'free': {
+        if (method !== 'GET') return json(405, { error: 'method' });
+        const s = String(q.s || '');
+        try { return redirect(await orders.freeDownload(s)); }
+        catch (e) { if (e instanceof HttpError) return redirect(`${ENV.SITE}/products/p/?s=${encodeURIComponent(s)}&free=${e.error}`); throw e; }
       }
       case 'download': { if (method !== 'GET') return json(405, { error: 'method' }); return redirect(await orders.download(String(q.id || ''), String(q.k || ''))); }
       case 'success': return await success(q);
