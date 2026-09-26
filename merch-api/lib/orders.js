@@ -410,7 +410,23 @@ async function freeDownload(id) {
   if (!p.free_file_key) throw new HttpError(409, 'no_file');
   if (!p.free_active) throw new HttpError(410, 'promo_over');
   console.log('free download', id);
+  await bumpCounter(`free_dl:${id}`).catch(e => console.error('free_dl counter', id, e.message)); // счётчик не должен ломать скачивание
   return s3.presignGet(p.free_file_key, 600, `${id}.zip`);
+}
+// Счётчики статистики в таблице counters (name → value): free_dl:<product_id> — бесплатные скачивания.
+async function bumpCounter(name) {
+  await db.tx(async run => {
+    const [[c]] = await run(`DECLARE $n AS Utf8; SELECT value FROM counters WHERE name = $n;`, { $n: db.V.s(name) });
+    await run(`DECLARE $n AS Utf8; DECLARE $v AS Int32; UPSERT INTO counters (name, value) VALUES ($n, $v);`, { $n: db.V.s(name), $v: db.V.i((c ? c.value : 0) + 1) });
+  });
+}
+// Статистика по продуктам для админки: бесплатные скачивания, оплаченные заказы, скачивания по оплаченным заказам.
+async function productStats() {
+  const [cs, os] = await db.query(`SELECT name, value FROM counters WHERE StartsWith(name, 'free_dl:'u); SELECT product_id, status, COALESCE(download_count, 0) AS dl FROM orders;`);
+  const st = {}; const row = id => (st[id] = st[id] || { free_downloads: 0, paid_orders: 0, paid_downloads: 0 });
+  for (const c of cs) row(c.name.slice(8)).free_downloads = c.value;
+  for (const o of os) if (DL_STATUSES.includes(o.status)) { const r = row(o.product_id); r.paid_orders++; r.paid_downloads += o.dl; }
+  return st;
 }
 async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }
 
@@ -466,4 +482,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { productStats, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };

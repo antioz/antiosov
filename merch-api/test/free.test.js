@@ -15,7 +15,7 @@ const setProduct = async ({ until = '', ffk = FFK, active = true } = {}) => db.q
   VALUES ($id, 'Бесплатный тест'u, ''u, 111, Json('[]'), 0, Json('{"x":1,"y":1,"z":1}'), Json('[]'), false, ''u, $a, 92, CurrentUtcTimestamp(), 'digital'u, $fk, $ffk, $u);`,
   { $id: db.V.s(F), $fk: db.V.s(FK), $ffk: db.V.s(ffk), $u: db.V.s(until), $a: db.V.b(active) });
 const soon = (min) => new Date(Date.now() + min * 60000).toISOString();
-test.after(async () => { await db.query(`DECLARE $id AS Utf8; DELETE FROM products WHERE id = $id; DELETE FROM orders WHERE product_id = $id;`, { $id: db.V.s(F) }); (await db.getDriver()).destroy(); });
+test.after(async () => { await db.query(`DECLARE $id AS Utf8; DECLARE $c AS Utf8; DELETE FROM products WHERE id = $id; DELETE FROM orders WHERE product_id = $id; DELETE FROM counters WHERE name = $c;`, { $id: db.V.s(F), $c: db.V.s('free_dl:' + F) }); (await db.getDriver()).destroy(); });
 
 test('product во время акции: free_active, free_until, now; ключ бесплатного архива не отдаётся', async () => {
   const until = soon(60); await setProduct({ until });
@@ -65,4 +65,14 @@ test('admin/product: free_until (ISO или пусто) и free_file_key с ва
   p = body(r).product; assert.equal(p.free_until, until); assert.equal(p.free_file_key, 'd/test-free/cc33.zip'); assert.equal(p.file_key, FK);
   r = await handler(ev('admin/product', { method: 'POST', headers: H, body: { ...base, free_until: '', free_file_key: '' } }));
   p = body(r).product; assert.equal(p.free_until, ''); assert.equal(p.has_free_file, false); assert.equal(p.free_active, false);
+});
+
+test('бесплатные скачивания считаются: counters free_dl:<id> и productStats', async () => {
+  await setProduct({ until: soon(60) });
+  await db.query(`DECLARE $c AS Utf8; DELETE FROM counters WHERE name = $c;`, { $c: db.V.s('free_dl:' + F) });
+  await handler(ev('free', { q: { s: F } })); await handler(ev('free', { q: { s: F } }));
+  const st = await orders.productStats();
+  assert.equal(st[F].free_downloads, 2);
+  await setProduct({ until: soon(-1) }); await handler(ev('free', { q: { s: F } })); // после дедлайна не считается
+  assert.equal((await orders.productStats())[F].free_downloads, 2);
 });

@@ -81,7 +81,7 @@ async function route(a, method, body, q, auth) {
       const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
       const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
-        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length });
+        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats: await orders.productStats() });
     }
     case 'admin/orders': {
       const st = q.status ? String(q.status) : undefined;
