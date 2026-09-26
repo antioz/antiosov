@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS products (
   id Utf8, title Utf8, description_md Utf8, price Int32, images Json, weight_g Int32,
   dims_cm Json, sizes Json, preorder_allowed Bool, preorder_ship_by Utf8, active Bool,
-  sort Int32, updated_at Timestamp, kind Utf8, file_key Utf8, PRIMARY KEY (id));
+  sort Int32, updated_at Timestamp, kind Utf8, file_key Utf8, free_until Utf8, free_file_key Utf8,
+  event_at Utf8, venue Utf8, age_mark Utf8, PRIMARY KEY (id));
 CREATE TABLE IF NOT EXISTS variants (
   product_id Utf8, size Utf8, stock Int32, reserved Int32, preorder_count Int32,
   PRIMARY KEY (product_id, size));
@@ -26,3 +27,7 @@ ALTER TABLE orders ADD COLUMN download_count Int32;
 -- 2026-09-26 бесплатный период: free_until (ISO UTC, пусто = акции нет), free_file_key (d/<id>/<hex>.zip — версия «с объявлением»).
 ALTER TABLE products ADD COLUMN free_until Utf8;
 ALTER TABLE products ADD COLUMN free_file_key Utf8;
+-- 2026-09-26 билеты на мероприятия (kind='event'): начало (ISO UTC), место, возрастной знак. Места — variants(size='-').stock.
+ALTER TABLE products ADD COLUMN event_at Utf8;
+ALTER TABLE products ADD COLUMN venue Utf8;
+ALTER TABLE products ADD COLUMN age_mark Utf8;

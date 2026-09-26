@@ -12,21 +12,21 @@
 
 | a | метод | auth | назначение |
 |---|---|---|---|
-| catalog | GET | — | активные товары + варианты с `available = stock − reserved`; перед этим `gc`. По умолчанию только `physical` (витрина мерча); `&kind=digital` — только цифровые. У товара `kind`, `has_file` |
-| product&s= | GET | — | один товар; `kind`, `has_file` (`file_key` наружу не отдаётся) |
+| catalog | GET | — | активные товары + варианты с `available = stock − reserved`; перед этим `gc`. По умолчанию только `physical` (витрина мерча); `&kind=digital` — раздел «Продукты»: цифровые и мероприятия (`event`). У товара `kind`, `has_file`; у мероприятия `event_at`, `venue`, `age_mark`, `left`, `sales_open` |
+| product&s= | GET | — | один товар; `kind`, `has_file` (`file_key` наружу не отдаётся); мероприятие — плюс `event_at`, `venue`, `age_mark`, `left`, `sales_open`, `qty_max` |
 | cities&q= | GET | — | подсказка городов (Яндекс); режим `off` → пусто |
 | pvz&geo_id= | GET | — | список ПВЗ по городу; режим `off` → пусто |
 | quote | POST | — | стоимость и срок доставки до ПВЗ; режим `off` → `DELIVERY_FLAT` |
-| order | POST | — | создать заказ: валидация, резерв в транзакции, Т-Банк Init → `{id, k, paymentUrl}`. Цифровой товар: тело `{product_id, email, offer, consent}`, без резерва, чек `intellectual_activity`; нет архива → 409 `no_file` |
+| order | POST | — | создать заказ: валидация, резерв в транзакции, Т-Банк Init → `{id, k, paymentUrl}`. Цифровой товар: тело `{product_id, email, offer, consent}`, без резерва, чек `intellectual_activity`; нет архива → 409 `no_file`. Мероприятие: `{product_id, email, qty, offer, consent}`, резерв мест в `variants('-')`, чек `service`/`full_payment`, `delivery_mode='event'`; 409 `sold_out` `{left}` / `sales_closed` |
 | pay&id=&k= | GET | k | 302 на сохранённый PaymentURL (один Init на заказ) |
-| status&id=&k= | GET | k | публичный статус без ПД; `k` — случайный ключ заказа; `kind`, `can_download` (digital и `paid`/`done`), `downloaded` |
+| status&id=&k= | GET | k | публичный статус без ПД; `k` — случайный ключ заказа; `kind`, `can_download` (digital и `paid`/`done`), `downloaded`; мероприятие после оплаты — `ticket {number, title, event_at, venue, age_mark, qty, price_item, total}` (страница рисует PNG) |
 | download&id=&k= | GET | k | цифровой заказ: 302 на presigned GET архива (600 с, `attachment; filename="<product_id>.zip"`); первое — `downloaded_at`, каждое — `download_count+1`. 403 `not_paid` / 404 `no_order` / 409 `no_file` |
 | notify | POST | подпись Т-Банка | вебхук: CONFIRMED → paid, письма, заявка Яндекс |
-| success | GET | — | возврат из Т-Банка → 302 на `/merch/order/?id=…&k=…` (цифровой — `/products/order/`) |
+| success | GET | — | возврат из Т-Банка → 302 на `/merch/order/?id=…&k=…` (цифровой и билет — `/products/order/`) |
 | admin/login | POST | пароль | → JWT (HMAC `SECRET`, 30 дней); неверный пароль → 401 `bad_password` |
 | admin/orders | GET | JWT | список заказов с фильтром по статусу; у каждого `kind`, `downloaded_at`, `download_count` |
-| admin/order | GET/POST | JWT | карточка / смена статуса / заметка / повтор заявки Яндекс / отмена с возвратом; `kind`, `downloaded_at`, `download_count`. Цифровой: `next` → 409 `bad_transition` |
-| admin/products | GET/POST | JWT | список / создать / изменить / остатки; `admin/product` принимает `kind` и `file_key` (`^d/<id>/[0-9a-f]+\.zip$` или пусто; не передан — не меняется) |
+| admin/order | GET/POST | JWT | карточка / смена статуса / заметка / повтор заявки Яндекс / отмена с возвратом; `kind`, `downloaded_at`, `download_count`. Цифровой и билет: `next` → 409 `bad_transition`; отмена оплаченного билета возвращает места (`stock += qty`) |
+| admin/products | GET/POST | JWT | список / создать / изменить / остатки; `admin/product` принимает `kind` и `file_key` (`^d/<id>/[0-9a-f]+\.zip$` или пусто; не передан — не меняется); мероприятие — `kind:'event'`, `event_at` (ISO), `venue`, `age_mark` (0+…18+), места — `variants:[{size:'-',stock}]` |
 | admin/file | POST | JWT | `{product_id}` → `{key, put_url}`: presigned PUT архива в закрытый `d/<id>/` (application/zip, 10 мин) |
 | admin/photo | POST/DELETE | JWT | presigned PUT в бакет (image/jpeg, TTL 10 мин) / удаление |
 | gc | внутренний | — | в начале catalog/order: заказы `new` старше `RESERVE_MIN` минут → `expired`, резерв снимается |
@@ -107,7 +107,7 @@ node --test test/mail.test.js   # живая отправка владельцу
 
 `schema.yql` — `CREATE TABLE IF NOT EXISTS …` + `ALTER TABLE … ADD COLUMN` для уже созданных БД; `migrate.js` считает
 «already exists» нормой, поэтому повторный запуск безопасен. 2026-09-25 (цифровые товары): `products.kind`, `products.file_key`,
-`orders.downloaded_at`, `orders.download_count`. **Миграцию prod — до деплоя** новой версии функции.
+`orders.downloaded_at`, `orders.download_count`. 2026-09-26 (билеты): `products.event_at`, `products.venue`, `products.age_mark`. **Миграцию prod — до деплоя** новой версии функции.
 
 ```bash
 cd merch-api && node migrate.js     # БД из .env (тестовая)
