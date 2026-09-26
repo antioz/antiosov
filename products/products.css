@@ -24,3 +24,4 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .tk h2{margin:36px 0 6px} .tk img{display:block;width:100%;max-width:420px;height:auto;margin:18px auto;border:1px solid var(--line)} .tk .fine{text-align:center;margin:0 0 4px;font-size:13px}
 [hidden]{display:none!important}
 .card{border:1px solid #e4e4e4;padding:18px 18px 22px;transition:border-color .2s} .card:hover{border-color:#bdbdbd}
+.name{margin-bottom:30px} @media(max-width:600px){.name{margin-bottom:22px}}
