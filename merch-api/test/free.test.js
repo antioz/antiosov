@@ -82,3 +82,10 @@ test('во время акции платный заказ цифрового т
   const o = await handler(ev('order', { method: 'POST', body: { product_id: F, email: 'a@b.ru', offer: true, consent: true } }));
   assert.equal(o.statusCode, 409, o.body); assert.equal(body(o).error, 'free_now');
 });
+
+test('product отдаёт downloads — число скачиваний цифрового товара', async () => {
+  await setProduct({ until: soon(60) });
+  const before = body(await handler(ev('product', { q: { s: F } }))).product.downloads;
+  await handler(ev('free', { q: { s: F } }));
+  assert.equal(body(await handler(ev('product', { q: { s: F } }))).product.downloads, before + 1);
+});

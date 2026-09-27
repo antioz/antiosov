@@ -420,6 +420,11 @@ async function bumpCounter(name) {
     await run(`DECLARE $n AS Utf8; DECLARE $v AS Int32; UPSERT INTO counters (name, value) VALUES ($n, $v);`, { $n: db.V.s(name), $v: db.V.i((c ? c.value : 0) + 1) });
   });
 }
+// Сколько раз скачан цифровой товар (для страницы товара): бесплатные + по оплаченным заказам.
+async function downloadCount(id) {
+  const [[c], [o]] = await db.query(`DECLARE $n AS Utf8; DECLARE $id AS Utf8; SELECT value FROM counters WHERE name = $n; SELECT SUM(COALESCE(download_count, 0)) AS s FROM orders WHERE product_id = $id AND (status = 'paid'u OR status = 'done'u);`, { $n: db.V.s('free_dl:' + id), $id: db.V.s(id) });
+  return (c ? c.value : 0) + Number((o && o.s) || 0);
+}
 // Статистика по продуктам для админки: бесплатные скачивания, оплаченные заказы, скачивания по оплаченным заказам.
 async function productStats() {
   const [cs, os] = await db.query(`SELECT name, value FROM counters WHERE StartsWith(name, 'free_dl:'u); SELECT product_id, status, COALESCE(download_count, 0) AS dl FROM orders;`);
@@ -482,4 +487,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { productStats, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
