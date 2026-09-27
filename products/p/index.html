@@ -35,6 +35,7 @@
 <script>
 (async () => {
   const root = document.getElementById('root');
+  const plural = (n, one, few, many) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
   const slug = new URLSearchParams(location.search).get('s') || ((location.pathname.match(/^\/products\/([a-z0-9][a-z0-9-]*)\/(?:index\.html)?$/) || [])[1]) || ''; // короткий адрес /products/<slug>/
   // Открыли по старому адресу ?s= — показать в адресной строке короткий, если такая страница есть (её собирает products/build-pages.py).
   if (slug && location.pathname.startsWith('/products/p/')) fetch(`/products/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) { const q = new URLSearchParams(location.search); q.delete('s'); history.replaceState(null, '', `/products/${encodeURIComponent(slug)}/${q.toString() ? '?' + q : ''}${location.hash}`); } }).catch(() => {});
@@ -162,7 +163,7 @@
   root.innerHTML = `<div class="product">
     <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
-      <h2>${esc(P.title)}</h2>${P.free_active ? '' : `<div class="price">${rub(P.price)}</div>`}
+      <h2>${esc(P.title)}</h2>${P.free_active ? '' : `<div class="price">${rub(P.price)}</div>`}${P.downloads ? `<div class="dls">${P.downloads.toLocaleString('ru-RU')} ${plural(P.downloads, 'скачивание', 'скачивания', 'скачиваний')}</div>` : ''}
       <div class="desc">${md(P.description_md)}</div>
       ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
         <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a></div>` : ''}
