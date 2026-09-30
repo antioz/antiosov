@@ -41,7 +41,7 @@
     ${s.downloaded ? '' : '<span class="fine" id="refund" style="display:block">Вернуть деньги можно, пока архив ни разу не скачан</span>'}</p>${HOWTO}`;
   // Мероприятие: билет — превью картинкой и PDF с QR прямо на странице, писем нет.
   const ticketBlock = s => s.ticket ? `<div class="tk"><h2>Скачайте и сохраните билет</h2>
-    <p class="fine">писем не будет — эта страница и есть ваш билет; сохраните PDF или ссылку</p>
+    <p class="fine">Скачайте билет, чтобы не потерять, почтовую рассылку настроить руки не доходят</p>
     <img id="tkimg" alt="Электронный билет ${esc(s.ticket.number)}"><p><a class="btn" id="tkdl" href="#">Скачать билет (PDF)</a></p></div>` : '';
   // Практикум: диплом — PNG рисуется на странице из status.diploma, писем нет.
   const diplomaBlock = s => s.diploma ? `<div class="tk dip"><img id="dipimg" alt="Диплом № ${esc(s.diploma.number)}">
