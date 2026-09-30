@@ -30,5 +30,5 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .seatsbox{margin:22px 0 18px;padding:16px 20px;border:1px solid var(--ink);text-align:center}
 .seatsbox .n{display:block;font-family:var(--serif);font-style:italic;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
 .seatsbox .meta{display:block;margin-top:6px;letter-spacing:.1em}
-/* Афиша мероприятия высокая: на карточке целиком, в каталоге — от верхнего края, чтобы было видно название */
-.gallery.full img{aspect-ratio:auto;height:auto;object-fit:contain} .card .ph.top img{object-position:top}
+/* Афиша мероприятия высокая: на карточке целиком, в каталоге тоже целиком, на белом */
+.gallery.full img{aspect-ratio:auto;height:auto;max-height:85vh;object-fit:contain;background:#fff} .card .ph.top{background:#fff} .card .ph.top img{object-fit:contain}
