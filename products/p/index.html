@@ -54,7 +54,7 @@
     const left = () => Math.max(0, P.left | 0), max = () => Math.max(1, Math.min(P.qty_max || 5, left()));
     const label = () => !P.sales_open ? (left() ? 'Продажа закрыта' : 'Мест нет') : `Купить ${E.qty} ${plural(E.qty, 'билет', 'билета', 'билетов')} за ${rub(P.price * E.qty)}`;
     root.innerHTML = `<div class="product">
-    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div class="gallery full">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
       <h2>${esc(P.title)}</h2>
       <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))} <span class="meta">мск</span></p>

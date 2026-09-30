@@ -54,7 +54,7 @@
         g.innerHTML = products.map((p, i) => {
           const soon = p.kind === 'digital' && p.has_file === false, ev = p.kind === 'event', left = Math.max(0, p.left | 0);
           return `<a class="card r${ev && !p.sales_open ? ' out' : ''}" style="--i:${i + 2}" href="/products/${encodeURIComponent(p.id)}/">
-            <div class="ph">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
+            <div class="ph${ev ? ' top' : ''}">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
             <div class="t">${esc(p.title)}</div>
             ${ev ? `<div class="p">${esc(evWhen(p.event_at))}</div><div class="p">${rub(p.price)}</div><div class="p"><span class="meta">${!left ? 'мест нет' : !p.sales_open ? 'продажа закрыта' : 'осталось ' + seats(left)}</span></div></a>` : `<div class="p">${p.free_active ? 'бесплатно' : rub(p.price) + (soon ? ' · <span class="meta">скоро</span>' : '')}</div></a>`}`;
         }).join('');
