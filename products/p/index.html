@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../../merch/merch.css" />
-  <link rel="stylesheet" href="../products.css" />
+  <link rel="stylesheet" href="../products.css?v=20260930c" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -31,7 +31,7 @@
   <footer><a href="/products/">← все продукты</a></footer>
 </main>
 <script src="../../merch/api.js"></script>
-<script src="../products.js"></script>
+<script src="../products.js?v=20260930c"></script>
 <script>
 (async () => {
   const root = document.getElementById('root');
@@ -57,7 +57,7 @@
     <div class="gallery full">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
       <h2>${esc(P.title)}</h2>
-      <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))} <span class="meta">мск</span></p>
+      <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))}</p>
       ${P.venue ? `<p class="ev"><b>где</b>${esc(P.venue)}</p>` : ''}
       ${P.age_mark ? `<p class="ev"><span class="age">${esc(P.age_mark)}</span></p>` : ''}
       <div class="price" style="margin-top:16px">${rub(P.price)} <span class="meta">за билет</span></div>
