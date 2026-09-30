@@ -84,7 +84,7 @@ test('order → резерв, чек service, без ПД; оплата → ме
   const owner = calls.mail.find(m => m.to === process.env.OWNER_EMAIL);
   assert.ok(owner && !owner.text.includes('guest@example.com'), 'письмо владельцу без ПД');
   s = body(await handler(ev('status', { q: { id, k } })));
-  assert.deepEqual(s.ticket, { number: id, title: 'Вечер-тест', event_at: FUTURE, venue: 'Москва, Тестовая 1', age_mark: '16+', qty: 2, price_item: 300, total: 600 });
+  assert.deepEqual(s.ticket, { number: id, product: E, title: 'Вечер-тест', event_at: FUTURE, venue: 'Москва, Тестовая 1', age_mark: '16+', qty: 2, price_item: 300, total: 600 });
   assert.equal(s.can_download, false);
   const sr = await handler(ev('success', { q: { id, k } }));
   assert.ok(sr.headers.Location.includes(`/products/order/?id=${id}&k=${k}`), sr.headers.Location);

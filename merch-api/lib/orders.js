@@ -378,8 +378,8 @@ async function getStatus(id, k) {
   const dig = isDigital(o);
   const s = { id, status: o.status, total: o.total, is_preorder: o.is_preorder, preorder_ship_by: p ? p.preorder_ship_by : '',
     kind: orderKind(o), can_download: dig && DL_STATUSES.includes(o.status), downloaded: !!o.downloaded_at };
-  // Билет (реквизиты формы приказа Минкультуры № 702) — только после оплаты; страница рисует из него PNG.
-  if (isEvent(o) && DL_STATUSES.includes(o.status) && p) s.ticket = { number: id, title: p.title, event_at: p.event_at, venue: p.venue, age_mark: p.age_mark, qty: o.qty, price_item: o.price_item, total: o.total };
+  // Билет (реквизиты формы приказа Минкультуры № 702) — только после оплаты; страница рисует из него билет (PNG-превью и PDF); product — чтобы взять картинку билета с сайта.
+  if (isEvent(o) && DL_STATUSES.includes(o.status) && p) s.ticket = { number: id, product: o.product_id, title: p.title, event_at: p.event_at, venue: p.venue, age_mark: p.age_mark, qty: o.qty, price_item: o.price_item, total: o.total };
   // Диплом практикума — только после оплаты. Отдельной даты оплаты в orders нет: берётся updated_at (у оплаченного диплома его меняет лишь оплата,
   // а позже — только заметка админа или ошибка письма владельцу).
   if (isDiploma(o) && DL_STATUSES.includes(o.status)) s.diploma = { number: id, name: o.customer_name || '', title: p ? p.title : o.product_id, date: o.updated_at ? new Date(o.updated_at).toISOString() : new Date().toISOString() };

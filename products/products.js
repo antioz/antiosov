@@ -16,13 +16,20 @@ window.evWhen = (iso, year) => { if (!iso) return ''; const d = new Date(iso), o
 window.plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
 window.seats = n => `${n} ${plural(n, 'место', 'места', 'мест')}`;
 
-// Электронный билет (реквизиты по приказу Минкультуры № 702) — PNG рисуется в браузере, на сервере не хранится.
+// QR на билете ведёт на спрятанную страницу-открытку (одна на всех, noindex, ссылок на неё нет).
+window.TICKET_QR_URL = 'https://antiosov.ru/products/obnimemsya-6be75605/';
+
+// Электронный билет (реквизиты по приказу Минкультуры № 702) — рисуется в браузере, на сервере не хранится; PDF — ticketPdf ниже.
 window.drawTicket = async t => {
-  const W = 1080, H = 1350, P = 96, serif = '"Cormorant Garamond", Georgia, serif', sans = 'Inter, system-ui, sans-serif';
+  // Картинка билета (обычно афиша) — products/<id>/ticket.jpg на том же домене, иначе canvas «испачкается» и PDF не выгрузится. Нет файла — билет без картинки.
+  const art = t.product ? await new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = `/products/${encodeURIComponent(t.product)}/ticket.jpg`; }) : null;
+  const AW = 1000, off = art ? Math.round(AW * art.naturalHeight / art.naturalWidth) : 0;
+  const W = 1080, H = 1650 + off, P = 96, serif = '"Cormorant Garamond", Georgia, serif', sans = 'Inter, system-ui, sans-serif';
   const when = evWhen(t.event_at, true), all = [t.number, t.title, when, t.venue, t.age_mark, 'ЭЛЕКТРОННЫЙ БИЛЕТ Билетов Цена Итого ИП Антиосов ₽ №'].join(' ');
   try { await Promise.all([document.fonts.load(`italic 300 100px ${serif}`, all), document.fonts.load(`italic 400 60px ${serif}`, all), document.fonts.load(`400 30px ${sans}`, all)]); } catch (e) {}
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
-  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.strokeStyle = '#0a0a0a'; x.lineWidth = 2; x.strokeRect(40, 40, W - 80, H - 80);
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); if (art) x.drawImage(art, 40, 40, AW, off); x.strokeStyle = '#0a0a0a'; x.lineWidth = 2; x.strokeRect(40, 40, W - 80, H - 80);
+  if (art) { x.beginPath(); x.moveTo(40, 40 + off); x.lineTo(W - 40, 40 + off); x.stroke(); x.translate(0, off); } // дальше — прежняя вёрстка билета под картинкой
   x.textBaseline = 'alphabetic'; x.fillStyle = '#0a0a0a';
   const spaced = (s, cx, y, sp) => { const w = [...s].reduce((a, ch) => a + x.measureText(ch).width + sp, -sp); let px = cx - w / 2; x.textAlign = 'left'; for (const ch of s) { x.fillText(ch, px, y); px += x.measureText(ch).width + sp; } };
   const wrap = (s, max, lines) => { const out = []; let cur = ''; for (const w of String(s || '').split(/\s+/).filter(Boolean)) { const tr = cur ? cur + ' ' + w : w; if (x.measureText(tr).width > max && cur) { out.push(cur); cur = w; } else cur = tr; } if (cur) out.push(cur);
@@ -39,6 +46,14 @@ window.drawTicket = async t => {
   const by = Math.max(y + 10, 1000); line(by, true);
   const cols = [['БИЛЕТОВ', String(t.qty)], ['ЦЕНА БИЛЕТА', rub(t.price_item)], ['ИТОГО', rub(t.total)]];
   cols.forEach(([k, v], i) => { const cx = P + (W - 2 * P) * (i + .5) / 3; x.font = `400 18px ${sans}`; x.fillStyle = '#888'; spaced(k, cx, by + 70, 5); x.fillStyle = '#0a0a0a'; x.font = `italic 400 54px ${serif}`; x.textAlign = 'center'; x.fillText(v, cx, by + 135); });
-  x.font = `400 20px ${sans}`; x.fillStyle = '#888'; x.textAlign = 'center'; x.fillText('ИП Антиосов Д. А., ИНН 771402577192 · antiosov.ru', W / 2, H - 82);
+  if (window.qrcode) { const q = qrcode(0, 'M'); q.addData(TICKET_QR_URL); q.make(); const n = q.getModuleCount(), m = Math.floor(260 / n), qs = m * n, qx = (W - qs) / 2, qy = by + 200;
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(qx + k * m, qy + r * m, m, m);
+    label('НАВЕДИТЕ КАМЕРУ', qy + qs + 50); }
+  x.font = `400 20px ${sans}`; x.fillStyle = '#888'; x.textAlign = 'center'; x.fillText('ИП Антиосов Д. А., ИНН 771402577192 · antiosov.ru', W / 2, H - off - 82);
   return c;
 };
+
+// Билет в PDF: ширина 180 мм, высота по пропорции картинки, картинка во всю страницу.
+window.ticketPdf = (c, number) => { const { jsPDF } = window.jspdf, w = 180, h = w * c.height / c.width;
+  const d = new jsPDF({ unit: 'mm', format: [w, h], orientation: 'portrait' }); d.setProperties({ title: 'Электронный билет № ' + number });
+  d.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h); return d; };
