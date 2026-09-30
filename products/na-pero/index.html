@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../../merch/merch.css" />
-  <link rel="stylesheet" href="../products.css?v=20260930c" />
+  <link rel="stylesheet" href="../products.css?v=20260930d" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -34,7 +34,7 @@
   <footer><a href="/products/">← все продукты</a></footer>
 </main>
 <script src="../../merch/api.js"></script>
-<script src="../products.js?v=20260930c"></script>
+<script src="../products.js?v=20260930d"></script>
 <script>
 (async () => {
   const root = document.getElementById('root');
@@ -78,7 +78,7 @@
     </div></div>`;
     const $ = s => root.querySelector(s);
     const paint = () => { E.qty = Math.min(E.qty, max());
-      $('#leftn').textContent = left() || '0'; $('#leftw').textContent = !left() ? 'мест нет' : plural(left(), 'место осталось', 'места осталось', 'мест осталось');
+      const sl = shownLeft(P); $('#leftn').textContent = sl || '0'; $('#leftw').textContent = !sl ? 'мест нет' : plural(sl, 'место осталось', 'места осталось', 'мест осталось');
       $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !P.sales_open;
       $('#pay').textContent = label(); $('#pay').disabled = !P.sales_open || E.busy; };
     $('#qty').onchange = e => { E.qty = +e.target.value || 1; paint(); };
@@ -103,7 +103,7 @@
         if (err.message === 'sales_closed') P.sales_open = false;
         E.busy = false; paint();
         const m = {
-          sold_out: left() ? `Столько мест уже нет — осталось ${left()}.` : 'Места закончились.',
+          sold_out: left() ? `Столько мест уже нет — осталось ${shownLeft(P)}.` : 'Места закончились.',
           sales_closed: 'Продажа закрыта.',
           validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
           payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
