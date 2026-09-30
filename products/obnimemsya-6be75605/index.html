@@ -11,11 +11,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400&display=swap">
   <style>
+    /* Текст и фото одной ширины --w, по центру. 844/958 — пропорция фото: высота фото не больше 62% экрана. */
     html,body{margin:0;background:#fff;color:#0a0a0a}
-    main{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;align-items:center;overflow:hidden}
-    h1{margin:0;padding:clamp(40px,8vh,90px) 16px 0;max-width:900px;text-align:center;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-weight:400;
-      font-size:clamp(30px,min(9vw,6.5vh),78px);line-height:1.02;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
-    img{display:block;margin-top:auto;width:auto;max-width:min(100%,560px);max-height:62vh;max-height:62svh;height:auto;padding-top:24px}
+    main{--w:min(calc(100vw - 32px),560px,calc(62svh * 844 / 958));min-height:100vh;min-height:100svh;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+    h1{box-sizing:border-box;width:var(--w);margin:0;padding-top:clamp(32px,7vh,90px);text-align:center;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-weight:400;
+      font-size:calc(var(--w) / 10.5);line-height:1.02;text-transform:uppercase;text-wrap:balance}
+    img{display:block;margin-top:auto;width:var(--w);height:auto;padding-top:24px}
   </style>
 </head>
 <body>
