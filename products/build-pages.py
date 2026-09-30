@@ -14,7 +14,7 @@ from pathlib import Path
 
 API = 'https://functions.yandexcloud.net/d4eh4qtc4a7fria6mgmt'
 HERE = Path(__file__).resolve().parent
-RESERVED = {'p', 'order', 'og'}
+RESERVED = {'p', 'order', 'og', 'vendor', 'obnimemsya-6be75605'}
 OG_RE = re.compile(r'  <title>.*?</title>\n(?:  <meta (?:property="og:|name="twitter:)[^\n]*\n)*', re.S)
 
 

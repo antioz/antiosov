@@ -27,6 +27,8 @@
 <script src="../../merch/api.js"></script>
 <script src="../products.js"></script>
 <script src="../diploma.js"></script>
+<script src="../vendor/qrcode.js"></script>
+<script src="../vendor/jspdf.umd.min.js"></script>
 <script>
 (async () => {
   const q = new URLSearchParams(location.search), id = q.get('id'), k = q.get('k'), root = document.getElementById('root');
@@ -37,10 +39,10 @@
   const dlUrl = `${MERCH_API}?a=download&id=${enc(id)}&k=${enc(k)}`;
   const download = s => `<p><a class="btn" id="dl" href="${dlUrl}">Скачать</a>
     ${s.downloaded ? '' : '<span class="fine" id="refund" style="display:block">Вернуть деньги можно, пока архив ни разу не скачан</span>'}</p>${HOWTO}`;
-  // Мероприятие: билет — картинка PNG прямо на странице, писем нет.
+  // Мероприятие: билет — превью картинкой и PDF с QR прямо на странице, писем нет.
   const ticketBlock = s => s.ticket ? `<div class="tk"><h2>Скачайте и сохраните билет</h2>
-    <p class="fine">писем не будет — эта страница и есть ваш билет; сохраните картинку или ссылку</p>
-    <img id="tkimg" alt="Электронный билет ${esc(s.ticket.number)}"><p><a class="btn" id="tkdl" download="bilet-${esc(s.ticket.number)}.png">Скачать билет (PNG)</a></p></div>` : '';
+    <p class="fine">писем не будет — эта страница и есть ваш билет; сохраните PDF или ссылку</p>
+    <img id="tkimg" alt="Электронный билет ${esc(s.ticket.number)}"><p><a class="btn" id="tkdl" href="#">Скачать билет (PDF)</a></p></div>` : '';
   // Практикум: диплом — PNG рисуется на странице из status.diploma, писем нет.
   const diplomaBlock = s => s.diploma ? `<div class="tk dip"><img id="dipimg" alt="Диплом № ${esc(s.diploma.number)}">
     <p><a class="btn" id="dipdl" download="diplom-${esc(s.diploma.number)}.png">Скачать диплом</a></p>
@@ -73,7 +75,8 @@
     root.innerHTML = `<h1 style="margin-bottom:24px">${t[0]}</h1><p>${t[1]}</p>${t[2] || ''}`;
     const dl = document.getElementById('dl');
     if (dl) dl.addEventListener('click', () => { const r = document.getElementById('refund'); if (r) r.remove(); });
-    if (ev && document.getElementById('tkimg')) drawTicket(s.ticket).then(c => { const u = c.toDataURL('image/png'); document.getElementById('tkimg').src = u; document.getElementById('tkdl').href = u; })
+    if (ev && document.getElementById('tkimg')) drawTicket(s.ticket).then(c => { document.getElementById('tkimg').src = c.toDataURL('image/png');
+        document.getElementById('tkdl').addEventListener('click', e => { e.preventDefault(); ticketPdf(c, s.ticket.number).save(`bilet-${s.ticket.number}.pdf`); }); })
       .catch(() => { document.getElementById('tkimg').replaceWith(Object.assign(document.createElement('p'), { textContent: 'Не получилось нарисовать билет — обновите страницу.' })); });
   };
   let tries = 0;
