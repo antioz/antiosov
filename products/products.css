@@ -27,3 +27,6 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .name{margin-bottom:30px} @media(max-width:600px){.name{margin-bottom:22px}}
 .tk.dip img{max-width:100%;border:0;box-shadow:0 2px 14px rgba(0,0,0,.18)} .center:has(.dip){max-width:900px}
 .dls{margin-top:6px;font-size:13px;letter-spacing:.08em;color:var(--dim,#8a8a8a);font-variant-numeric:tabular-nums}
+.seatsbox{margin:22px 0 18px;padding:16px 20px;border:1px solid var(--ink);text-align:center}
+.seatsbox .n{display:block;font-family:var(--serif);font-style:italic;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.seatsbox .meta{display:block;margin-top:6px;letter-spacing:.1em}

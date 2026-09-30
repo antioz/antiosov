@@ -62,7 +62,7 @@
       ${P.age_mark ? `<p class="ev"><span class="age">${esc(P.age_mark)}</span></p>` : ''}
       <div class="price" style="margin-top:16px">${rub(P.price)} <span class="meta">за билет</span></div>
       <div class="desc">${md(P.description_md)}</div>
-      <p class="left" id="left"></p>
+      <div class="seatsbox" id="left"><span class="n" id="leftn"></span><span class="meta" id="leftw"></span></div>
       <form id="f" novalidate>
         <label class="field" data-f="qty"><span>Сколько билетов</span><select name="qty" id="qty"></select></label>
         <label class="field" data-f="email"><span>E-mail для чека</span><input name="email" type="email" autocomplete="email" required></label>
@@ -75,11 +75,13 @@
     </div></div>`;
     const $ = s => root.querySelector(s);
     const paint = () => { E.qty = Math.min(E.qty, max());
-      $('#left').textContent = left() ? 'Осталось мест: ' + left() : 'Мест нет';
+      $('#leftn').textContent = left() || '0'; $('#leftw').textContent = !left() ? 'мест нет' : plural(left(), 'место осталось', 'места осталось', 'мест осталось');
       $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !P.sales_open;
       $('#pay').textContent = label(); $('#pay').disabled = !P.sales_open || E.busy; };
     $('#qty').onchange = e => { E.qty = +e.target.value || 1; paint(); };
     paint();
+    // Счётчик остатка живой: раз в 30 с перечитываем товар, пока вкладка на виду.
+    setInterval(async () => { if (document.hidden || E.busy) return; await reload(); paint(); }, 30000);
     const FIELD_RU = { email: 'e-mail', qty: 'количество билетов', consent: 'согласие', offer: 'оферта', product_id: 'мероприятие' };
     const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
     const reload = async () => { try { const r = await api('product', { q: { s: slug } }); if (r.product) P = r.product; } catch (e) {} };
