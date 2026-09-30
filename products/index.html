@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../merch/merch.css" />
-  <link rel="stylesheet" href="products.css?v=20260930c" />
+  <link rel="stylesheet" href="products.css?v=20260930d" />
   <link rel="stylesheet" href="../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -43,7 +43,7 @@
     <footer class="r" style="--i:3"><a href="/">← на главную</a></footer>
   </main>
   <script src="../merch/api.js"></script>
-  <script src="products.js?v=20260930c"></script>
+  <script src="products.js?v=20260930d"></script>
   <script>
     (async () => {
       const empty = document.getElementById('empty');
@@ -52,7 +52,7 @@
         const g = document.getElementById('grid');
         if (!products.length) { empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
         g.innerHTML = products.map((p, i) => {
-          const soon = p.kind === 'digital' && p.has_file === false, ev = p.kind === 'event', left = Math.max(0, p.left | 0);
+          const soon = p.kind === 'digital' && p.has_file === false, ev = p.kind === 'event', left = shownLeft(p);
           return `<a class="card r${ev && !p.sales_open ? ' out' : ''}" style="--i:${i + 2}" href="/products/${encodeURIComponent(p.id)}/">
             <div class="ph${ev ? ' top' : ''}">${p.image_urls && p.image_urls[0] ? `<img src="${esc(p.image_urls[0])}" alt="${esc(p.title)}" loading="lazy">` : ''}</div>
             <div class="t">${esc(p.title)}</div>

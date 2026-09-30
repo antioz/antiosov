@@ -14,6 +14,9 @@ window.countdown = (iso, skew) => { const ms = Math.max(0, Date.parse(iso) - (Da
 window.evWhen = (iso, year) => { if (!iso) return ''; const d = new Date(iso), o = { timeZone: 'Europe/Moscow' };
   return d.toLocaleDateString('ru-RU', { ...o, day: 'numeric', month: 'long', ...(year ? { year: 'numeric' } : {}) }).replace(/\s*г\.$/, '') + ', ' + d.toLocaleTimeString('ru-RU', { ...o, hour: '2-digit', minute: '2-digit' }); };
 window.plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+// Потолок счётчика мест по просьбе владельца: показываем не больше N, пока реально свободно больше; дальше — настоящий остаток. Продажу не ограничивает.
+window.SEATS_CAP = { otdokhni: 41 };
+window.shownLeft = p => { const l = Math.max(0, p.left | 0), c = SEATS_CAP[p.id]; return c ? Math.min(l, c) : l; };
 window.seats = n => `${n} ${plural(n, 'место', 'места', 'мест')}`;
 
 // QR на билете ведёт на спрятанную страницу-открытку (одна на всех, noindex, ссылок на неё нет).
