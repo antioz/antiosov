@@ -45,11 +45,83 @@
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   let P, skew = 0;
   try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
-  if (P.kind !== 'digital' && P.kind !== 'event' && P.kind !== 'diploma') { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
+  if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
   if (P.kind === 'event') return eventPage();
   if (P.kind === 'diploma') return diplomaPage();
+  if (P.kind === 'book') return bookPage();
+
+  // Книга: предзаказ с доставкой. Адрес — по частям под Яндекс Доставку (ФИО раздельно, город/улица/дом, квартира отдельно),
+  // доставка фиксированная (сервер берёт DELIVERY_FLAT), пожелание для надписи на форзаце. Заказ и оплата — как у вещи мерча.
+  function bookPage() {
+    const B = { busy: false, qty: 1 }, FLAT = 400;
+    const v = (P.variants || []).find(x => x.size === '-'), inStock = !!v && v.available > 0, canPre = !inStock && P.preorder_allowed;
+    const open = inStock || canPre;
+    const total = () => P.price * B.qty + FLAT;
+    const label = () => !open ? 'Предзаказ закрыт' : `${inStock ? 'Оплатить' : 'Оформить предзаказ'} · ${rub(total())}`;
+    const fld = (n, t, attrs = '', opt = false) => `<label class="field" data-f="${n}"><span>${t}${opt ? ' <i class="optional">— можно пропустить</i>' : ''}</span><input name="${n}" ${attrs}></label>`;
+    root.innerHTML = `<div class="product">
+    ${galleryHtml(P.image_urls || [], P.title)}
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      ${canPre ? `<p class="pretag meta">предзаказ${P.preorder_ship_by ? ' · отправка до ' + esc(P.preorder_ship_by) : ''}</p>` : ''}
+      <div class="desc">${md(P.description_md)}</div>
+      <form id="f" novalidate>
+        <label class="field" data-f="qty"><span>Сколько экземпляров</span><select name="qty" id="qty">${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
+        <div class="wish"><p>Скажите, что написать на форзаце. Если не скажете, то напишу что в голову придет. А кто знает, какое у меня будет на тот момент настроение, вдруг грустное, а вам потом жить с этим (изданием книги)</p>
+          <label class="field" data-f="inscription"><span>Что написать на форзаце</span><textarea name="inscription" maxlength="500" placeholder="Например: Маше — с любовью. Если книг несколько, напишите для каждой"></textarea></label></div>
+        <div class="meta" style="margin:6px 0 10px">Кому отправить</div>
+        <div class="row2">${fld('last_name', 'Фамилия', 'autocomplete="family-name" required')}${fld('first_name', 'Имя', 'autocomplete="given-name" required')}</div>
+        ${fld('middle_name', 'Отчество', 'autocomplete="additional-name"', true)}
+        <div class="row2">${fld('phone', 'Телефон', 'type="tel" autocomplete="tel" required')}${fld('email', 'E-mail', 'type="email" autocomplete="email" required')}</div>
+        <div class="meta" style="margin:6px 0 10px">Как получить</div>
+        <div class="opts"><label><input type="radio" name="pref" value="door" checked><span>Курьером до двери<small>Яндекс Доставка</small></span></label>
+          <label><input type="radio" name="pref" value="pvz"><span>В пункт выдачи рядом с адресом<small>пункт подберу перед отправкой — за пару месяцев они могут переехать</small></span></label></div>
+        ${fld('city', 'Город или населённый пункт', 'autocomplete="address-level2" required')}
+        ${fld('street', 'Улица', 'autocomplete="address-line1" required')}
+        <div class="row3">${fld('house', 'Дом, корпус', 'required')}${fld('flat', 'Квартира', '', false)}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', false)}</div>
+        ${fld('addr_comment', 'Подъезд, этаж, домофон', '', true)}
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <div class="sum"><span>Книга</span><span id="sItem"></span></div>
+        <div class="sum"><span>Доставка</span><span>${rub(FLAT)}</span></div>
+        <div class="sum total"><span>Итого</span><span id="sTotal"></span></div>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:16px">${label()}</button>
+        <p class="fine">${canPre ? `Это предзаказ: оплата сейчас, отправка${P.preorder_ship_by ? ' до ' + esc(P.preorder_ship_by) : ' — как только книга выйдет'}. ` : ''}Чек придёт на e-mail. Условия возврата — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    bindGallery(root, P.image_urls || []);
+    const sum = () => { $('#sItem').textContent = rub(P.price * B.qty); $('#sTotal').textContent = rub(total()); if (!B.busy) $('#pay').textContent = label(); };
+    $('#qty').onchange = e => { B.qty = +e.target.value; sum(); }; sum(); $('#pay').disabled = !open;
+    const FIELD_RU = { last_name: 'фамилия', first_name: 'имя', phone: 'телефон', email: 'e-mail', city: 'город', street: 'улица', house: 'дом', zip: 'индекс (6 цифр)', qty: 'количество', consent: 'согласие', offer: 'оферта' };
+    const showErr = (m, f) => { $('#err').textContent = m; $('#err').style.display = ''; if (f) { const el = root.querySelector(`[data-f="${f}"]`); if (el) { el.classList.add('err'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (B.busy || !open) return;
+      const f = new FormData(e.target), g = k => String(f.get(k) || '').trim();
+      root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, qty: B.qty, last_name: g('last_name'), first_name: g('first_name'), middle_name: g('middle_name'), phone: g('phone'), email: g('email'),
+        pref: g('pref'), city: g('city'), street: g('street'), house: g('house'), flat: g('flat'), zip: g('zip'), addr_comment: g('addr_comment'), inscription: g('inscription'),
+        offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
+      for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', 'street', 'house']) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return showErr('Проверьте e-mail — на него придёт чек.', 'email');
+      if (body.zip && !/^\d{6}$/.test(body.zip)) return showErr('Индекс — 6 цифр (или оставьте пустым).', 'zip');
+      if (!body.offer) return showErr('Нужно принять условия оферты.', 'offer');
+      if (!body.consent) return showErr('Нужно согласие на обработку данных.', 'consent');
+      B.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        B.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
+        const field = err.data && err.data.field;
+        const m = { sold_out: 'Предзаказ только что закрылся — все экземпляры разобраны.', validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.', no_product: 'Этого продукта больше нет.', bad_json: 'Магазин временно недоступен, попробуйте через минуту.' }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        showErr(m, field);
+      }
+    };
+    showAll();
+  }
 
   // Мероприятие: билеты 1…min(qty_max, left), только e-mail для чека. Остаток и «продажа открыта» решает сервер.
   function eventPage() {
