@@ -70,8 +70,10 @@ window.galleryHtml = (urls, title) => !urls.length ? '<div class="gallery"><img 
   <div class="thumbs">${urls.map((u, i) => `<button type="button" data-i="${i}" class="${i ? '' : 'on'}" aria-label="фото ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>`;
 window.bindGallery = (root, urls) => {
   const g = root.querySelector('.gallery.fit'); if (!g) return;
-  const n = urls.length, cur = () => Math.round(g.scrollLeft / g.clientWidth);
-  const go = i => g.scrollTo({ left: Math.max(0, Math.min(n - 1, i)) * g.clientWidth, behavior: 'smooth' });
+  // Позиции кадров берём из вёрстки (между фото есть зазор), а не как i × ширина.
+  const n = urls.length, ims = [...g.querySelectorAll('img')], x = k => ims[k].offsetLeft - ims[0].offsetLeft;
+  const cur = () => ims.reduce((best, _, k) => Math.abs(x(k) - g.scrollLeft) < Math.abs(x(best) - g.scrollLeft) ? k : best, 0);
+  const go = i => g.scrollTo({ left: x(Math.max(0, Math.min(n - 1, i))), behavior: 'smooth' });
   const mark = () => { const i = cur(); const gi = root.querySelector('.gi'); if (gi) gi.textContent = i + 1;
     root.querySelectorAll('.thumbs button').forEach((b, k) => b.classList.toggle('on', k === i)); };
   let t; g.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(mark, 60); }, { passive: true });
