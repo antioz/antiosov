@@ -311,7 +311,8 @@ async function gc() {
   const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders VIEW by_status WHERE status = 'new'u AND created_at < $c LIMIT 100;`, { $c: db.V.ts(cutoff) });
   let n = 0; for (const r of rows) if (await releaseNew(r.id, 'expired')) n++;
   // purgePd сканирует всю таблицу orders — не чаще раза в 6 часов на экземпляр функции, а не на каждый запрос каталога.
-  if (Date.now() - lastPurge > 6 * 3600000) { lastPurge = Date.now(); try { await purgePd(); } catch (e) { console.error('purgePd', e.message); } }
+  if (Date.now() - lastPurge > 6 * 3600000) { lastPurge = Date.now(); try { await purgePd(); } catch (e) { console.error('purgePd', e.message); }
+    try { await backupBookOrders(); } catch (e) { console.error('backupBookOrders', e.message); } }
   return n;
 }
 
@@ -395,6 +396,16 @@ async function backupOrder(o) {
   const { product, k, tb_payment_url, ...row } = o;
   try { await s3.putObject(backupKey(o.id), JSON.stringify({ ...row, addr: parseJson(o.addr, {}), saved_at: new Date().toISOString() }, null, 2), 'application/json'); }
   catch (e) { console.error('backup', o.id, e.message); await setField(o.id, 'mail_error', ('backup:' + e.message).slice(0, 500)); }
+}
+
+// Раз в 6 часов (из gc) копии всех оплаченных заказов книги перезаписываются: если запись при оплате сорвалась — восстановится,
+// смена статуса и заметки тоже попадут в копию. Заказов книги — десятки, перезапись дешёвая.
+const BACKUP_STATUSES = ['paid', 'packed', 'shipped', 'done'];
+async function backupBookOrders() {
+  const [rows, ps] = await db.query(`SELECT * FROM orders; SELECT id, title, kind FROM products;`);
+  const books = Object.fromEntries(ps.filter(p => p.kind === 'book').map(p => [p.id, p]));
+  let n = 0; for (const o of rows) if (books[o.product_id] && BACKUP_STATUSES.includes(o.status) && o.customer_email) { await backupOrder({ ...o, product_title: books[o.product_id].title }); n++; }
+  return n;
 }
 
 // Предзаказы книги для админки: все заказы товаров kind=book, кроме неоплаченных и просроченных, с адресом по частям и надписью.
@@ -534,4 +545,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { bookOrders, backupOrder, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
