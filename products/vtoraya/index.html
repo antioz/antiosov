@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Книга стихов «Вторая» — Дмитрий Антиосов</title>
-  <meta name="description" content="Вторая книга стихов великого русского поэта Дмитрий Антиосова — уже в процессе." />
+  <meta name="description" content="Вторая книга стихов великого русского поэта Дмитрия Антиосова — уже в процессе." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://antiosov.ru/products/vtoraya/" />
   <meta property="og:title" content="Книга стихов «Вторая»" />
-  <meta property="og:description" content="Вторая книга стихов великого русского поэта Дмитрий Антиосова — уже в процессе." />
+  <meta property="og:description" content="Вторая книга стихов великого русского поэта Дмитрия Антиосова — уже в процессе." />
   <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/p/vtoraya/ae53679c6e0d.jpg" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../../merch/merch.css" />
-  <link rel="stylesheet" href="../products.css?v=20261001b" />
+  <link rel="stylesheet" href="../products.css?v=20261001c" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -34,7 +34,7 @@
   <footer><a href="/products/">← все продукты</a></footer>
 </main>
 <script src="../../merch/api.js"></script>
-<script src="../products.js?v=20261001b"></script>
+<script src="../products.js?v=20261001c"></script>
 <script>
 (async () => {
   const root = document.getElementById('root');
@@ -52,13 +52,13 @@
   if (P.kind === 'diploma') return diplomaPage();
   if (P.kind === 'book') return bookPage();
 
-  // Книга: предзаказ с доставкой. Адрес — по частям под Яндекс Доставку (ФИО раздельно, город/улица/дом, квартира отдельно),
-  // доставка фиксированная (сервер берёт DELIVERY_FLAT), пожелание для надписи на форзаце. Заказ и оплата — как у вещи мерча.
+  // Книга: предзаказ, на сайте платят только за книгу. Доставку получатель оплачивает в пункте выдачи Яндекса (оплата при получении),
+  // пункт подбирается перед отправкой по адресу — он хранится по частям под API Яндекса. Пожелание для надписи на форзаце.
   function bookPage() {
-    const B = { busy: false, qty: 1 }, FLAT = 400;
+    const B = { busy: false, qty: 1 };
     const v = (P.variants || []).find(x => x.size === '-'), inStock = !!v && v.available > 0, canPre = !inStock && P.preorder_allowed;
     const open = inStock || canPre;
-    const total = () => P.price * B.qty + FLAT;
+    const total = () => P.price * B.qty;
     const label = () => !open ? 'Предзаказ закрыт' : `${inStock ? 'Оплатить' : 'Оформить предзаказ'} · ${rub(total())}`;
     const fld = (n, t, attrs = '', opt = false) => `<label class="field" data-f="${n}"><span>${t}${opt ? ' <i class="optional">— можно пропустить</i>' : ''}</span><input name="${n}" ${attrs}></label>`;
     root.innerHTML = `<div class="product">
@@ -75,18 +75,16 @@
         <div class="row2">${fld('last_name', 'Фамилия', 'autocomplete="family-name" required')}${fld('first_name', 'Имя', 'autocomplete="given-name" required')}</div>
         ${fld('middle_name', 'Отчество', 'autocomplete="additional-name"', true)}
         <div class="row2">${fld('phone', 'Телефон', 'type="tel" autocomplete="tel" required')}${fld('email', 'E-mail', 'type="email" autocomplete="email" required')}</div>
-        <div class="meta" style="margin:6px 0 10px">Как получить</div>
-        <div class="opts"><label><input type="radio" name="pref" value="door" checked><span>Курьером до двери<small>Яндекс Доставка</small></span></label>
-          <label><input type="radio" name="pref" value="pvz"><span>В пункт выдачи рядом с адресом<small>пункт подберу перед отправкой — за пару месяцев они могут переехать</small></span></label></div>
+        <div class="meta" style="margin:6px 0 10px">Где удобно забрать</div>
+        <p class="notice" style="margin:0 0 14px">Книга приедет в пункт выдачи Яндекс Доставки рядом с этим адресом — пункт подберу перед отправкой. Доставку оплачиваете при получении, по тарифу Яндекса.</p>
         ${fld('city', 'Город или населённый пункт', 'autocomplete="address-level2" required')}
         ${fld('street', 'Улица', 'autocomplete="address-line1" required')}
-        <div class="row3">${fld('house', 'Дом, корпус', 'required')}${fld('flat', 'Квартира', '', false)}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', false)}</div>
-        ${fld('addr_comment', 'Подъезд, этаж, домофон', '', true)}
+        <div class="row2">${fld('house', 'Дом', 'required')}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', true)}</div>
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
         <div class="sum"><span>Книга</span><span id="sItem"></span></div>
-        <div class="sum"><span>Доставка</span><span>${rub(FLAT)}</span></div>
-        <div class="sum total"><span>Итого</span><span id="sTotal"></span></div>
+        <div class="sum"><span>Доставка</span><span>при получении</span></div>
+        <div class="sum total"><span>Итого сейчас</span><span id="sTotal"></span></div>
         <div id="err" class="notice err" style="display:none"></div>
         <button class="btn" id="pay" type="submit" style="margin-top:16px">${label()}</button>
         <p class="fine">${canPre ? `Это предзаказ: оплата сейчас, отправка${P.preorder_ship_by ? ' до ' + esc(P.preorder_ship_by) : ' — как только книга выйдет'}. ` : ''}Чек придёт на e-mail. Условия возврата — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
@@ -103,7 +101,7 @@
       const f = new FormData(e.target), g = k => String(f.get(k) || '').trim();
       root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
       const body = { product_id: P.id, qty: B.qty, last_name: g('last_name'), first_name: g('first_name'), middle_name: g('middle_name'), phone: g('phone'), email: g('email'),
-        pref: g('pref'), city: g('city'), street: g('street'), house: g('house'), flat: g('flat'), zip: g('zip'), addr_comment: g('addr_comment'), inscription: g('inscription'),
+        city: g('city'), street: g('street'), house: g('house'), zip: g('zip'), inscription: g('inscription'),
         offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
       for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', 'street', 'house']) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return showErr('Проверьте e-mail — на него придёт чек.', 'email');

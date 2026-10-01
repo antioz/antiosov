@@ -75,9 +75,10 @@ function validate(i) {
 }
 
 // Книга (предзаказ): отправка через месяцы, к тому времени Яндекс Доставка уже подключится, а ПВЗ за это время могут закрыться.
-// Поэтому доставка — фиксированная DELIVERY_FLAT при любом YD_MODE, а адрес хранится по частям под API Яндекса (request/create):
+// Доставку оплачивает получатель в пункте выдачи (опция Яндекса «оплата при получении» — только ПВЗ): на сайте берём лишь цену книги
+// (BOOK_DELIVERY, по умолчанию 0). Адрес хранится по частям под API Яндекса (request/create) — по нему подбирается ближайший ПВЗ:
 // ФИО раздельно (first_name/last_name/patronymic), full_address = «Россия, город, улица, д. N» без индекса и квартиры, квартира — room,
-// подъезд/этаж/домофон — comment. pref: door — курьер до двери, pvz — пункт выдачи рядом с этим адресом (подбирается при отправке).
+// подъезд/этаж/домофон — comment. pref всегда pvz: пункт выдачи рядом с этим адресом (подбирается при отправке).
 const INSCRIPTION_MAX = 500;
 function validateBook(i) {
   const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
@@ -88,7 +89,7 @@ function validateBook(i) {
   const qty = parseInt(i.qty, 10); if (!(qty >= 1 && qty <= QTY_MAX)) bad('qty');
   if (i.offer !== true && i.offer !== 'true') bad('offer');
   if (i.consent !== true && i.consent !== 'true') bad('consent');
-  const addr = { pref: i.pref === 'pvz' ? 'pvz' : 'door', zip: t('zip', 6), region: t('region', 100), city: t('city', 100), street: t('street', 150), house: t('house', 30), flat: t('flat', 20), comment: t('addr_comment', 300) };
+  const addr = { pref: 'pvz', zip: t('zip', 6), region: t('region', 100), city: t('city', 100), street: t('street', 150), house: t('house', 30), flat: t('flat', 20), comment: t('addr_comment', 300) };
   if (addr.zip && !/^\d{6}$/.test(addr.zip)) bad('zip'); if (addr.city.length < 2) bad('city'); if (addr.street.length < 2) bad('street'); if (!addr.house) bad('house');
   addr.full_address = ['Россия', addr.region, addr.city, addr.street, 'д. ' + addr.house.replace(/^д\.?\s*/i, '')].filter(Boolean).join(', ');
   const address_text = (addr.pref === 'pvz' ? 'ПВЗ рядом с: ' : '') + [addr.zip, addr.full_address.replace(/^Россия, /, ''), addr.flat && 'кв. ' + addr.flat].filter(Boolean).join(', ') + (addr.comment ? ` (${addr.comment})` : '');
@@ -108,7 +109,7 @@ async function createOrder(input) {
   const v = book ? validateBook(input) : validate(input);
   if (!product) throw new HttpError(404, 'no_product');
   if (!(product.sizes.length ? product.sizes.includes(v.size) : v.size === '-')) throw new HttpError(400, 'validation', { field: 'size' });
-  const delivery = book ? { price_rub: envInt('DELIVERY_FLAT', 400), days: 0 } : await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
+  const delivery = book ? { price_rub: envInt('BOOK_DELIVERY', 0), days: 0 } : await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
   const price_delivery = delivery.price_rub, total = product.price * v.qty + price_delivery;
   const k = randomKey();
   const ydMode = book ? 'off' : ext.yd.mode();
