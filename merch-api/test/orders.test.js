@@ -167,13 +167,13 @@ test('книга (kind=book): видна в каталоге продуктов,
   await assert.rejects(orders.createOrder(bk({ zip: '123' })), e => e.error === 'validation' && e.extra.field === 'zip');
   await assert.rejects(orders.createOrder(bk({ last_name: '' })), e => e.error === 'validation' && e.extra.field === 'last_name');
   const r = await orders.createOrder(bk());
-  const o = await orders.getOrder(r.id); assert.equal(o.is_preorder, true); assert.equal(o.total, 1888 * 2 + 400); // доставка фиксированная, Яндекс не спрашиваем
-  assert.equal(o.inscription, 'Маше — с любовью'); assert.equal(o.customer_name, 'Тестов Тест'); assert.equal(o.address_text, '101000, Москва, ул. Мясницкая, д. 1, кв. 5'); assert.equal(JSON.parse(o.addr).full_address, 'Россия, Москва, ул. Мясницкая, д. 1');
+  const o = await orders.getOrder(r.id); assert.equal(o.is_preorder, true); assert.equal(o.total, 1888 * 2); assert.equal(o.price_delivery, 0); // доставку оплачивает получатель в ПВЗ
+  assert.equal(o.inscription, 'Маше — с любовью'); assert.equal(o.customer_name, 'Тестов Тест'); assert.equal(o.address_text, 'ПВЗ рядом с: 101000, Москва, ул. Мясницкая, д. 1, кв. 5'); assert.equal(JSON.parse(o.addr).full_address, 'Россия, Москва, ул. Мясницкая, д. 1');
   assert.equal(JSON.parse(o.addr).street, 'ул. Мясницкая'); assert.equal(o.delivery_mode, 'flat');
   assert.equal((await orders.getStatus(r.id, r.k)).kind, 'physical');
   assert.ok(!(await orders.bookOrders()).some(x => x.id === r.id)); // неоплаченный — не в списке
   const s3 = require('../lib/s3'); const puts = []; const orig = s3.putObject; s3.putObject = async (k, body) => { puts.push([k, JSON.parse(body)]); };
-  try { assert.ok((await orders.confirmPaid(r.id, 'P1', 1888 * 2 + 400)).ok); } finally { s3.putObject = orig; }
+  try { assert.ok((await orders.confirmPaid(r.id, 'P1', 1888 * 2)).ok); } finally { s3.putObject = orig; }
   assert.equal(puts.length, 1); assert.equal(puts[0][0], `preorders/${r.id}.json`); assert.equal(puts[0][1].addr.zip, '101000'); assert.equal(puts[0][1].k, undefined);
   s3.putObject = async (k, body) => { puts.push([k, JSON.parse(body)]); };
   try { puts.length = 0; assert.ok(await orders.backupBookOrders() >= 1); } finally { s3.putObject = orig; }
