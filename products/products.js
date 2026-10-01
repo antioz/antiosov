@@ -60,3 +60,37 @@ window.drawTicket = async t => {
 window.ticketPdf = (c, number) => { const { jsPDF } = window.jspdf, w = 180, h = w * c.height / c.width;
   const d = new jsPDF({ unit: 'mm', format: [w, h], orientation: 'portrait' }); d.setProperties({ title: 'Электронный билет № ' + number });
   d.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h); return d; };
+
+// Галерея карточки: лента со свайпом (scroll-snap), стрелки и счётчик, миниатюры под ней, по клику — фото на весь экран.
+// Фото разных пропорций (обложка, скриншоты, наброски) показываются целиком, без обрезки.
+window.galleryHtml = (urls, title) => !urls.length ? '<div class="gallery"><img alt=""></div>' : `<div class="gal">
+  <div class="gallery fit" tabindex="0">${urls.map((u, i) => `<img src="${esc(u)}" alt="${esc(title)}, фото ${i + 1}" data-i="${i}"${i ? ' loading="lazy"' : ''}>`).join('')}</div>
+  ${urls.length > 1 ? `<button type="button" class="gnav prev" aria-label="предыдущее фото">‹</button><button type="button" class="gnav next" aria-label="следующее фото">›</button>
+  <div class="gcount"><span class="gi">1</span> / ${urls.length}</div>
+  <div class="thumbs">${urls.map((u, i) => `<button type="button" data-i="${i}" class="${i ? '' : 'on'}" aria-label="фото ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>`;
+window.bindGallery = (root, urls) => {
+  const g = root.querySelector('.gallery.fit'); if (!g) return;
+  const n = urls.length, cur = () => Math.round(g.scrollLeft / g.clientWidth);
+  const go = i => g.scrollTo({ left: Math.max(0, Math.min(n - 1, i)) * g.clientWidth, behavior: 'smooth' });
+  const mark = () => { const i = cur(); const gi = root.querySelector('.gi'); if (gi) gi.textContent = i + 1;
+    root.querySelectorAll('.thumbs button').forEach((b, k) => b.classList.toggle('on', k === i)); };
+  let t; g.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(mark, 60); }, { passive: true });
+  root.querySelectorAll('.thumbs button').forEach(b => b.onclick = () => go(+b.dataset.i));
+  const pv = root.querySelector('.gnav.prev'), nx = root.querySelector('.gnav.next');
+  if (pv) pv.onclick = () => go(cur() - 1); if (nx) nx.onclick = () => go(cur() + 1);
+  g.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') go(cur() - 1); if (e.key === 'ArrowRight') go(cur() + 1); });
+  // Полноэкранный просмотр
+  g.querySelectorAll('img').forEach(im => im.onclick = () => open(+im.dataset.i));
+  function open(i) {
+    const lb = document.createElement('div'); lb.className = 'lb';
+    lb.innerHTML = `<img alt=""><button type="button" class="x" aria-label="закрыть">×</button>${n > 1 ? '<button type="button" class="gnav prev" aria-label="предыдущее">‹</button><button type="button" class="gnav next" aria-label="следующее">›</button>' : ''}`;
+    const im = lb.querySelector('img'), show = k => { i = (k + n) % n; im.src = urls[i]; };
+    const close = () => { lb.remove(); document.removeEventListener('keydown', key); document.body.style.overflow = ''; go(i); };
+    const key = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowLeft') show(i - 1); if (e.key === 'ArrowRight') show(i + 1); };
+    lb.onclick = e => { if (e.target === lb || e.target.classList.contains('x')) close(); };
+    if (n > 1) { lb.querySelector('.prev').onclick = () => show(i - 1); lb.querySelector('.next').onclick = () => show(i + 1); }
+    let x0 = null; lb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
+    document.addEventListener('keydown', key); document.body.style.overflow = 'hidden'; show(i); document.body.appendChild(lb);
+  }
+};

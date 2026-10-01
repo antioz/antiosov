@@ -20,7 +20,7 @@
     app.innerHTML = `<form id="lf" class="center" style="max-width:320px"><label class="field"><span>Пароль</span><input type="password" name="p" autofocus></label><button class="btn">Войти</button></form>`;
     app.querySelector('#lf').onsubmit = async e => { e.preventDefault(); try { const r = await api('admin/login', { method: 'POST', body: { password: e.target.p.value } }); token = r.token; try { localStorage.setItem(tokKey, token); } catch (_) {} location.hash = '#orders'; route(); } catch (err) { alert(err.message === 'too_many' ? 'Слишком много попыток, подожди 10 минут' : 'Неверный пароль'); } };
   }
-  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#" id="logout">Выйти</a></div>`;
+  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#" id="logout">Выйти</a></div>`;
   const bindLogout = () => { const l = document.getElementById('logout'); if (l) l.onclick = e => { e.preventDefault(); token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); }; };
 
   async function orders(status) {
@@ -39,6 +39,7 @@
     app.innerHTML = tabs('orders') + `<p class="meta"><a href="#orders" style="color:inherit;text-decoration:none">← заказы</a></p><h2>${o.id} ${badge(o)}</h2>
       <div class="kv"><b>Создан</b><span>${d(o.created_at)}</span><b>Товар</b><span>${item(o)} — ${rub(o.price_item)} × ${o.qty}</span>${dip ? `<b>Тип</b><span>практикум (диплом)</span><b>Имя в дипломе</b><span>${esc(o.customer_name)}</span>` : ev ? `<b>Тип</b><span>мероприятие</span><b>Билетов</b><span>${o.qty}</span>` : dig ? `<b>Тип</b><span>цифровой</span><b>Скачивание</b><span>${o.downloaded_at ? `скачан ${d(o.downloaded_at)}${o.download_count ? ' · раз: ' + o.download_count : ''}` : 'не скачан'}</span>` : `<b>Доставка</b><span>${rub(o.price_delivery)} (${o.delivery_mode}${o.delivery_days ? ', ~' + o.delivery_days + ' дн.' : ''})</span>`}<b>Итого</b><span>${rub(o.total)}</span>
       <b>Покупатель</b><span>${noShip ? '' : `${esc(o.customer_name)}<br><a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a> · `}<a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></span>
+      ${o.inscription ? `<b>На форзаце</b><span>${esc(o.inscription).replace(/\n/g, '<br>')}</span>` : ''}
       ${noShip ? '' : `<b>Куда</b><span>${esc(o.pvz_address || o.address_text)}</span>
       <b>Яндекс</b><span>${o.yd_request_id ? `заявка ${esc(o.yd_request_id)} ${o.yd_track_url ? `· <a href="${esc(o.yd_track_url)}" target="_blank">трек</a>` : ''}` : (o.delivery_mode === 'yandex' ? '<span class="badge">заявка не создана</span>' : 'вручную')}${o.yd_error ? `<br><small style="color:#7a1c1c">${esc(o.yd_error)}</small>` : ''}</span>`}
       <b>Платёж</b><span>${esc(o.tb_payment_id || '—')}${o.tb_refund_id ? ' · возврат ' + esc(o.tb_refund_id) : ''}${o.mail_error ? `<br><small style="color:#7a1c1c">почта: ${esc(o.mail_error)}</small>` : ''}</span></div>
@@ -54,12 +55,38 @@
     bindLogout();
   }
 
+  // Предзаказы книги: все оплаченные и дальше (отменённые — серым), адрес по частям под Яндекс Доставку, надпись на форзаце.
+  // CSV — к отправке (оплачен/собран), столбцы по полям API Яндекса (шаблон массовой загрузки виден только в кабинете — сверить при первой отправке).
+  // JSON — полная копия всего списка. Резервная копия каждого оплаченного заказа лежит ещё и в бакете: preorders/<номер>.json.
+  async function book() {
+    const { orders: os } = await A('admin/book_orders');
+    const live = os.filter(o => o.status !== 'cancelled'), toShip = os.filter(o => ['paid', 'packed'].includes(o.status));
+    const pref = o => o.addr.pref === 'pvz' ? 'ПВЗ рядом' : 'до двери';
+    const fio = o => [o.addr.last_name, o.addr.first_name, o.addr.middle_name].filter(Boolean).join(' ') || o.name;
+    app.innerHTML = tabs('book') + `<div class="summary"><span>Заказов: <b>${live.length}</b></span><span>Экземпляров: <b>${live.reduce((a, o) => a + o.qty, 0)}</b></span><span>К отправке: <b>${toShip.length}</b></span><span>С пожеланием: <b>${live.filter(o => o.inscription).length}</b></span></div>
+      <p style="text-align:center"><button class="btn" id="csv" style="width:auto;padding:0 22px">CSV для Яндекс Доставки</button> <button class="btn ghost" id="js" style="width:auto;padding:0 22px">Всё в JSON</button></p>
+      <table><tr><th>Заказ</th><th>Кому</th><th>Куда</th><th>На форзаце</th></tr>
+      ${os.map(o => `<tr class="row" data-id="${o.id}" style="${o.status === 'cancelled' ? 'opacity:.45' : ''}"><td>${o.id}<br>${badge(o)}<br><small class="meta">${d(o.created_at)} · ${o.qty} шт · ${rub(o.total)}</small></td>
+        <td>${esc(fio(o))}<br><small>${esc(o.phone)}<br>${esc(o.email)}</small></td><td><small class="meta">${pref(o)}</small><br>${esc(o.address_text)}</td><td>${esc(o.inscription).replace(/\n/g, '<br>') || '<span class="meta">—</span>'}</td></tr>`).join('') || '<tr><td colspan="4" class="meta">пока пусто</td></tr>'}</table>`;
+    app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id);
+    const save = (name, text, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
+    const stamp = new Date().toISOString().slice(0, 10);
+    app.querySelector('#csv').onclick = () => {
+      const cell = v => { const t = String(v == null ? '' : v); return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const head = ['Номер заказа', 'Статус', 'Дата', 'Экземпляров', 'Фамилия', 'Имя', 'Отчество', 'Телефон', 'E-mail', 'Способ получения', 'Адрес (город, улица, дом)', 'Квартира', 'Индекс', 'Подъезд, этаж, домофон', 'Надпись на форзаце', 'Оплачено, ₽'];
+      const rows = toShip.map(o => [o.id, ST[o.status], dd(o.created_at), o.qty, o.addr.last_name || o.name, o.addr.first_name || '', o.addr.middle_name || '', o.addr.phone_yd || String(o.phone).replace(/^\+/, ''), o.email,
+        pref(o), o.addr.full_address || o.address_text, o.addr.flat || '', o.addr.zip || '', o.addr.comment || '', o.inscription, o.total]);
+      save(`kniga-predzakazy-${stamp}.csv`, '﻿' + [head, ...rows].map(r => r.map(cell).join(';')).join('\r\n'), 'text/csv;charset=utf-8'); };
+    app.querySelector('#js').onclick = () => save(`kniga-predzakazy-${stamp}.json`, JSON.stringify(os, null, 2), 'application/json');
+    bindLogout();
+  }
+
   const evRow = p => { const v = (p.variants || [])[0] || { stock: 0, reserved: 0 }; return `мероприятие · ${p.event_at ? d(p.event_at) : 'дата не задана'} · свободно ${v.stock - v.reserved} / резерв ${v.reserved}`; };
   async function products() {
     const { products } = await A('admin/products');
     app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px">+ Добавить товар</a></p>
       <table><tr><th>Товар</th><th>Цена</th><th>Остатки (доступно / резерв / предзаказ)</th><th>Показ</th></tr>
-      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'diploma' ? 'практикум (диплом)' : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
+      ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'diploma' ? 'практикум (диплом)' : p.kind === 'book' ? `книга · предзаказов ${(p.variants || []).reduce((a, v) => a + v.preorder_count, 0)} · в наличии ${(p.variants || []).reduce((a, v) => a + v.stock - v.reserved, 0)}` : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#product/' + r.dataset.id); bindLogout();
   }
 
@@ -73,7 +100,7 @@
       ${f('id', 'Slug (латиница, для адреса страницы)', p.id, 'text', isNew ? '' : 'readonly')}${f('title', 'Название', p.title)}
       <label class="field"><span>Описание (абзацы — пустой строкой)</span><textarea name="description_md" style="min-height:140px">${esc(p.description_md)}</textarea></label>
       ${f('price', 'Цена, ₽', p.price, 'number', 'min="1"')}
-      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${!['digital', 'event', 'diploma'].includes(p.kind) ? 'selected' : ''}>вещь</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option><option value="event" ${p.kind === 'event' ? 'selected' : ''}>мероприятие</option><option value="diploma" ${p.kind === 'diploma' ? 'selected' : ''}>практикум (диплом)</option></select></label>
+      <label class="field"><span>Тип</span><select name="kind"><option value="physical" ${!['digital', 'event', 'diploma', 'book'].includes(p.kind) ? 'selected' : ''}>вещь (мерч)</option><option value="book" ${p.kind === 'book' ? 'selected' : ''}>книга (в «Продуктах», с доставкой)</option><option value="digital" ${p.kind === 'digital' ? 'selected' : ''}>цифровой</option><option value="event" ${p.kind === 'event' ? 'selected' : ''}>мероприятие</option><option value="diploma" ${p.kind === 'diploma' ? 'selected' : ''}>практикум (диплом)</option></select></label>
       <div id="ev"><label class="field"><span>Дата и время начала (ваше местное время)</span><input type="datetime-local" name="event_at" value="${p.event_at ? localDT(p.event_at) : ''}"></label>
         ${f('venue', 'Место (адрес)', p.venue || '')}
         <label class="field"><span>Возрастной знак</span><select name="age_mark"><option value="">—</option>${['0+', '6+', '12+', '16+', '18+'].map(a => `<option ${p.age_mark === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
@@ -98,7 +125,7 @@
     const renderStock = () => { const want = sizesOf().length ? sizesOf() : ['-']; const cur = Object.fromEntries([...app.querySelectorAll('#stock input')].map(i => [i.dataset.s, i.value]));
       app.querySelector('#stock').innerHTML = want.map(s => { const v = p.variants.find(x => x.size === s); return `<label><span>${s === '-' ? 'штук' : s}</span><input type="number" min="0" data-s="${esc(s)}" value="${cur[s] != null ? cur[s] : (v ? v.stock : 0)}"></label>`; }).join(''); };
     F('sizes').oninput = renderStock; renderStock();
-    const renderKind = () => { const k = F('kind').value, dig = k === 'digital'; app.querySelector('#phys').style.display = k === 'physical' ? '' : 'none'; app.querySelector('#dig').style.display = dig ? '' : 'none'; app.querySelector('#ev').style.display = k === 'event' ? '' : 'none';
+    const renderKind = () => { const k = F('kind').value, dig = k === 'digital'; app.querySelector('#phys').style.display = k === 'physical' || k === 'book' ? '' : 'none'; app.querySelector('#dig').style.display = dig ? '' : 'none'; app.querySelector('#ev').style.display = k === 'event' ? '' : 'none';
       app.querySelector('#arch').innerHTML = p.file_key ? `загружен <small class="meta">${esc(p.file_key)}</small>` : (isNew ? 'не загружен — сначала сохраните товар' : 'не загружен');
       app.querySelector('#farch').innerHTML = p.free_file_key ? `загружен <small class="meta">${esc(p.free_file_key)}</small>` : 'не загружен';
       const fu = F('free_until').value, left = fu ? new Date(fu) - Date.now() : 0;
@@ -152,7 +179,7 @@
   async function route() {
     if (!token) return login();
     const h = location.hash.replace(/^#/, '') || 'orders'; const [page, arg] = h.split('/');
-    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else location.hash = '#orders'; }
+    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else if (page === 'book') await book(); else location.hash = '#orders'; }
     catch (e) { fail(e); }
   }
   window.addEventListener('hashchange', route); route();

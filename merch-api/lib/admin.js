@@ -25,7 +25,7 @@ async function upsertProduct(b) {
   const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
   const price = parseInt(b.price, 10); if (!(price >= 1)) throw new HttpError(400, 'validation', { field: 'price' });
   // kind/file_key: не пришли в теле (старая форма админки) → остаются как в БД; новый товар — physical без архива.
-  if (b.kind !== undefined && !['digital', 'physical', 'event', 'diploma'].includes(b.kind)) throw new HttpError(400, 'validation', { field: 'kind' });
+  if (b.kind !== undefined && !['digital', 'physical', 'event', 'diploma', 'book'].includes(b.kind)) throw new HttpError(400, 'validation', { field: 'kind' });
   if (b.event_at !== undefined && b.event_at !== null && b.event_at !== '' && !Number.isFinite(Date.parse(String(b.event_at)))) throw new HttpError(400, 'validation', { field: 'event_at' });
   if (b.age_mark !== undefined && b.age_mark !== null && b.age_mark !== '' && !AGE_MARKS.includes(String(b.age_mark))) throw new HttpError(400, 'validation', { field: 'age_mark' });
   if (b.file_key !== undefined && b.file_key !== null && !fileKeyOk(id, String(b.file_key))) throw new HttpError(400, 'validation', { field: 'file_key' });
@@ -36,7 +36,7 @@ async function upsertProduct(b) {
   const keep = (v, old) => (v !== undefined && v !== null) ? String(v) : ((prev && old) || '');
   let free_file_key = keep(b.free_file_key, prev && prev.free_file_key);
   let free_until = (b.free_until !== undefined && b.free_until !== null) ? (b.free_until === '' ? '' : new Date(String(b.free_until)).toISOString()) : ((prev && prev.free_until) || '');
-  const kind = b.kind !== undefined ? b.kind : (prev && ['digital', 'event', 'diploma'].includes(prev.kind) ? prev.kind : 'physical');
+  const kind = b.kind !== undefined ? b.kind : (prev && ['digital', 'event', 'diploma', 'book'].includes(prev.kind) ? prev.kind : 'physical');
   // Поля мероприятия: не пришли → как в БД. event_at — ISO UTC.
   let event_at = (b.event_at !== undefined && b.event_at !== null) ? (b.event_at === '' ? '' : new Date(String(b.event_at)).toISOString()) : ((prev && prev.event_at) || '');
   let venue = keep(b.venue, prev && prev.venue).trim().slice(0, 300), age_mark = keep(b.age_mark, prev && prev.age_mark);
@@ -99,9 +99,10 @@ async function route(a, method, body, q, auth) {
         default: throw new HttpError(400, 'bad_action');
       }
     }
+    case 'admin/book_orders': return json(200, { orders: await orders.bookOrders() });
     case 'admin/products': {
       const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
-      return json(200, { products: ps.map(p => ({ ...p, kind: ['digital', 'event', 'diploma'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
+      return json(200, { products: ps.map(p => ({ ...p, kind: ['digital', 'event', 'diploma', 'book'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
         variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) })) });
     }
     case 'admin/product': {

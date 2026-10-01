@@ -153,3 +153,28 @@ test('purgePd: заказы старше срока обезличены, све
   assert.equal(f.customer_email, 'buyer@example.com');
   assert.equal(await orders.purgePd(), 0);
 });
+
+test('книга (kind=book): видна в каталоге продуктов, не в мерче; заказ — как у вещи, предзаказ', async () => {
+  const B = 'test-book';
+  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p; DELETE FROM orders WHERE product_id = $p;`, { $p: db.V.s(B) });
+  await db.query(`DECLARE $p AS Utf8; UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at, kind)
+    VALUES ($p, 'Тест-книга'u, 'md'u, 1888, Json('[]'), 300, Json('{"x":20,"y":13,"z":2}'), Json('[]'), true, '1 декабря'u, true, 1, CurrentUtcTimestamp(), 'book'u);`, { $p: db.V.s(B) });
+  await db.query(`DECLARE $p AS Utf8; UPSERT INTO variants (product_id, size, stock, reserved, preorder_count) VALUES ($p, '-'u, 0, 0, 0);`, { $p: db.V.s(B) });
+  assert.ok((await orders.catalog('digital')).some(p => p.id === B && p.kind === 'book' && p.preorder_allowed));
+  assert.ok(!(await orders.catalog('physical')).some(p => p.id === B));
+  const bk = over => ({ product_id: B, qty: 2, last_name: 'Тестов', first_name: 'Тест', phone: '89990000000', email: 'buyer@example.com', zip: '101000', city: 'Москва', street: 'ул. Мясницкая', house: '1', flat: '5',
+    inscription: 'Маше — с любовью', consent: true, offer: true, ...over });
+  await assert.rejects(orders.createOrder(bk({ zip: '123' })), e => e.error === 'validation' && e.extra.field === 'zip');
+  await assert.rejects(orders.createOrder(bk({ last_name: '' })), e => e.error === 'validation' && e.extra.field === 'last_name');
+  const r = await orders.createOrder(bk());
+  const o = await orders.getOrder(r.id); assert.equal(o.is_preorder, true); assert.equal(o.total, 1888 * 2 + 400); // доставка фиксированная, Яндекс не спрашиваем
+  assert.equal(o.inscription, 'Маше — с любовью'); assert.equal(o.customer_name, 'Тестов Тест'); assert.equal(o.address_text, '101000, Москва, ул. Мясницкая, д. 1, кв. 5'); assert.equal(JSON.parse(o.addr).full_address, 'Россия, Москва, ул. Мясницкая, д. 1');
+  assert.equal(JSON.parse(o.addr).street, 'ул. Мясницкая'); assert.equal(o.delivery_mode, 'flat');
+  assert.equal((await orders.getStatus(r.id, r.k)).kind, 'physical');
+  assert.ok(!(await orders.bookOrders()).some(x => x.id === r.id)); // неоплаченный — не в списке
+  const s3 = require('../lib/s3'); const puts = []; const orig = s3.putObject; s3.putObject = async (k, body) => { puts.push([k, JSON.parse(body)]); };
+  try { assert.ok((await orders.confirmPaid(r.id, 'P1', 1888 * 2 + 400)).ok); } finally { s3.putObject = orig; }
+  assert.equal(puts.length, 1); assert.equal(puts[0][0], `preorders/${r.id}.json`); assert.equal(puts[0][1].addr.zip, '101000'); assert.equal(puts[0][1].k, undefined);
+  const bo = (await orders.bookOrders()).find(x => x.id === r.id); assert.equal(bo.inscription, 'Маше — с любовью'); assert.equal(bo.addr.house, '1');
+  await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p; DELETE FROM orders WHERE product_id = $p;`, { $p: db.V.s(B) });
+});

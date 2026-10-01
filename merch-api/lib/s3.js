@@ -56,5 +56,16 @@ function deleteObject(key) {
   });
 }
 
+// Серверная запись объекта (резервные копии предзаказов): PUT по той же presigned-ссылке, что и для админки.
+function putObject(key, body, contentType) {
+  const u = new URL(presignPut(key, contentType, 300)); const buf = Buffer.from(body);
+  return new Promise((resolve, reject) => {
+    const req = https.request({ hostname: u.hostname, path: u.pathname + u.search, method: 'PUT', headers: { 'Content-Type': contentType, 'Content-Length': buf.length } }, res => {
+      res.resume(); res.on('end', () => res.statusCode < 300 ? resolve() : reject(new Error('s3 put ' + res.statusCode)));
+    });
+    req.on('error', reject); req.end(buf);
+  });
+}
+
 const publicUrl = key => `https://${HOST}/${ENV.S3_BUCKET}/${key}`;
-module.exports = { presignPut, presignGet, deleteObject, publicUrl };
+module.exports = { presignPut, presignGet, deleteObject, putObject, publicUrl };
