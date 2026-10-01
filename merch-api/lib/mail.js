@@ -41,6 +41,7 @@ function tplCustomerPaid(o) {
   const m = wrap('Заказ принят', [
     `Номер заказа: ${o.id}`, item(o), `Оплачено: ${rub(o.total)}`, where(o),
     o.is_preorder ? `Это предзаказ: отправлю до ${o.preorder_ship_by || 'указанной на сайте даты'}.` : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.'),
+    ...(o.inscription ? [`Надпись на форзаце — ваше пожелание: «${esc(o.inscription)}»`] : []),
     'Вопросы — просто ответьте на это письмо.',
   ]);
   return { subject: `Заказ ${o.id} принят`, ...m };

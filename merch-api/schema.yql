@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS orders (
   pvz_id Utf8, pvz_address Utf8, delivery_mode Utf8, yd_env Utf8, delivery_days Int32,
   yd_request_id Utf8, yd_track_url Utf8, yd_error Utf8,
   tb_payment_id Utf8, tb_payment_url Utf8, tb_refund_id Utf8, mail_error Utf8,
-  consent_at Timestamp, admin_note Utf8, downloaded_at Timestamp, download_count Int32,
+  consent_at Timestamp, admin_note Utf8, downloaded_at Timestamp, download_count Int32, inscription Utf8, addr Utf8,
   INDEX by_status GLOBAL ON (status),
   PRIMARY KEY (id));
 CREATE TABLE IF NOT EXISTS counters (name Utf8, value Int32, PRIMARY KEY (name));
@@ -24,6 +24,9 @@ ALTER TABLE products ADD COLUMN kind Utf8;
 ALTER TABLE products ADD COLUMN file_key Utf8;
 ALTER TABLE orders ADD COLUMN downloaded_at Timestamp;
 ALTER TABLE orders ADD COLUMN download_count Int32;
+-- Книга (kind=book): пожелание для надписи на форзаце и адрес по частям (JSON: zip, region, city, street, house, flat, comment) — для отправки Яндекс Доставкой.
+ALTER TABLE orders ADD COLUMN inscription Utf8;
+ALTER TABLE orders ADD COLUMN addr Utf8;
 -- 2026-09-26 бесплатный период: free_until (ISO UTC, пусто = акции нет), free_file_key (d/<id>/<hex>.zip — версия «с объявлением»).
 ALTER TABLE products ADD COLUMN free_until Utf8;
 ALTER TABLE products ADD COLUMN free_file_key Utf8;

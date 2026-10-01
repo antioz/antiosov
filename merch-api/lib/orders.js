@@ -8,7 +8,8 @@ const QTY_MAX = 5;
 const parseJson = (s, def) => { try { return s == null || s === '' ? def : JSON.parse(s); } catch (_) { return def; } };
 const asArr = x => Array.isArray(x) ? x : [];
 const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d === 'object' && [n('x'), n('y'), n('z')].every(v => Number.isFinite(v) && v > 0)) ? { x: n('x'), y: n('y'), z: n('z') } : { x: 30, y: 20, z: 3 }; };
-const KINDS = ['physical', 'digital', 'event', 'diploma'];
+// book — книга: для заказа обычная вещь (адрес, доставка, предзаказ), но показывается в /products/, а не в мерче.
+const KINDS = ['physical', 'digital', 'event', 'diploma', 'book'];
 // kind: NULL/пусто у старых товаров = physical. has_file — наружу вместо file_key (ключ архива публично не отдаём).
 const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])),
   kind: KINDS.includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', has_file: !!p.file_key,
@@ -34,12 +35,12 @@ const withUrls = p => p && ({ ...p, image_urls: p.images.map(k => s3.publicUrl(k
 const bySizeOrder = sizes => (a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size);
 
 // ---------- каталог ----------
-// kind: 'physical' (витрина мерча, по умолчанию) | 'digital' (/products/: цифровые товары, мероприятия и практикумы).
+// kind: 'physical' (витрина мерча, по умолчанию) | 'digital' (/products/: цифровые товары, мероприятия, практикумы и книги).
 async function catalog(kind = 'physical') {
   const [ps, vs] = await db.query(`SELECT * FROM products WHERE active = true ORDER BY sort, id; SELECT * FROM variants;`);
   const byP = {};
   for (const v of vs) (byP[v.product_id] = byP[v.product_id] || []).push({ size: v.size, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count });
-  const inSection = p => kind === 'digital' ? ['digital', 'event', 'diploma'].includes(p.kind) : p.kind === kind;
+  const inSection = p => kind === 'digital' ? ['digital', 'event', 'diploma', 'book'].includes(p.kind) : p.kind === kind;
   return ps.map(parseProduct).filter(inSection).map(withUrls).map(p => ({
     id: p.id, kind: p.kind, has_file: p.has_file, free_active: p.free_active, free_until: p.free_active ? p.free_until : '', title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
     preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by,
@@ -70,7 +71,30 @@ function validate(i) {
   const off = ext.yd.mode() === 'off';
   const address_text = off ? String(i.address_text || '').trim() : ''; if (off && address_text.length < 10) bad('address_text');
   const pvz_id = off ? '' : String(i.pvz_id || ''); if (!off && !pvz_id) bad('pvz_id');
-  return { name, phone, email, qty, size, address_text, pvz_id, pvz_address: off ? '' : String(i.pvz_address || '').slice(0, 300) };
+  return { name, phone, email, qty, size, address_text, pvz_id, pvz_address: off ? '' : String(i.pvz_address || '').slice(0, 300), inscription: '', addr: '' };
+}
+
+// Книга (предзаказ): отправка через месяцы, к тому времени Яндекс Доставка уже подключится, а ПВЗ за это время могут закрыться.
+// Поэтому доставка — фиксированная DELIVERY_FLAT при любом YD_MODE, а адрес хранится по частям под API Яндекса (request/create):
+// ФИО раздельно (first_name/last_name/patronymic), full_address = «Россия, город, улица, д. N» без индекса и квартиры, квартира — room,
+// подъезд/этаж/домофон — comment. pref: door — курьер до двери, pvz — пункт выдачи рядом с этим адресом (подбирается при отправке).
+const INSCRIPTION_MAX = 500;
+function validateBook(i) {
+  const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
+  const t = (k, max) => String(i[k] || '').trim().replace(/\s+/g, ' ').slice(0, max);
+  const last_name = t('last_name', 60), first_name = t('first_name', 60), middle_name = t('middle_name', 60);
+  if (last_name.length < 2) bad('last_name'); if (first_name.length < 2) bad('first_name');
+  const phone = validPhone(i.phone) || bad('phone'); const email = validEmail(i.email) || bad('email');
+  const qty = parseInt(i.qty, 10); if (!(qty >= 1 && qty <= QTY_MAX)) bad('qty');
+  if (i.offer !== true && i.offer !== 'true') bad('offer');
+  if (i.consent !== true && i.consent !== 'true') bad('consent');
+  const addr = { pref: i.pref === 'pvz' ? 'pvz' : 'door', zip: t('zip', 6), region: t('region', 100), city: t('city', 100), street: t('street', 150), house: t('house', 30), flat: t('flat', 20), comment: t('addr_comment', 300) };
+  if (addr.zip && !/^\d{6}$/.test(addr.zip)) bad('zip'); if (addr.city.length < 2) bad('city'); if (addr.street.length < 2) bad('street'); if (!addr.house) bad('house');
+  addr.full_address = ['Россия', addr.region, addr.city, addr.street, 'д. ' + addr.house.replace(/^д\.?\s*/i, '')].filter(Boolean).join(', ');
+  const address_text = (addr.pref === 'pvz' ? 'ПВЗ рядом с: ' : '') + [addr.zip, addr.full_address.replace(/^Россия, /, ''), addr.flat && 'кв. ' + addr.flat].filter(Boolean).join(', ') + (addr.comment ? ` (${addr.comment})` : '');
+  const inscription = String(i.inscription || '').trim().slice(0, INSCRIPTION_MAX);
+  return { name: [last_name, first_name, middle_name].filter(Boolean).join(' '), phone, email, qty, size: '-', address_text, pvz_id: '', pvz_address: '',
+    inscription, addr: JSON.stringify({ last_name, first_name, middle_name, phone_yd: phone.replace(/^\+/, ''), ...addr }) };
 }
 
 async function createOrder(input) {
@@ -80,13 +104,14 @@ async function createOrder(input) {
   if (found && found.kind === 'digital') { if (!product) throw new HttpError(404, 'no_product'); if (product.free_active) throw new HttpError(409, 'free_now'); return createDigitalOrder(input, product); } // во время акции платить не за что
   if (found && found.kind === 'event') { if (!product) throw new HttpError(404, 'no_product'); return createEventOrder(input, product); }
   if (found && found.kind === 'diploma') { if (!product) throw new HttpError(404, 'no_product'); return createDiplomaOrder(input, product); }
-  const v = validate(input);
+  const book = !!found && found.kind === 'book';
+  const v = book ? validateBook(input) : validate(input);
   if (!product) throw new HttpError(404, 'no_product');
   if (!(product.sizes.length ? product.sizes.includes(v.size) : v.size === '-')) throw new HttpError(400, 'validation', { field: 'size' });
-  const delivery = await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
+  const delivery = book ? { price_rub: envInt('DELIVERY_FLAT', 400), days: 0 } : await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
   const price_delivery = delivery.price_rub, total = product.price * v.qty + price_delivery;
   const k = randomKey();
-  const ydMode = ext.yd.mode();
+  const ydMode = book ? 'off' : ext.yd.mode();
 
   // Резерв + номер + запись заказа — одна транзакция; конфликт по variants/counters → tx() повторяет целиком.
   const { id, is_preorder } = await db.tx(async run => {
@@ -96,7 +121,7 @@ async function createOrder(input) {
     let is_preorder = false;
     if (available >= v.qty) {
       await run(`DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = reserved + $q WHERE product_id = $p AND size = $s;`, { $p: db.V.s(product.id), $s: db.V.s(v.size), $q: db.V.i(v.qty) });
-    } else if (available <= 0 && product.preorder_allowed && var_.preorder_count + v.qty <= envInt('PREORDER_MAX', 20)) {
+    } else if (available <= 0 && product.preorder_allowed && var_.preorder_count + v.qty <= envInt(book ? 'BOOK_PREORDER_MAX' : 'PREORDER_MAX', book ? 1000 : 20)) {
       is_preorder = true;
     } else throw new HttpError(409, 'sold_out');
     const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order'u;`);
@@ -106,14 +131,15 @@ async function createOrder(input) {
     await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; DECLARE $pre AS Bool;
       DECLARE $pi AS Int32; DECLARE $pd AS Int32; DECLARE $t AS Int32; DECLARE $n AS Utf8; DECLARE $ph AS Utf8; DECLARE $e AS Utf8;
       DECLARE $addr AS Utf8; DECLARE $pvz AS Utf8; DECLARE $pvza AS Utf8; DECLARE $dm AS Utf8; DECLARE $ydenv AS Utf8; DECLARE $days AS Int32;
+      DECLARE $ins AS Utf8; DECLARE $ad AS Utf8;
       UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
         customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
-        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note)
+        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note, inscription, addr)
       VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, $s, $q, $pre, $pi, $pd, $t, $n, $ph, $e, $addr, $pvz, $pvza, $dm, $ydenv, $days,
-        ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u);`,
+        ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u, $ins, $ad);`,
       { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $s: db.V.s(v.size), $q: db.V.i(v.qty), $pre: db.V.b(is_preorder), $pi: db.V.i(product.price), $pd: db.V.i(price_delivery), $t: db.V.i(total),
         $n: db.V.s(v.name), $ph: db.V.s(v.phone), $e: db.V.s(v.email), $addr: db.V.s(v.address_text), $pvz: db.V.s(v.pvz_id), $pvza: db.V.s(v.pvz_address),
-        $dm: db.V.s(ydMode === 'off' ? 'flat' : 'yandex'), $ydenv: db.V.s(ydMode), $days: db.V.i(delivery.days || 0) });
+        $dm: db.V.s(ydMode === 'off' ? 'flat' : 'yandex'), $ydenv: db.V.s(ydMode), $days: db.V.i(delivery.days || 0), $ins: db.V.s(v.inscription), $ad: db.V.s(v.addr) });
     return { id, is_preorder };
   });
 
@@ -295,7 +321,8 @@ async function purgePd() {
   const cutoff = new Date(Date.now() - envInt('PD_RETENTION_DAYS', 1095) * 86400000);
   const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders WHERE created_at < $c AND customer_email != ''u LIMIT 100;`, { $c: db.V.ts(cutoff) });
   for (const r of rows) {
-    await db.query(`DECLARE $id AS Utf8; UPDATE orders SET customer_name = ''u, customer_phone = ''u, customer_email = ''u, address_text = ''u, pvz_address = ''u, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(r.id) });
+    await db.query(`DECLARE $id AS Utf8; UPDATE orders SET customer_name = ''u, customer_phone = ''u, customer_email = ''u, address_text = ''u, pvz_address = ''u, inscription = ''u, addr = ''u, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(r.id) });
+    try { await s3.deleteObject(backupKey(r.id)); } catch (e) { console.error('purgePd backup', r.id, e.message); } // копия предзаказа книги, если была
     console.log('purgePd', r.id);
   }
   return rows.length;
@@ -358,6 +385,26 @@ async function afterPaid(id) {
   if (!isEvent(o) && !isDiploma(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
   if (errs.length) await setField(id, 'mail_error', errs.join(' | ').slice(0, 500));
   if (o.delivery_mode === 'yandex') await createYd(o);
+  if (o.product && o.product.kind === 'book') await backupOrder(o);
+}
+
+// Копия оплаченного заказа книги в закрытом бакете (preorders/<id>.json; публично открыт только p/*): отправка будет через месяцы,
+// данные покупателя не должны зависеть от одной базы. Стирается вместе с ПД через 3 года (purgePd).
+const backupKey = id => `preorders/${id}.json`;
+async function backupOrder(o) {
+  const { product, k, tb_payment_url, ...row } = o;
+  try { await s3.putObject(backupKey(o.id), JSON.stringify({ ...row, addr: parseJson(o.addr, {}), saved_at: new Date().toISOString() }, null, 2), 'application/json'); }
+  catch (e) { console.error('backup', o.id, e.message); await setField(o.id, 'mail_error', ('backup:' + e.message).slice(0, 500)); }
+}
+
+// Предзаказы книги для админки: все заказы товаров kind=book, кроме неоплаченных и просроченных, с адресом по частям и надписью.
+async function bookOrders() {
+  const [rows, ps] = await db.query(`SELECT * FROM orders; SELECT id, title, kind FROM products;`);
+  const books = Object.fromEntries(ps.filter(p => p.kind === 'book').map(p => [p.id, p.title]));
+  return rows.filter(o => books[o.product_id] && !['new', 'expired'].includes(o.status)).sort((a, b) => a.created_at - b.created_at)
+    .map(o => ({ id: o.id, created_at: o.created_at, status: o.status, product_id: o.product_id, product_title: books[o.product_id], qty: o.qty, total: o.total,
+      price_item: o.price_item, price_delivery: o.price_delivery, name: o.customer_name, phone: o.customer_phone, email: o.customer_email,
+      address_text: o.address_text, addr: parseJson(o.addr, {}), inscription: o.inscription || '', admin_note: o.admin_note || '' }));
 }
 
 async function createYd(o) {
@@ -487,4 +534,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { bookOrders, backupOrder, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
