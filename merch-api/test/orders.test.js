@@ -175,6 +175,9 @@ test('книга (kind=book): видна в каталоге продуктов,
   const s3 = require('../lib/s3'); const puts = []; const orig = s3.putObject; s3.putObject = async (k, body) => { puts.push([k, JSON.parse(body)]); };
   try { assert.ok((await orders.confirmPaid(r.id, 'P1', 1888 * 2 + 400)).ok); } finally { s3.putObject = orig; }
   assert.equal(puts.length, 1); assert.equal(puts[0][0], `preorders/${r.id}.json`); assert.equal(puts[0][1].addr.zip, '101000'); assert.equal(puts[0][1].k, undefined);
+  s3.putObject = async (k, body) => { puts.push([k, JSON.parse(body)]); };
+  try { puts.length = 0; assert.ok(await orders.backupBookOrders() >= 1); } finally { s3.putObject = orig; }
+  assert.ok(puts.some(([k, b]) => k === `preorders/${r.id}.json` && b.inscription === 'Маше — с любовью'));
   const bo = (await orders.bookOrders()).find(x => x.id === r.id); assert.equal(bo.inscription, 'Маше — с любовью'); assert.equal(bo.addr.house, '1');
   await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p; DELETE FROM orders WHERE product_id = $p;`, { $p: db.V.s(B) });
 });
