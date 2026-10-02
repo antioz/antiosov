@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../../merch/merch.css" />
-  <link rel="stylesheet" href="../products.css?v=20261001c" />
+  <link rel="stylesheet" href="../products.css?v=20261002a" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -31,7 +31,7 @@
   <footer><a href="/products/">← все продукты</a></footer>
 </main>
 <script src="../../merch/api.js"></script>
-<script src="../products.js?v=20261001c"></script>
+<script src="../products.js?v=20261002a"></script>
 <script>
 (async () => {
   const root = document.getElementById('root');
@@ -41,7 +41,7 @@
   if (slug && location.pathname.startsWith('/products/p/')) fetch(`/products/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) { const q = new URLSearchParams(location.search); q.delete('s'); history.replaceState(null, '', `/products/${encodeURIComponent(slug)}/${q.toString() ? '?' + q : ''}${location.hash}`); } }).catch(() => {});
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   let P, skew = 0;
-  try { const r = await api('product', { q: { s: slug } }); P = r.product; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
+  try { const r = await api('product', { q: { s: slug } }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { nope(); return; }
   if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
@@ -49,13 +49,14 @@
   if (P.kind === 'diploma') return diplomaPage();
   if (P.kind === 'book') return bookPage();
 
-  // Книга: предзаказ, на сайте платят только за книгу. Доставку получатель оплачивает в пункте выдачи Яндекса (оплата при получении),
-  // пункт подбирается перед отправкой по адресу — он хранится по частям под API Яндекса. Пожелание для надписи на форзаце.
+  // Книга: предзаказ. Яндекс включён (yd_mode test/prod) — покупатель выбирает ПВЗ, доставка считается Яндексом и оплачивается вместе с книгой.
+  // Яндекс выключен — доставку не берём, ПВЗ подбирается перед отправкой по адресу. Пожелание для надписи на форзаце.
   function bookPage() {
-    const B = { busy: false, qty: 1 };
+    const YD = P.yd_mode && P.yd_mode !== 'off';
+    const B = { busy: false, qty: 1, pvz: null, quote: null, points: [] };
     const v = (P.variants || []).find(x => x.size === '-'), inStock = !!v && v.available > 0, canPre = !inStock && P.preorder_allowed;
     const open = inStock || canPre;
-    const total = () => P.price * B.qty;
+    const total = () => P.price * B.qty + (YD ? (B.quote ? B.quote.price_delivery : 0) : 0);
     const label = () => !open ? 'Предзаказ закрыт' : `${inStock ? 'Оплатить' : 'Оформить предзаказ'} · ${rub(total())}`;
     const fld = (n, t, attrs = '', opt = false) => `<label class="field" data-f="${n}"><span>${t}${opt ? ' <i class="optional">— можно пропустить</i>' : ''}</span><input name="${n}" ${attrs}></label>`;
     root.innerHTML = `<div class="product">
@@ -72,16 +73,19 @@
         <div class="row2">${fld('last_name', 'Фамилия', 'autocomplete="family-name" required')}${fld('first_name', 'Имя', 'autocomplete="given-name" required')}</div>
         ${fld('middle_name', 'Отчество', 'autocomplete="additional-name"', true)}
         <div class="row2">${fld('phone', 'Телефон', 'type="tel" autocomplete="tel" required')}${fld('email', 'E-mail', 'type="email" autocomplete="email" required')}</div>
-        <div class="meta" style="margin:6px 0 10px">Где удобно забрать</div>
-        <p class="notice" style="margin:0 0 14px">Книга приедет в пункт выдачи Яндекс Доставки рядом с этим адресом — пункт подберу перед отправкой. Доставку оплачиваете при получении, по тарифу Яндекса.</p>
+        <div class="meta" style="margin:6px 0 10px">Где забрать</div>
+        ${YD ? `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
+          <div id="pvzBox" style="display:none"><label class="field" data-f="pvz_id"><span>Пункт выдачи Яндекса</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
+          <div class="pvz" id="pvz"></div></div>`
+        : `<p class="notice" style="margin:0 0 14px">Книга приедет в пункт выдачи Яндекс Доставки рядом с этим адресом — пункт подберу перед отправкой. Доставку оплачиваете при получении, по тарифу Яндекса.</p>
         ${fld('city', 'Город или населённый пункт', 'autocomplete="address-level2" required')}
         ${fld('street', 'Улица', 'autocomplete="address-line1" required')}
-        <div class="row2">${fld('house', 'Дом', 'required')}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', true)}</div>
+        <div class="row2">${fld('house', 'Дом', 'required')}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', true)}</div>`}
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
         <div class="sum"><span>Книга</span><span id="sItem"></span></div>
-        <div class="sum"><span>Доставка</span><span>при получении</span></div>
-        <div class="sum total"><span>Итого сейчас</span><span id="sTotal"></span></div>
+        <div class="sum"><span>Доставка</span><span id="sDel">${YD ? 'выберите пункт выдачи' : 'при получении'}</span></div>
+        <div class="sum total"><span>${YD ? 'Итого' : 'Итого сейчас'}</span><span id="sTotal"></span></div>
         <div id="err" class="notice err" style="display:none"></div>
         <button class="btn" id="pay" type="submit" style="margin-top:16px">${label()}</button>
         <p class="fine">${canPre ? `Это предзаказ: оплата сейчас, отправка${P.preorder_ship_by ? ' до ' + esc(P.preorder_ship_by) : ' — как только книга выйдет'}. ` : ''}Чек придёт на e-mail. Условия возврата — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
@@ -89,26 +93,56 @@
     </div></div>`;
     const $ = s => root.querySelector(s);
     bindGallery(root, P.image_urls || []);
-    const sum = () => { $('#sItem').textContent = rub(P.price * B.qty); $('#sTotal').textContent = rub(total()); if (!B.busy) $('#pay').textContent = label(); };
-    $('#qty').onchange = e => { B.qty = +e.target.value; sum(); }; sum(); $('#pay').disabled = !open;
-    const FIELD_RU = { last_name: 'фамилия', first_name: 'имя', phone: 'телефон', email: 'e-mail', city: 'город', street: 'улица', house: 'дом', zip: 'индекс (6 цифр)', qty: 'количество', consent: 'согласие', offer: 'оферта' };
+    let seq = 0;
+    const sum = async () => {
+      $('#sItem').textContent = rub(P.price * B.qty);
+      if (YD && B.pvz) { const my = ++seq; $('#sDel').textContent = 'считаю…'; B.quote = null;
+        try { const q = await api('quote', { method: 'POST', body: { product_id: P.id, qty: B.qty, pvz_id: B.pvz.id } }); if (my !== seq) return; B.quote = q;
+          $('#sDel').textContent = rub(q.price_delivery) + (q.days ? `, ~${q.days} дн. после отправки` : ''); }
+        catch (e) { if (my !== seq) return; $('#sDel').textContent = 'не удалось посчитать — выберите другой пункт'; } }
+      $('#sTotal').textContent = rub(total());
+      if (!B.busy) { $('#pay').textContent = label(); $('#pay').disabled = !open || (YD && !B.quote); }
+    };
+    $('#qty').onchange = e => { B.qty = +e.target.value; sum(); }; sum();
+    if (YD) {
+      const cityIn = root.querySelector('[name=city]'), list = $('#cities'); let t;
+      const showPvz = () => { const q = $('#pvzq').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+        const hits = B.points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
+        $('#pvz').innerHTML = hits.length ? hits.map(x => `<label><input type="radio" name="pvzr" value="${esc(x.id)}" ${B.pvz && B.pvz.id === x.id ? 'checked' : ''}>${esc(x.address)}</label>`).join('')
+          + (B.points.length > hits.length ? `<label class="meta" style="cursor:default">показаны ${hits.length} из ${B.points.length} — уточните улицу</label>` : '') : '<label>Ничего не нашлось</label>';
+        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { B.pvz = B.points.find(x => x.id === r.value); sum(); }); };
+      $('#pvzq').oninput = showPvz;
+      cityIn.oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+        const q = cityIn.value.trim(); if (q.length < 2) { list.style.display = 'none'; return; }
+        let cs = []; try { cs = (await api('cities', { q: { q } })).cities || []; } catch (e) {}
+        list.innerHTML = cs.map(c => `<li data-g="${esc(c.geo_id)}">${esc(c.name)}</li>`).join(''); list.style.display = cs.length ? '' : 'none';
+        list.querySelectorAll('li').forEach(li => li.onclick = async () => {
+          cityIn.value = li.textContent; list.style.display = 'none'; B.pvz = null; B.quote = null; sum();
+          $('#pvzBox').style.display = ''; $('#pvz').innerHTML = '<label>загружаю пункты…</label>';
+          try { B.points = (await api('pvz', { q: { geo_id: li.dataset.g } })).points || []; } catch (e) { B.points = []; }
+          $('#pvzq').value = ''; showPvz(); });
+      }, 400); };
+      document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
+    }
+    const FIELD_RU = { last_name: 'фамилия', first_name: 'имя', phone: 'телефон', email: 'e-mail', city: 'город', street: 'улица', house: 'дом', zip: 'индекс (6 цифр)', pvz_id: 'пункт выдачи', qty: 'количество', consent: 'согласие', offer: 'оферта' };
     const showErr = (m, f) => { $('#err').textContent = m; $('#err').style.display = ''; if (f) { const el = root.querySelector(`[data-f="${f}"]`); if (el) { el.classList.add('err'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } };
     $('#f').onsubmit = async e => {
       e.preventDefault(); if (B.busy || !open) return;
       const f = new FormData(e.target), g = k => String(f.get(k) || '').trim();
       root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
       const body = { product_id: P.id, qty: B.qty, last_name: g('last_name'), first_name: g('first_name'), middle_name: g('middle_name'), phone: g('phone'), email: g('email'),
-        city: g('city'), street: g('street'), house: g('house'), zip: g('zip'), inscription: g('inscription'),
+        city: g('city'), street: g('street'), house: g('house'), zip: g('zip'), pvz_id: B.pvz ? B.pvz.id : '', pvz_address: B.pvz ? B.pvz.address : '', inscription: g('inscription'),
         offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
-      for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', 'street', 'house']) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
+      for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', ...(YD ? [] : ['street', 'house'])]) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return showErr('Проверьте e-mail — на него придёт чек.', 'email');
+      if (YD && !B.pvz) return showErr('Выберите пункт выдачи.', 'pvz_id');
       if (body.zip && !/^\d{6}$/.test(body.zip)) return showErr('Индекс — 6 цифр (или оставьте пустым).', 'zip');
       if (!body.offer) return showErr('Нужно принять условия оферты.', 'offer');
       if (!body.consent) return showErr('Нужно согласие на обработку данных.', 'consent');
       B.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
       try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
       catch (err) {
-        B.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
+        B.busy = false; $('#pay').disabled = YD && !B.quote; $('#pay').textContent = label();
         const field = err.data && err.data.field;
         const m = { sold_out: 'Предзаказ только что закрылся — все экземпляры разобраны.', validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
           payment_init: 'Платёжная система не отвечает, попробуйте через минуту.', no_product: 'Этого продукта больше нет.', bad_json: 'Магазин временно недоступен, попробуйте через минуту.' }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';

@@ -164,6 +164,16 @@ test('книга (kind=book): видна в каталоге продуктов,
   assert.ok(!(await orders.catalog('physical')).some(p => p.id === B));
   const bk = over => ({ product_id: B, qty: 2, last_name: 'Тестов', first_name: 'Тест', phone: '89990000000', email: 'buyer@example.com', zip: '101000', city: 'Москва', street: 'ул. Мясницкая', house: '1', flat: '5',
     inscription: 'Маше — с любовью', consent: true, offer: true, ...over });
+  // Яндекс включён: ПВЗ обязателен, доставка по расчёту (подмена quote = 300), заявка для предзаказа при оплате не создаётся
+  await assert.rejects(orders.createOrder(bk()), e => e.error === 'validation' && e.extra.field === 'pvz_id');
+  const ry = await orders.createOrder(bk({ pvz_id: 'PVZ-B', pvz_address: 'СПб, Латышских Стрелков 13' }));
+  const oy = await orders.getOrder(ry.id); assert.equal(oy.total, 1888 * 2 + 300); assert.equal(oy.delivery_mode, 'yandex'); assert.equal(oy.pvz_id, 'PVZ-B'); assert.equal(oy.is_preorder, true);
+  assert.deepEqual(require('../lib/yd').recipient(oy), { first_name: 'Тест', last_name: 'Тестов', patronymic: undefined, phone: '+79990000000', email: 'buyer@example.com' });
+  calls.yd.length = 0; { const s3 = require('../lib/s3'); const o0 = s3.putObject; s3.putObject = async () => {}; try { assert.ok((await orders.confirmPaid(ry.id, 'PY', 1888 * 2 + 300)).ok); } finally { s3.putObject = o0; } }
+  assert.deepEqual(calls.yd, []);
+  // Яндекс выключен: адрес по частям, доставку не берём
+  const ydMode = ext.yd.mode; ext.yd.mode = () => 'off';
+  try {
   await assert.rejects(orders.createOrder(bk({ zip: '123' })), e => e.error === 'validation' && e.extra.field === 'zip');
   await assert.rejects(orders.createOrder(bk({ last_name: '' })), e => e.error === 'validation' && e.extra.field === 'last_name');
   const r = await orders.createOrder(bk());
@@ -179,5 +189,6 @@ test('книга (kind=book): видна в каталоге продуктов,
   try { puts.length = 0; assert.ok(await orders.backupBookOrders() >= 1); } finally { s3.putObject = orig; }
   assert.ok(puts.some(([k, b]) => k === `preorders/${r.id}.json` && b.inscription === 'Маше — с любовью'));
   const bo = (await orders.bookOrders()).find(x => x.id === r.id); assert.equal(bo.inscription, 'Маше — с любовью'); assert.equal(bo.addr.house, '1');
+  } finally { ext.yd.mode = ydMode; }
   await db.query(`DECLARE $p AS Utf8; DELETE FROM variants WHERE product_id = $p; DELETE FROM products WHERE id = $p; DELETE FROM orders WHERE product_id = $p;`, { $p: db.V.s(B) });
 });

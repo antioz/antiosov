@@ -56,6 +56,13 @@ async function quote({ pvz_id, weight_g, dims_cm, qty }) {
   return { price_rub: rub, days: r.delivery_days == null ? null : Number(r.delivery_days) };
 }
 
+// Получатель: у книги ФИО хранится раздельно (orders.addr), у мерча — одной строкой.
+function recipient(order) {
+  let a = {}; try { a = JSON.parse(order.addr || '{}') || {}; } catch (e) {}
+  return a.first_name ? { first_name: a.first_name, last_name: a.last_name || undefined, patronymic: a.middle_name || undefined, phone: order.customer_phone, email: order.customer_email }
+    : { first_name: order.customer_name, phone: order.customer_phone, email: order.customer_email };
+}
+
 // Создать заявку после оплаты. order — строка orders, product — строка products (dims_cm/weight_g распарсены).
 async function createRequest(order, product) {
   if (mode() === 'off') throw new Error('yd off');
@@ -69,7 +76,7 @@ async function createRequest(order, product) {
       physical_dims: { dx: product.dims_cm.x, dy: product.dims_cm.y, dz: product.dims_cm.z, weight_gross: product.weight_g }, place_barcode: barcode }],
     places: [{ barcode, ...place(product.dims_cm, product.weight_g, order.qty) }],
     billing_info: { payment_method: 'already_paid' },
-    recipient_info: { first_name: order.customer_name, phone: order.customer_phone, email: order.customer_email },
+    recipient_info: recipient(order),
     last_mile_policy: 'self_pickup', particular_items_refuse: false,
   };
   const offers = await call('offers/create', body);
@@ -91,4 +98,4 @@ async function requestInfo(request_id) {
   return call('request/info?request_id=' + encodeURIComponent(request_id), null);
 }
 
-module.exports = { mode, cities, pvz, quote, createRequest, requestInfo };
+module.exports = { recipient, mode, cities, pvz, quote, createRequest, requestInfo };
