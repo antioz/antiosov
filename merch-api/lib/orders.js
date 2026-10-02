@@ -425,7 +425,7 @@ async function bookOrders() {
   return rows.filter(o => books[o.product_id] && !['new', 'expired'].includes(o.status)).sort((a, b) => a.created_at - b.created_at)
     .map(o => ({ id: o.id, created_at: o.created_at, status: o.status, product_id: o.product_id, product_title: books[o.product_id], qty: o.qty, total: o.total,
       price_item: o.price_item, price_delivery: o.price_delivery, name: o.customer_name, phone: o.customer_phone, email: o.customer_email,
-      address_text: o.address_text, addr: parseJson(o.addr, {}), inscription: o.inscription || '', admin_note: o.admin_note || '' }));
+      address_text: o.address_text || (o.pvz_address ? 'ПВЗ: ' + o.pvz_address : ''), pvz_id: o.pvz_id || '', pvz_address: o.pvz_address || '', delivery_mode: o.delivery_mode, yd_request_id: o.yd_request_id || '', addr: parseJson(o.addr, {}), inscription: o.inscription || '', admin_note: o.admin_note || '' }));
 }
 
 async function createYd(o) {

@@ -61,7 +61,7 @@
   async function book() {
     const { orders: os } = await A('admin/book_orders');
     const live = os.filter(o => o.status !== 'cancelled'), toShip = os.filter(o => ['paid', 'packed'].includes(o.status));
-    const pref = o => o.addr.pref === 'pvz' ? 'ПВЗ рядом' : 'до двери';
+    const pref = o => o.pvz_id ? 'ПВЗ выбран' : o.addr.pref === 'pvz' ? 'ПВЗ рядом' : 'до двери';
     const fio = o => [o.addr.last_name, o.addr.first_name, o.addr.middle_name].filter(Boolean).join(' ') || o.name;
     app.innerHTML = tabs('book') + `<div class="summary"><span>Заказов: <b>${live.length}</b></span><span>Экземпляров: <b>${live.reduce((a, o) => a + o.qty, 0)}</b></span><span>К отправке: <b>${toShip.length}</b></span><span>С пожеланием: <b>${live.filter(o => o.inscription).length}</b></span></div>
       <p style="text-align:center"><button class="btn" id="csv" style="width:auto;padding:0 22px">CSV для Яндекс Доставки</button> <button class="btn ghost" id="js" style="width:auto;padding:0 22px">Всё в JSON</button></p>
@@ -73,9 +73,9 @@
     const stamp = new Date().toISOString().slice(0, 10);
     app.querySelector('#csv').onclick = () => {
       const cell = v => { const t = String(v == null ? '' : v); return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-      const head = ['Номер заказа', 'Статус', 'Дата', 'Экземпляров', 'Фамилия', 'Имя', 'Отчество', 'Телефон', 'E-mail', 'Способ получения', 'Адрес (город, улица, дом)', 'Квартира', 'Индекс', 'Подъезд, этаж, домофон', 'Надпись на форзаце', 'Оплачено, ₽'];
+      const head = ['Номер заказа', 'Статус', 'Дата', 'Экземпляров', 'Фамилия', 'Имя', 'Отчество', 'Телефон', 'E-mail', 'Способ получения', 'Адрес (город, улица, дом) или ПВЗ', 'ID пункта выдачи', 'Квартира', 'Индекс', 'Подъезд, этаж, домофон', 'Надпись на форзаце', 'Оплачено, ₽', 'Заявка Яндекса'];
       const rows = toShip.map(o => [o.id, ST[o.status], dd(o.created_at), o.qty, o.addr.last_name || o.name, o.addr.first_name || '', o.addr.middle_name || '', o.addr.phone_yd || String(o.phone).replace(/^\+/, ''), o.email,
-        pref(o), o.addr.full_address || o.address_text, o.addr.flat || '', o.addr.zip || '', o.addr.comment || '', o.inscription, o.total]);
+        pref(o), o.pvz_address || o.addr.full_address || o.address_text, o.pvz_id, o.addr.flat || '', o.addr.zip || '', o.addr.comment || '', o.inscription, o.total, o.yd_request_id]);
       save(`kniga-predzakazy-${stamp}.csv`, '﻿' + [head, ...rows].map(r => r.map(cell).join(';')).join('\r\n'), 'text/csv;charset=utf-8'); };
     app.querySelector('#js').onclick = () => save(`kniga-predzakazy-${stamp}.json`, JSON.stringify(os, null, 2), 'application/json');
     bindLogout();
