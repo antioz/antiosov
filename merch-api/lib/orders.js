@@ -75,12 +75,14 @@ function validate(i) {
 }
 
 // Книга (предзаказ): отправка через месяцы, к тому времени Яндекс Доставка уже подключится, а ПВЗ за это время могут закрыться.
-// Доставку оплачивает получатель в пункте выдачи (опция Яндекса «оплата при получении» — только ПВЗ): на сайте берём лишь цену книги
-// (BOOK_DELIVERY, по умолчанию 0). Адрес хранится по частям под API Яндекса (request/create) — по нему подбирается ближайший ПВЗ:
+// YD_MODE test/prod: покупатель выбирает ПВЗ на сайте, доставка считается Яндексом и оплачивается вместе с книгой (delivery_mode 'yandex');
+// заявка в Яндексе для предзаказа создаётся не при оплате, а кнопкой в админке, когда книга готова (afterPaid её пропускает).
+// YD_MODE off: доставку не берём (BOOK_DELIVERY, по умолчанию 0), ПВЗ подбирается перед отправкой по адресу.
+// Адрес хранится по частям под API Яндекса (request/create):
 // ФИО раздельно (first_name/last_name/patronymic), full_address = «Россия, город, улица, д. N» без индекса и квартиры, квартира — room,
 // подъезд/этаж/домофон — comment. pref всегда pvz: пункт выдачи рядом с этим адресом (подбирается при отправке).
 const INSCRIPTION_MAX = 500;
-function validateBook(i) {
+function validateBook(i, yd) {
   const bad = f => { throw new HttpError(400, 'validation', { field: f }); };
   const t = (k, max) => String(i[k] || '').trim().replace(/\s+/g, ' ').slice(0, max);
   const last_name = t('last_name', 60), first_name = t('first_name', 60), middle_name = t('middle_name', 60);
@@ -90,6 +92,12 @@ function validateBook(i) {
   if (i.offer !== true && i.offer !== 'true') bad('offer');
   if (i.consent !== true && i.consent !== 'true') bad('consent');
   const addr = { pref: 'pvz', zip: t('zip', 6), region: t('region', 100), city: t('city', 100), street: t('street', 150), house: t('house', 30), flat: t('flat', 20), comment: t('addr_comment', 300) };
+  if (yd) {
+    const pvz_id = t('pvz_id', 80), pvz_address = t('pvz_address', 300); if (!pvz_id) bad('pvz_id');
+    const inscription = String(i.inscription || '').trim().slice(0, INSCRIPTION_MAX);
+    return { name: [last_name, first_name, middle_name].filter(Boolean).join(' '), phone, email, qty, size: '-', address_text: '', pvz_id, pvz_address, inscription,
+      addr: JSON.stringify({ last_name, first_name, middle_name, phone_yd: phone.replace(/^\+/, ''), pref: 'pvz', city: addr.city, pvz_id, pvz_address }) };
+  }
   if (addr.zip && !/^\d{6}$/.test(addr.zip)) bad('zip'); if (addr.city.length < 2) bad('city'); if (addr.street.length < 2) bad('street'); if (!addr.house) bad('house');
   addr.full_address = ['Россия', addr.region, addr.city, addr.street, 'д. ' + addr.house.replace(/^д\.?\s*/i, '')].filter(Boolean).join(', ');
   const address_text = (addr.pref === 'pvz' ? 'ПВЗ рядом с: ' : '') + [addr.zip, addr.full_address.replace(/^Россия, /, ''), addr.flat && 'кв. ' + addr.flat].filter(Boolean).join(', ') + (addr.comment ? ` (${addr.comment})` : '');
@@ -106,13 +114,14 @@ async function createOrder(input) {
   if (found && found.kind === 'event') { if (!product) throw new HttpError(404, 'no_product'); return createEventOrder(input, product); }
   if (found && found.kind === 'diploma') { if (!product) throw new HttpError(404, 'no_product'); return createDiplomaOrder(input, product); }
   const book = !!found && found.kind === 'book';
-  const v = book ? validateBook(input) : validate(input);
+  const bookYd = book && ext.yd.mode() !== 'off';
+  const v = book ? validateBook(input, bookYd) : validate(input);
   if (!product) throw new HttpError(404, 'no_product');
   if (!(product.sizes.length ? product.sizes.includes(v.size) : v.size === '-')) throw new HttpError(400, 'validation', { field: 'size' });
-  const delivery = book ? { price_rub: envInt('BOOK_DELIVERY', 0), days: 0 } : await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
+  const delivery = book && !bookYd ? { price_rub: envInt('BOOK_DELIVERY', 0), days: 0 } : await ext.yd.quote({ pvz_id: v.pvz_id, weight_g: product.weight_g, dims_cm: product.dims_cm, qty: v.qty });
   const price_delivery = delivery.price_rub, total = product.price * v.qty + price_delivery;
   const k = randomKey();
-  const ydMode = book ? 'off' : ext.yd.mode();
+  const ydMode = book && !bookYd ? 'off' : ext.yd.mode();
 
   // Резерв + номер + запись заказа — одна транзакция; конфликт по variants/counters → tx() повторяет целиком.
   const { id, is_preorder } = await db.tx(async run => {
@@ -386,7 +395,7 @@ async function afterPaid(id) {
   try { await ext.mail.send({ to: ENV.OWNER_EMAIL, ...mail.tplOwnerNewOrder(o) }); } catch (e) { errs.push('owner:' + e.message); }
   if (!isEvent(o) && !isDiploma(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
   if (errs.length) await setField(id, 'mail_error', errs.join(' | ').slice(0, 500));
-  if (o.delivery_mode === 'yandex') await createYd(o);
+  if (o.delivery_mode === 'yandex' && !o.is_preorder) await createYd(o); // предзаказ: вещи ещё нет — заявка кнопкой в админке, когда готова
   if (o.product && o.product.kind === 'book') await backupOrder(o);
 }
 
