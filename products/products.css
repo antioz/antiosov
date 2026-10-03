@@ -50,3 +50,4 @@ main.empty .name{display:none} main.empty h1{margin-bottom:64px} main.empty foot
 .wish{margin:22px 0 18px;padding:16px 18px;background:#f6f6f6} .wish .field{margin:0} .wish p{margin:0 0 12px;font-size:14px;line-height:1.55} .wish textarea{min-height:96px}
 .optional{text-transform:none;letter-spacing:0;color:#aaa}
 .pretag{margin:0 0 18px;font-size:13px;letter-spacing:.06em;color:#444}
+.hint{font-size:12px;line-height:1.4;color:#888;margin:-8px 0 14px}
