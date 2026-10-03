@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
   <link rel="stylesheet" href="../../merch/merch.css" />
-  <link rel="stylesheet" href="../products.css?v=20261002a" />
+  <link rel="stylesheet" href="../products.css?v=20261003a" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -56,7 +56,7 @@
   // Яндекс выключен — доставку не берём, ПВЗ подбирается перед отправкой по адресу. Пожелание для надписи на форзаце.
   function bookPage() {
     const YD = P.yd_mode && P.yd_mode !== 'off';
-    const B = { busy: false, qty: 1, pvz: null, quote: null, points: [] };
+    const B = { busy: false, qty: 1, geo: null, pvz: null, quote: null, points: [] };
     const v = (P.variants || []).find(x => x.size === '-'), inStock = !!v && v.available > 0, canPre = !inStock && P.preorder_allowed;
     const open = inStock || canPre;
     const total = () => P.price * B.qty + (YD ? (B.quote ? B.quote.price_delivery : 0) : 0);
@@ -77,7 +77,8 @@
         ${fld('middle_name', 'Отчество', 'autocomplete="additional-name"', true)}
         <div class="row2">${fld('phone', 'Телефон', 'type="tel" autocomplete="tel" required')}${fld('email', 'E-mail', 'type="email" autocomplete="email" required')}</div>
         <div class="meta" style="margin:6px 0 10px">Где забрать</div>
-        ${YD ? `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
+        ${YD ? `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить и выберите из списка"><ul id="cities" style="display:none"></ul></label>
+          <p class="hint" id="cityHint">Выберите город из подсказки — ниже появится список пунктов выдачи Яндекса.</p>
           <div id="pvzBox" style="display:none"><label class="field" data-f="pvz_id"><span>Пункт выдачи Яндекса</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
           <div class="pvz" id="pvz"></div></div>`
         : `<p class="notice" style="margin:0 0 14px">Книга приедет в пункт выдачи Яндекс Доставки рядом с этим адресом — пункт подберу перед отправкой. Доставку оплачиваете при получении, по тарифу Яндекса.</p>
@@ -87,7 +88,7 @@
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
         <div class="sum"><span>Книга</span><span id="sItem"></span></div>
-        <div class="sum"><span>Доставка</span><span id="sDel">${YD ? 'выберите пункт выдачи' : 'при получении'}</span></div>
+        <div class="sum"><span>Доставка</span><span id="sDel">${YD ? 'выберите город и пункт выдачи' : 'при получении'}</span></div>
         <div class="sum total"><span>${YD ? 'Итого' : 'Итого сейчас'}</span><span id="sTotal"></span></div>
         <div id="err" class="notice err" style="display:none"></div>
         <button class="btn" id="pay" type="submit" style="margin-top:16px">${label()}</button>
@@ -103,8 +104,9 @@
         try { const q = await api('quote', { method: 'POST', body: { product_id: P.id, qty: B.qty, pvz_id: B.pvz.id } }); if (my !== seq) return; B.quote = q;
           $('#sDel').textContent = rub(q.price_delivery) + (q.days ? `, ~${q.days} дн. после отправки` : ''); }
         catch (e) { if (my !== seq) return; $('#sDel').textContent = 'не удалось посчитать — выберите другой пункт'; } }
+      else if (YD) $('#sDel').textContent = B.geo ? 'выберите пункт выдачи' : 'выберите город и пункт выдачи';
       $('#sTotal').textContent = rub(total());
-      if (!B.busy) { $('#pay').textContent = label(); $('#pay').disabled = !open || (YD && !B.quote); }
+      if (!B.busy) { $('#pay').textContent = label(); $('#pay').disabled = !open; }
     };
     $('#qty').onchange = e => { B.qty = +e.target.value; sum(); }; sum();
     if (YD) {
@@ -113,18 +115,32 @@
         const hits = B.points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
         $('#pvz').innerHTML = hits.length ? hits.map(x => `<label><input type="radio" name="pvzr" value="${esc(x.id)}" ${B.pvz && B.pvz.id === x.id ? 'checked' : ''}>${esc(x.address)}</label>`).join('')
           + (B.points.length > hits.length ? `<label class="meta" style="cursor:default">показаны ${hits.length} из ${B.points.length} — уточните улицу</label>` : '') : '<label>Ничего не нашлось</label>';
-        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { B.pvz = B.points.find(x => x.id === r.value); sum(); }); };
+        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { B.pvz = B.points.find(x => x.id === r.value); root.querySelector('[data-f="pvz_id"]').classList.remove('err'); $('#err').style.display = 'none'; sum(); }); };
       $('#pvzq').oninput = showPvz;
-      cityIn.oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+      // Город выбирается из подсказки; если набранное совпало с подсказкой — выбираем сами, без клика.
+      let cs = [];
+      const norm = x => String(x || '').trim().toLowerCase().replace(/ё/g, 'е');
+      const pickCity = async c => {
+        cityIn.value = c.name; list.style.display = 'none'; B.geo = String(c.geo_id); B.pvz = null; B.quote = null; B.points = []; sum();
+        $('#cityHint').style.display = 'none'; root.querySelector('[data-f="city"]').classList.remove('err'); $('#err').style.display = 'none';
+        $('#pvzBox').style.display = ''; $('#pvz').innerHTML = '<label>загружаю пункты…</label>'; $('#pvzq').value = '';
+        const my = B.geo; let pts = [];
+        try { pts = (await api('pvz', { q: { geo_id: c.geo_id } })).points || []; } catch (e) {}
+        if (my !== B.geo) return;
+        B.points = pts;
+        if (pts.length) showPvz(); else $('#pvz').innerHTML = '<label>В этом городе не нашлось пунктов выдачи Яндекса — выберите ближайший город покрупнее</label>'; };
+      const exact = () => cs.find(c => norm(c.name) === norm(cityIn.value));
+      cityIn.oninput = () => {
+        if (B.geo) { B.geo = null; B.pvz = null; B.quote = null; B.points = []; $('#pvzBox').style.display = 'none'; $('#cityHint').style.display = ''; sum(); }
+        clearTimeout(t); t = setTimeout(async () => {
         const q = cityIn.value.trim(); if (q.length < 2) { list.style.display = 'none'; return; }
-        let cs = []; try { cs = (await api('cities', { q: { q } })).cities || []; } catch (e) {}
-        list.innerHTML = cs.map(c => `<li data-g="${esc(c.geo_id)}">${esc(c.name)}</li>`).join(''); list.style.display = cs.length ? '' : 'none';
-        list.querySelectorAll('li').forEach(li => li.onclick = async () => {
-          cityIn.value = li.textContent; list.style.display = 'none'; B.pvz = null; B.quote = null; sum();
-          $('#pvzBox').style.display = ''; $('#pvz').innerHTML = '<label>загружаю пункты…</label>';
-          try { B.points = (await api('pvz', { q: { geo_id: li.dataset.g } })).points || []; } catch (e) { B.points = []; }
-          $('#pvzq').value = ''; showPvz(); });
+        let r = []; try { r = (await api('cities', { q: { q } })).cities || []; } catch (e) {}
+        if (q !== cityIn.value.trim() || B.geo) return; cs = r;
+        const ex = exact(); if (ex) return pickCity(ex);
+        list.innerHTML = cs.map((c, i) => `<li data-i="${i}">${esc(c.name)}</li>`).join(''); list.style.display = cs.length ? '' : 'none';
+        list.querySelectorAll('li').forEach(li => li.onclick = () => pickCity(cs[+li.dataset.i]));
       }, 400); };
+      cityIn.onblur = () => setTimeout(() => { if (!B.geo && cs.length === 1 && norm(cs[0].name).startsWith(norm(cityIn.value)) && cityIn.value.trim()) pickCity(cs[0]); }, 250);
       document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
     }
     const FIELD_RU = { last_name: 'фамилия', first_name: 'имя', phone: 'телефон', email: 'e-mail', city: 'город', street: 'улица', house: 'дом', zip: 'индекс (6 цифр)', pvz_id: 'пункт выдачи', qty: 'количество', consent: 'согласие', offer: 'оферта' };
@@ -138,14 +154,16 @@
         offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
       for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', ...(YD ? [] : ['street', 'house'])]) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return showErr('Проверьте e-mail — на него придёт чек.', 'email');
-      if (YD && !B.pvz) return showErr('Выберите пункт выдачи.', 'pvz_id');
+      if (YD && !B.geo) return showErr('Выберите город из выпадающего списка под полем «Город» — после этого появятся пункты выдачи.', 'city');
+      if (YD && !B.pvz) return showErr('Отметьте пункт выдачи в списке (можно найти по улице или метро).', 'pvz_id');
+      if (YD && !B.quote) return showErr('Стоимость доставки ещё считается или не посчиталась — подождите секунду или выберите другой пункт.', 'pvz_id');
       if (body.zip && !/^\d{6}$/.test(body.zip)) return showErr('Индекс — 6 цифр (или оставьте пустым).', 'zip');
       if (!body.offer) return showErr('Нужно принять условия оферты.', 'offer');
       if (!body.consent) return showErr('Нужно согласие на обработку данных.', 'consent');
       B.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
       try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
       catch (err) {
-        B.busy = false; $('#pay').disabled = YD && !B.quote; $('#pay').textContent = label();
+        B.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
         const field = err.data && err.data.field;
         const m = { sold_out: 'Предзаказ только что закрылся — все экземпляры разобраны.', validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
           payment_init: 'Платёжная система не отвечает, попробуйте через минуту.', no_product: 'Этого продукта больше нет.', bad_json: 'Магазин временно недоступен, попробуйте через минуту.' }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
