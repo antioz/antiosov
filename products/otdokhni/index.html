@@ -44,7 +44,7 @@
   if (slug && location.pathname.startsWith('/products/p/')) fetch(`/products/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) { const q = new URLSearchParams(location.search); q.delete('s'); history.replaceState(null, '', `/products/${encodeURIComponent(slug)}/${q.toString() ? '?' + q : ''}${location.hash}`); } }).catch(() => {});
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   // Нет ответа от магазина (чаще всего VPN режет запрос к functions.yandexcloud.net) — не путать с «нет продукта».
-  const offline = () => { root.innerHTML = '<p class="center">Не получается связаться с магазином. Если включён VPN — выключите его или добавьте antiosov.ru в исключения, и <a href="">обновите страницу</a>.</p>'; };
+  const offline = () => { root.innerHTML = '<p class="center">Выключите VPN и <a href="">обновите страницу</a>.</p>'; };
   let P, skew = 0;
   try { const r = await api('product', { q: { s: slug } }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
   if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }

@@ -58,7 +58,7 @@
             <div class="t">${esc(p.title)}</div>
             ${ev ? `<div class="p">${esc(evWhen(p.event_at))}</div><div class="p">${rub(p.price)}</div><div class="p"><span class="meta">${!left ? 'мест нет' : !p.sales_open ? 'продажа закрыта' : 'осталось ' + seats(left)}</span></div></a>` : `<div class="p">${p.free_active ? 'бесплатно' : rub(p.price) + (soon ? ' · <span class="meta">скоро</span>' : '') + (p.kind === 'book' && p.preorder_allowed && !(p.variants || []).some(v => v.available > 0) ? ' · <span class="meta">предзаказ</span>' : '')}</div></a>`}`;
         }).join('');
-      } catch (e) { empty.textContent = 'не получается связаться с магазином — если включён VPN, выключите его и обновите страницу'; empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
+      } catch (e) { empty.textContent = 'выключите VPN и обновите страницу'; empty.style.display = ''; document.getElementById('main').classList.add('empty'); }
       showAll();
     })();
   </script>
