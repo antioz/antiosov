@@ -120,3 +120,32 @@ test('admin/product: мероприятие сохраняется с полям
   const list = body(await handler(ev('admin/products', { headers: H }))).products;
   assert.equal(list.find(x => x.id === E).kind, 'event');
 });
+
+test('секретная ссылка: цена по коду, лимит билетов на код, места общие, отмена освобождает', async () => {
+  process.env.PROMO_CODES = 'tkod:' + E + ':120:3;chuzhoy:' + EP + ':50:5';
+  try {
+    let p = body(await handler(ev('product', { q: { s: E, p: 'tkod' } }))).product;
+    assert.deepEqual([p.price, p.promo], [120, { price: 120, left: 3, regular_price: 300 }]);
+    p = body(await handler(ev('product', { q: { s: E, p: 'chuzhoy' } }))).product;
+    assert.deepEqual([p.price, p.promo, p.promo_invalid], [300, undefined, true], 'код другого товара не действует');
+    let r = await handler(ev('order', { method: 'POST', body: { ...ORDER, promo: 'net-takogo' } }));
+    assert.equal(r.statusCode, 400); assert.equal(body(r).field, 'promo');
+    const a = await mkOrder({ qty: 2, promo: 'tkod' });
+    let o = await row(a.id); assert.deepEqual([o.price_item, o.total, o.promo], [120, 240, 'tkod']);
+    assert.equal(calls.init.at(-1).receiptItems[0].price_rub, 120); assert.equal(calls.init.at(-1).amountRub, 240);
+    assert.equal((await variant(E)).reserved, 2, 'места — из общего счётчика вечера');
+    r = await handler(ev('order', { method: 'POST', body: { ...ORDER, qty: 2, promo: 'tkod' } }));
+    assert.equal(r.statusCode, 409, r.body); assert.deepEqual(body(r), { error: 'promo_sold_out', promo_left: 1 });
+    const b = await mkOrder({ qty: 1, promo: 'tkod' });
+    assert.equal(body(await handler(ev('product', { q: { s: E, p: 'tkod' } }))).product.promo.left, 0);
+    const c = await mkOrder({ qty: 2 }); assert.equal((await row(c.id)).price_item, 300, 'без кода — обычная цена');
+    await pay(a.id, 240);
+    // неоплаченный по коду истёк — его билет снова доступен по коду; оплаченные держат лимит
+    await db.query(`DECLARE $id AS Utf8; DECLARE $t AS Timestamp; UPDATE orders SET created_at = $t WHERE id = $id;`, { $id: db.V.s(b.id), $t: db.V.ts(new Date(Date.now() - 3600000)) });
+    await handler(ev('catalog'));
+    assert.equal(body(await handler(ev('product', { q: { s: E, p: 'tkod' } }))).product.promo.left, 1);
+  } finally {
+    delete process.env.PROMO_CODES;
+    await db.query(`DECLARE $e AS Utf8; DELETE FROM orders WHERE product_id = $e;`, { $e: db.V.s(E) }); await seat(E, 60);
+  }
+});

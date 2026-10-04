@@ -34,3 +34,5 @@ ALTER TABLE products ADD COLUMN free_file_key Utf8;
 ALTER TABLE products ADD COLUMN event_at Utf8;
 ALTER TABLE products ADD COLUMN venue Utf8;
 ALTER TABLE products ADD COLUMN age_mark Utf8;
+-- 2026-10-04 спеццена на билеты по секретной ссылке: код из PROMO_CODES, по нему считается лимит билетов.
+ALTER TABLE orders ADD COLUMN promo Utf8;

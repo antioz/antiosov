@@ -42,8 +42,11 @@
   const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
   // Нет ответа от магазина (чаще всего VPN режет запрос к functions.yandexcloud.net) — не путать с «нет продукта».
   const offline = () => { root.innerHTML = '<p class="center">Выключите VPN и <a href="">обновите страницу</a>.</p>'; };
+  // Секретная ссылка на спеццену билетов: ?p=<код>. Код проверяет сервер; неверный — обычная карточка.
+  const promo = new URLSearchParams(location.search).get('p') || '';
+  const pq = () => promo ? { s: slug, p: promo } : { s: slug };
   let P, skew = 0;
-  try { const r = await api('product', { q: { s: slug } }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
+  try { const r = await api('product', { q: pq() }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
   if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
   const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
@@ -175,8 +178,10 @@
   // Мероприятие: билеты 1…min(qty_max, left), только e-mail для чека. Остаток и «продажа открыта» решает сервер.
   function eventPage() {
     const E = { busy: false, qty: 1 };
-    const left = () => Math.max(0, P.left | 0), max = () => Math.max(1, Math.min(P.qty_max || 5, left()));
-    const label = () => !P.sales_open ? (left() ? 'Продажа закрыта' : 'Мест нет') : `Купить ${E.qty} ${plural(E.qty, 'билет', 'билета', 'билетов')} за ${rub(P.price * E.qty)}`;
+    // По коду: цена уже подменена сервером, P.promo.left — сколько билетов по коду ещё есть; места вечера общие.
+    const promoOut = () => !!P.promo && P.promo.left <= 0, open = () => P.sales_open && !promoOut();
+    const left = () => Math.max(0, P.left | 0), max = () => Math.max(1, Math.min(P.qty_max || 5, left(), P.promo ? P.promo.left : Infinity));
+    const label = () => !P.sales_open ? (left() ? 'Продажа закрыта' : 'Мест нет') : promoOut() ? 'Билеты по этой цене закончились' : `Купить ${E.qty} ${plural(E.qty, 'билет', 'билета', 'билетов')} за ${rub(P.price * E.qty)}`;
     root.innerHTML = `<div class="product">
     <div class="gallery full">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
@@ -184,7 +189,8 @@
       <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))}</p>
       ${P.venue ? `<p class="ev"><b>где</b>${esc(P.venue)}</p>` : ''}
       ${P.age_mark ? `<p class="ev"><span class="age">${esc(P.age_mark)}</span></p>` : ''}
-      <div class="price" style="margin-top:16px">${rub(P.price)} <span class="meta">за билет</span></div>
+      <div class="price" style="margin-top:16px">${rub(P.price)} ${P.promo ? `<s class="meta">${rub(P.promo.regular_price)}</s> ` : ''}<span class="meta">за билет</span></div>
+      <p class="meta" id="promoOut" style="display:none">Билеты по этой цене закончились. <a href="/products/${esc(P.id)}/">Купить по обычной цене</a></p>
       <div class="desc">${md(P.description_md)}</div>
       <div class="seatsbox" id="left"><span class="n" id="leftn"></span><span class="meta" id="leftw"></span></div>
       <form id="f" novalidate>
@@ -200,19 +206,19 @@
     const $ = s => root.querySelector(s);
     const paint = () => { E.qty = Math.min(E.qty, max());
       const sl = shownLeft(P); $('#leftn').textContent = sl || '0'; $('#leftw').textContent = !sl ? 'мест нет' : plural(sl, 'место осталось', 'места осталось', 'мест осталось');
-      $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !P.sales_open;
-      $('#pay').textContent = label(); $('#pay').disabled = !P.sales_open || E.busy; };
+      $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !open();
+      $('#pay').textContent = label(); $('#pay').disabled = !open() || E.busy; $('#promoOut').style.display = promoOut() ? '' : 'none'; };
     $('#qty').onchange = e => { E.qty = +e.target.value || 1; paint(); };
     paint();
     // Счётчик остатка живой: раз в 30 с перечитываем товар, пока вкладка на виду.
     setInterval(async () => { if (document.hidden || E.busy) return; await reload(); paint(); }, 30000);
     const FIELD_RU = { email: 'e-mail', qty: 'количество билетов', consent: 'согласие', offer: 'оферта', product_id: 'мероприятие' };
     const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
-    const reload = async () => { try { const r = await api('product', { q: { s: slug } }); if (r.product) P = r.product; } catch (e) {} };
+    const reload = async () => { try { const r = await api('product', { q: pq() }); if (r.product) P = r.product; } catch (e) {} };
     $('#f').onsubmit = async e => {
-      e.preventDefault(); if (E.busy || !P.sales_open) return;
+      e.preventDefault(); if (E.busy || !open()) return;
       const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
-      const body = { product_id: P.id, email: String(f.get('email') || '').trim(), qty: E.qty, offer: f.get('offer') === 'on', consent: f.get('consent') === 'on' };
+      const body = { product_id: P.id, email: String(f.get('email') || '').trim(), qty: E.qty, offer: f.get('offer') === 'on', consent: f.get('consent') === 'on', ...(P.promo ? { promo } : {}) };
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт чек.'); $('[data-f="email"]').classList.add('err'); return; }
       if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
       if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
@@ -220,12 +226,13 @@
       try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
       catch (err) {
         const field = err.data && err.data.field;
-        if (err.message === 'sold_out' || err.message === 'sales_closed') await reload();
+        if (['sold_out', 'sales_closed', 'promo_sold_out'].includes(err.message)) await reload();
         if (err.message === 'sales_closed') P.sales_open = false;
         E.busy = false; paint();
         const m = {
           sold_out: left() ? `Столько мест уже нет — осталось ${shownLeft(P)}.` : 'Места закончились.',
           sales_closed: 'Продажа закрыта.',
+          promo_sold_out: P.promo && P.promo.left > 0 ? `По этой цене осталось ${P.promo.left} ${plural(P.promo.left, 'билет', 'билета', 'билетов')}.` : 'Билеты по этой цене закончились.',
           validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
           payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
           no_product: 'Этого мероприятия больше нет.',

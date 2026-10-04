@@ -31,6 +31,13 @@ const orderKind = o => isDigital(o) ? 'digital' : isEvent(o) ? 'event' : isDiplo
 const eventInfo = (p, vs) => { const v = (vs || []).find(x => x.size === '-'); const left = v ? Math.max(0, v.stock - v.reserved) : 0;
   return { event_at: p.event_at, venue: p.venue, age_mark: p.age_mark, left, sales_open: !!p.event_at && Date.parse(p.event_at) > Date.now() && left > 0 }; };
 const DL_STATUSES = ['paid', 'done'];
+// Спеццена на билеты по секретной ссылке (вместо промокода). PROMO_CODES = 'код:товар:цена:лимит;…' — только в настройках функции, не в git.
+// Лимит — билетов на код за всё время: считаются заказы, кроме отменённых и истёкших (возврат освобождает места по коду). Места вечера — общие.
+const promos = () => Object.fromEntries(String(ENV.PROMO_CODES || '').split(';').map(x => x.trim().split(':')).filter(a => a.length === 4 && a[0])
+  .map(([code, product, price, limit]) => [code, { product, price: parseInt(price, 10), limit: parseInt(limit, 10) }]).filter(([, v]) => v.price > 0 && v.limit > 0));
+const findPromo = (code, productId) => { const v = code ? promos()[String(code)] : null; return v && v.product === productId ? v : null; };
+const PROMO_USED_SQL = `DECLARE $c AS Utf8; SELECT CAST(COALESCE(SUM(qty), 0) AS Int32) AS n FROM orders WHERE promo = $c AND status != 'cancelled'u AND status != 'expired'u;`;
+const promoUsed = async (run, code) => { const [[r]] = await run(PROMO_USED_SQL, { $c: db.V.s(code) }); return Number((r && r.n) || 0); };
 const withUrls = p => p && ({ ...p, image_urls: p.images.map(k => s3.publicUrl(k)) });
 const bySizeOrder = sizes => (a, b) => sizes.indexOf(a.size) - sizes.indexOf(b.size);
 
@@ -49,7 +56,7 @@ async function catalog(kind = 'physical') {
   }));
 }
 
-async function getProduct(id, { admin = false } = {}) {
+async function getProduct(id, { admin = false, promo = '' } = {}) {
   const [[p], vs] = await db.query(`DECLARE $id AS Utf8; SELECT * FROM products WHERE id = $id; SELECT * FROM variants WHERE product_id = $id;`, { $id: db.V.s(id) });
   if (!p || (!admin && !p.active)) return null;
   const prod = withUrls(parseProduct(p));
@@ -57,6 +64,10 @@ async function getProduct(id, { admin = false } = {}) {
   prod.variants = vs.map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, available: Math.max(0, v.stock - v.reserved), preorder_count: v.preorder_count }))
     .sort(bySizeOrder(prod.sizes));
   if (prod.kind === 'event') Object.assign(prod, eventInfo(prod, vs), { qty_max: QTY_MAX });
+  // Секретная ссылка: цена по коду и сколько билетов по нему ещё можно купить. Неверный код — обычная карточка (promo_invalid).
+  const pr = prod.kind === 'event' && promo ? findPromo(promo, prod.id) : null;
+  if (pr) { prod.promo = { price: pr.price, left: Math.max(0, pr.limit - await promoUsed(db.query, String(promo))), regular_price: prod.price }; prod.price = pr.price; }
+  else if (promo) prod.promo_invalid = true;
   return prod;
 }
 
@@ -221,11 +232,15 @@ async function createEventOrder(i, product) {
   if (i.offer !== true && i.offer !== 'true') bad('offer');
   if (i.consent !== true && i.consent !== 'true') bad('consent');
   if (!product.event_at || !(Date.parse(product.event_at) > Date.now())) throw new HttpError(409, 'sales_closed');
-  const k = randomKey(), total = product.price * qty;
+  const code = i.promo ? String(i.promo) : '', pr = code ? findPromo(code, product.id) : null;
+  if (code && !pr) throw new HttpError(400, 'validation', { field: 'promo' });
+  const price = pr ? pr.price : product.price;
+  const k = randomKey(), total = price * qty;
   const id = await db.tx(async run => {
     const [[v]] = await run(`DECLARE $p AS Utf8; SELECT stock, reserved FROM variants WHERE product_id = $p AND size = '-'u;`, { $p: db.V.s(product.id) });
     const left = v ? v.stock - v.reserved : 0;
     if (left < qty) throw new HttpError(409, 'sold_out', { left: Math.max(0, left) });
+    if (pr) { const pl = pr.limit - await promoUsed(run, code); if (pl < qty) throw new HttpError(409, 'promo_sold_out', { promo_left: Math.max(0, pl) }); }
     await run(`DECLARE $p AS Utf8; DECLARE $q AS Int32; UPDATE variants SET reserved = reserved + $q WHERE product_id = $p AND size = '-'u;`, { $p: db.V.s(product.id), $q: db.V.i(qty) });
     const [[c]] = await run(`SELECT value FROM counters WHERE name = 'order'u;`);
     const n = (c ? c.value : 0) + 1;
@@ -234,10 +249,10 @@ async function createEventOrder(i, product) {
     await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $q AS Int32; DECLARE $pi AS Int32; DECLARE $t AS Int32; DECLARE $e AS Utf8;
       UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
         customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
-        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note)
+        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note, promo)
       VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, '-'u, $q, false, $pi, 0, $t,
-        ''u, ''u, $e, ''u, ''u, ''u, 'event'u, ''u, 0, ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u);`,
-      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $q: db.V.i(qty), $pi: db.V.i(product.price), $t: db.V.i(total), $e: db.V.s(email) });
+        ''u, ''u, $e, ''u, ''u, ''u, 'event'u, ''u, 0, ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u, $pc);`,
+      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $q: db.V.i(qty), $pi: db.V.i(price), $t: db.V.i(total), $e: db.V.s(email), $pc: db.V.s(code) });
     return id;
   });
   let pay;
@@ -245,7 +260,7 @@ async function createEventOrder(i, product) {
     pay = await ext.tbank.init({
       orderId: id, amountRub: total, description: `Заказ ${id}: билет × ${qty} — ${product.title}`, email, dueDate: new Date(Date.now() + envInt('RESERVE_MIN', 20) * 60000),
       // Билет удостоверяет право прохода и передаётся в момент оплаты — полный расчёт за услугу.
-      receiptItems: [{ name: `Билет: ${product.title}, ${mskDate(product.event_at)}`, price_rub: product.price, qty, object: 'service', method: 'full_payment' }],
+      receiptItems: [{ name: `Билет: ${product.title}, ${mskDate(product.event_at)}`, price_rub: price, qty, object: 'service', method: 'full_payment' }],
       successUrl: `${ENV.SELF_URL}?a=success&id=${id}&k=${k}`, failUrl: `${ENV.SITE}/products/order/?id=${id}&k=${k}&fail=1`, notifyUrl: `${ENV.SELF_URL}?a=notify`,
     });
   } catch (e) {

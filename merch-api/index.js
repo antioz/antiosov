@@ -57,7 +57,7 @@ module.exports.handler = async function (event) {
     if (a.startsWith('admin/')) return await admin.route(a, method, method === 'GET' ? {} : parseBody(event), q, header(event, 'x-admin-token'));
     switch (a) {
       case 'catalog': { await orders.gc(); return json(200, { products: await orders.catalog(q.kind === 'digital' ? 'digital' : 'physical'), now: new Date().toISOString(), yd_mode: ext.yd.mode(), delivery_flat: ext.yd.mode() === 'off' ? parseInt(ENV.DELIVERY_FLAT || '400', 10) : null, qty_max: orders.QTY_MAX }); }
-      case 'product': { const p = await orders.getProduct(String(q.s || '')); if (p && p.kind === 'digital') p.downloads = await orders.downloadCount(p.id); return p ? json(200, { product: p, yd_mode: ext.yd.mode(), now: new Date().toISOString() }) : json(404, { error: 'no_product' }); }
+      case 'product': { const p = await orders.getProduct(String(q.s || ''), { promo: String(q.p || '') }); if (p && p.kind === 'digital') p.downloads = await orders.downloadCount(p.id); return p ? json(200, { product: p, yd_mode: ext.yd.mode(), now: new Date().toISOString() }) : json(404, { error: 'no_product' }); }
       case 'cities': return json(200, { cities: await ext.yd.cities(String(q.q || '')) });
       case 'pvz': return json(200, { points: await ext.yd.pvz(String(q.geo_id || '')) });
       case 'quote': {
