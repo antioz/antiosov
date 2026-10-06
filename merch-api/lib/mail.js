@@ -43,9 +43,12 @@ function tplOwnerNewOrder(o) {
   return { subject: `Заказ ${o.id} — ${item(o)} — ${rub(o.total)}`, ...m };
 }
 function tplCustomerPaid(o) {
+  const note = String((o.product && o.product.mail_note) || '').trim();
   const m = wrap('Заказ принят', [
+    // Свой текст товара (админка: «Текст в письме после оплаты») — первой строкой и вместо строки про срок отправки.
+    ...(note ? [note] : []),
     `Номер заказа: ${o.id}`, item(o), `Оплачено: ${rub(o.total)}`, where(o),
-    o.is_preorder ? (o.preorder_ship_by ? `Это предзаказ: отправлю до ${o.preorder_ship_by}.` : 'Это предзаказ: напишу, когда отправлю.') : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.'),
+    ...(note ? [] : [o.is_preorder ? (o.preorder_ship_by ? `Это предзаказ: отправлю до ${o.preorder_ship_by}.` : 'Это предзаказ: напишу, когда отправлю.') : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.')]),
     ...(o.inscription ? [`Надпись на форзаце — ваше пожелание: «${esc(o.inscription)}»`] : []),
     ...(o.product && o.product.kind === 'book' && o.delivery_mode !== 'yandex' ? ['Книга приедет в пункт выдачи Яндекс Доставки рядом с вашим адресом. Доставку оплачиваете при получении, по тарифу Яндекса.'] : []),
     'Вопросы — просто ответьте на это письмо.',

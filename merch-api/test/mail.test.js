@@ -48,3 +48,12 @@ test('цифровой заказ: «Доступ открыт» со ссылк
   const o = mail.tplOwnerNewOrder(d);
   assert.ok(!o.text.includes('доставка') && !o.html.includes(d.customer_email) && !o.text.includes(d.customer_email), o.text);
 });
+
+test('tplCustomerPaid: mail_note товара — первой строкой и вместо строки про срок отправки', () => {
+  const o = { ...order, product: { kind: 'physical', mail_note: 'Спасибо за заказ!' } };
+  const m = mail.tplCustomerPaid(o);
+  assert.ok(m.text.split('\n')[2] === 'Спасибо за заказ!', m.text);
+  assert.ok(!/Отправлю в ближайшие дни|Срок доставки|Это предзаказ/.test(m.text), m.text);
+  const plain = mail.tplCustomerPaid({ ...order, product: { kind: 'physical' } });
+  assert.ok(/Отправлю в ближайшие дни|Срок доставки|Это предзаказ/.test(plain.text), plain.text);
+});
