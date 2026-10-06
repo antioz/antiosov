@@ -87,3 +87,9 @@ CREATE TABLE IF NOT EXISTS mailings (id Utf8, created_at Timestamp, subject Utf8
 
 - [ ] Миграция прод-БД (`YDB_CONNECTION` прод из `.deploy.env`), `./deploy.sh`, пуш.
 - [ ] Живой путь: `admin/subscribers` отвечает; заказ с галочкой на выключенном тестовом товаре → подписчик есть → `unsub` по ссылке удаляет. Отправка письма — после `VerifiedForSendingStatus: true` в Postbox; до того фиксируется как непроверенное.
+
+### Task D: клиенты (после A и B)
+
+- [ ] **D1. Бэкенд.** `merch-api/lib/clients.js`: `listClients()` — `SELECT id, created_at, status, product_id, total, customer_email, customer_name, customer_phone FROM orders` + названия товаров + `subscribers`; группировка по `lower(customer_email)` в JS; контракт — спека, раздел «Клиенты». Маршрут `GET admin/clients` за `requireAuth`. Тест `test/clients.test.js`: два заказа одного e-mail (разный регистр) → один клиент, `orders_total=2`; оплаченный считается в `sum_paid`, `new`/`cancelled` — нет; подписчик → `subscribed: true`; обезличенный заказ не попадает.
+- [ ] **D2. Админка.** Вкладка «Клиенты» в `merch/admin` по контракту.
+- [ ] **D3.** Проверка вместе с Task C.
