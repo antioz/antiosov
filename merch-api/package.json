@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@yandex-cloud/nodejs-sdk": "^2.9.3",
+    "imapflow": "^2.2.6",
+    "mailparser": "^3.9.36",
     "nodemailer": "^6.9.0",
     "ydb-sdk": "^5.11.1"
   }

@@ -20,17 +20,21 @@
     app.innerHTML = `<form id="lf" class="center" style="max-width:320px"><label class="field"><span>Пароль</span><input type="password" name="p" autofocus></label><button class="btn">Войти</button></form>`;
     app.querySelector('#lf').onsubmit = async e => { e.preventDefault(); try { const r = await api('admin/login', { method: 'POST', body: { password: e.target.p.value } }); token = r.token; try { localStorage.setItem(tokKey, token); } catch (_) {} location.hash = '#orders'; route(); } catch (err) { alert(err.message === 'too_many' ? 'Слишком много попыток, подожди 10 минут' : 'Неверный пароль'); } };
   }
-  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#mail" class="${cur === 'mail' ? 'on' : ''}">Рассылка</a><a href="#clients" class="${cur === 'clients' ? 'on' : ''}">Клиенты</a><a href="#" id="logout">Выйти</a></div>`;
+  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#mail" class="${cur === 'mail' ? 'on' : ''}">Рассылка</a><a href="#clients" class="${cur === 'clients' ? 'on' : ''}">Клиенты</a><a href="#inbox" class="${cur === 'inbox' || cur === 'letter' ? 'on' : ''}">Письма</a><a href="#" id="logout">Выйти</a></div>`;
   const bindLogout = () => { const l = document.getElementById('logout'); if (l) l.onclick = e => { e.preventDefault(); token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); }; };
 
   async function orders(status) {
+    const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
     const [{ orders }, s] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary')]);
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'new', 'cancelled', 'expired'];
-    app.innerHTML = tabs('orders') + `<div class="summary"><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${Object.entries(s.stats || {}).map(([id, v]) => (v.kind === 'digital' ? `<span>${esc(id)}: бесплатно скачали <b>${v.free_downloads}</b> · оплачено <b>${v.paid_orders}</b> · скачиваний по оплате <b>${v.paid_downloads}</b></span>` : `<span>${esc(id)}: оплачено заказов <b>${v.paid_orders}</b> · ${v.kind === 'event' ? 'билетов' : v.kind === 'book' ? 'экземпляров' : 'штук'} <b>${v.paid_qty}</b></span>`)).join('')}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
+    app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${Object.entries(s.stats || {}).map(([id, v]) => (v.kind === 'digital' ? `<span>${esc(id)}: бесплатно скачали <b>${v.free_downloads}</b> · оплачено <b>${v.paid_orders}</b> · скачиваний по оплате <b>${v.paid_downloads}</b></span>` : `<span>${esc(id)}: оплачено заказов <b>${v.paid_orders}</b> · ${v.kind === 'event' ? 'билетов' : v.kind === 'book' ? 'экземпляров' : 'штук'} <b>${v.paid_qty}</b></span>`)).join('')}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
       ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
+    inboxP.then(r => { const el = document.getElementById('inboxLine'); if (!el) return;
+      if (r.error || typeof r.unread !== 'number') { el.className = 'meta'; el.textContent = 'письма: нет связи с почтой'; return; }
+      el.className = ''; el.innerHTML = `<a href="#inbox" style="color:inherit">Новых писем от клиентов: ${r.unread > 0 ? `<b>${r.unread}</b>` : r.unread}</a>`; });
   }
 
   async function order(id) {
@@ -147,6 +151,43 @@
     paint(); bindLogout();
   }
 
+  // Письма от клиентов: ящик REPLY_TO по IMAP (сервер отбирает письма покупателей/подписчиков и ответы на наши).
+  const clientLine = c => c ? `клиент: ${c.orders_total} ${c.orders_total % 10 === 1 && c.orders_total % 100 !== 11 ? 'заказ' : [2, 3, 4].includes(c.orders_total % 10) && ![12, 13, 14].includes(c.orders_total % 100) ? 'заказа' : 'заказов'} · ${rub(c.sum_paid)}` : '';
+  const fromHtml = l => `${l.from_name ? esc(l.from_name) + ' ' : ''}<span class="meta" style="letter-spacing:0;text-transform:none">&lt;${esc(l.from)}&gt;</span>`;
+  async function inbox() {
+    let r;
+    try { r = await A('admin/inbox'); }
+    catch (e) { if (e.code === 401) throw e; app.innerHTML = tabs('inbox') + `<p class="meta" style="text-align:center">письма: нет связи с почтой${e.message ? ' (' + esc(e.message) + ')' : ''}</p>`; bindLogout(); return; }
+    const ls = r.letters || [];
+    app.innerHTML = tabs('inbox') + `<div class="summary"><span>Новых: <b>${r.unread}</b></span><span>Всего за 90 дней: <b>${ls.length}</b></span></div>
+      <table><tr><th>Дата</th><th>От кого</th><th>Тема</th></tr>
+      ${ls.map(l => `<tr class="row" data-uid="${esc(l.uid)}" style="${l.unread ? 'font-weight:600' : ''}"><td>${d(l.date)}</td><td>${fromHtml(l)}${l.client ? `<br><small class="meta">${clientLine(l.client)}</small>` : ''}</td>
+        <td>${esc(l.subject || '(без темы)')}<br><small style="font-weight:400;color:var(--dim)">${esc(l.snippet)}</small></td></tr>`).join('') || '<tr><td colspan="3" class="meta">писем нет</td></tr>'}</table>`;
+    app.querySelectorAll('tr.row').forEach(t => t.onclick = () => location.hash = '#letter/' + t.dataset.uid); bindLogout();
+  }
+
+  async function letter(uid) {
+    const l = await A('admin/letter', { q: { uid } }), c = l.client;
+    app.innerHTML = tabs('letter') + `<p class="meta"><a href="#inbox" style="color:inherit;text-decoration:none">← ко всем письмам</a></p>
+      <h2>${esc(l.subject || '(без темы)')}</h2>
+      <div class="kv"><b>От кого</b><span>${fromHtml(l)}</span><b>Дата</b><span>${d(l.date)}</span>${(l.attachments || []).length ? `<b>Вложения</b><span>${l.attachments.map(a => esc(a.filename || a.name || a)).join(', ')} <small class="meta">(не показываются)</small></span>` : ''}</div>
+      <div style="white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.55;border-left:2px solid var(--line);padding:4px 0 4px 16px;margin:0 0 28px">${esc(l.text)}</div>
+      ${c ? `<div style="background:#fafafa;padding:14px 16px;margin:0 0 28px"><div class="meta" style="margin-bottom:8px">Клиент</div>
+        <div style="font-size:14px;margin-bottom:8px">${esc(c.email)}${(c.names || []).length ? ' · ' + esc(c.names.join(', ')) : ''}${(c.phones || []).length ? ' · ' + c.phones.map(esc).join(', ') : ''}<br>заказов ${c.orders_total} · оплачено ${c.orders_paid} · ${rub(c.sum_paid)}${c.subscribed ? ' · ✉ можно писать' : ''}</div>
+        <table>${(c.orders || []).map(o => `<tr class="row" data-o="${esc(o.id)}"><td>${esc(o.id)}</td><td>${d(o.created_at)}</td><td>${esc(o.product_title || o.product_id)}</td><td>${badge(o)}</td><td>${rub(o.total)}</td></tr>`).join('')}</table></div>`
+        : '<p class="meta" style="margin:0 0 28px">отправителя нет среди покупателей и подписчиков</p>'}
+      <label class="field"><span>Ответ</span><textarea id="rText" style="min-height:160px"></textarea></label>
+      <button class="btn" id="rSend" style="width:auto;padding:0 28px">Ответить</button> <span class="meta" id="rSt" style="margin-left:12px"></span>`;
+    app.querySelectorAll('tr[data-o]').forEach(t => t.onclick = () => location.hash = '#order/' + t.dataset.o);
+    const btn = app.querySelector('#rSend'), ta = app.querySelector('#rText'), st = app.querySelector('#rSt');
+    btn.onclick = async () => { const text = ta.value; if (!text.trim()) { st.textContent = 'пустой ответ'; return; }
+      btn.disabled = true; st.textContent = 'отправляю…';
+      try { const r = await A('admin/reply', { method: 'POST', body: { uid: l.uid != null ? l.uid : uid, text } }); if (!r.ok) throw Object.assign(new Error('not_ok'), { data: r }); st.textContent = 'ответ ушёл'; ta.value = ''; }
+      catch (e) { if (e.code === 401) return fail(e); st.textContent = 'ошибка: ' + (e.data && e.data.error || e.message); }
+      btn.disabled = false; };
+    bindLogout();
+  }
+
   const evRow = p => { const v = (p.variants || [])[0] || { stock: 0, reserved: 0 }; return `мероприятие · ${p.event_at ? d(p.event_at) : 'дата не задана'} · свободно ${v.stock - v.reserved} / резерв ${v.reserved}`; };
   async function products() {
     const { products } = await A('admin/products');
@@ -245,7 +286,7 @@
   async function route() {
     if (!token) return login();
     const h = location.hash.replace(/^#/, '') || 'orders'; const [page, arg] = h.split('/');
-    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else if (page === 'book') await book(); else if (page === 'mail') await mail(); else if (page === 'clients') await clients(); else location.hash = '#orders'; }
+    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else if (page === 'book') await book(); else if (page === 'mail') await mail(); else if (page === 'clients') await clients(); else if (page === 'inbox') await inbox(); else if (page === 'letter') await letter(arg); else location.hash = '#orders'; }
     catch (e) { fail(e); }
   }
   window.addEventListener('hashchange', route); route();
