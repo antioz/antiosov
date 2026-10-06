@@ -142,17 +142,19 @@ node scripts/postbox-identity.js create   # POST /v2/email/identities {"EmailIde
 node scripts/postbox-identity.js get      # статус: DkimAttributes.Status, VerifiedForSendingStatus + DNS-записи
 ```
 
-DNS-записи для регистратора (RU-CENTER):
+DKIM — «расширенная настройка» (свой ключ, 06.10.2026). Простая (`create`) выдала CNAME на `<токен>.dkim.postbox.cloud.yandex.net`,
+которых Postbox так и не опубликовал (NXDOMAIN) — домен месяц висел в `FAILED`. Пересоздано: `delete` → `create-byo .dkim/postbox-privatekey.pem`
+(ключ 2048 бит, селектор `postbox`; `.dkim/` в .gitignore, там же `txt-value.txt` — значение для DNS).
 
-- `egtp7umel198887u1an6-1._domainkey.antiosov.ru` → CNAME → `egtp7umel198887u1an6-1.dkim.postbox.cloud.yandex.net`
-- `egtp7umel198887u1an6-2._domainkey.antiosov.ru` → CNAME → `egtp7umel198887u1an6-2.dkim.postbox.cloud.yandex.net`
+DNS-записи в RU-CENTER:
+
+- `postbox._domainkey.antiosov.ru` → TXT → `v=DKIM1; k=rsa; p=<публичный ключ из .dkim/txt-value.txt>`
+- `antiosov.ru` → TXT → `v=spf1 include:spf.postbox.yandexcloud.net ~all`
 - `_dmarc.antiosov.ru` → TXT → `v=DMARC1; p=none; rua=mailto:antiosina@gmail.com`
+- CNAME `egtp7umel198887u1an6-{1,2}._domainkey` — от простой настройки, больше не нужны.
 
-Проверка: `dig +short CNAME egtp7umel198887u1an6-1._domainkey.antiosov.ru` должен вернуть значение;
-`node scripts/postbox-identity.js get` → `DkimAttributes.Status: SUCCESS`, `VerifiedForSendingStatus: true`.
-Пока записей нет, SMTP отвечает `550 5.4.1 identity not verified`, статус identity — `FAILED`
-(Postbox помечает так после неудачной попытки проверки; после появления записей проверка повторяется автоматически,
-если статус не меняется — `create` заново).
+Проверка: `dig +short TXT postbox._domainkey.antiosov.ru`; `node scripts/postbox-identity.js get` → `DkimAttributes.Status: SUCCESS`,
+`VerifiedForSendingStatus: true`. Пока не верифицирован, SMTP отвечает `550 5.4.1 identity not verified`.
 
 ## Переключение доставки (`YD_MODE`)
 

@@ -6,3 +6,4 @@ merch-api/.env
 merch-api/.deploy.env
 merch-api/node_modules
 merch-api/*.zip
+merch-api/.dkim/
