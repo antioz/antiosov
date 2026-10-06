@@ -23,26 +23,31 @@
   const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#mail" class="${cur === 'mail' ? 'on' : ''}">Рассылка</a><a href="#clients" class="${cur === 'clients' ? 'on' : ''}">Клиенты</a><a href="#inbox" class="${cur === 'inbox' || cur === 'letter' ? 'on' : ''}">Письма</a><a href="#" id="logout">Выйти</a></div>`;
   const bindLogout = () => { const l = document.getElementById('logout'); if (l) l.onclick = e => { e.preventDefault(); token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); }; };
 
-  // Сводка по товарам (книга — на своей вкладке). Пустые ячейки — показатель к товару не относится.
+  // Сводка по всем активным товарам и всем, у кого есть продажи. «—» — показатель к товару не относится.
   const UNIT = { event: 'билетов', book: 'экземпляров', diploma: 'участников', digital: 'покупок', physical: 'штук' };
-  const statsTable = st => { const rows = Object.entries(st).filter(([, v]) => v.kind !== 'book' && (v.paid_orders || v.free_downloads || v.to_ship));
+  const statsTable = (st, prods = [], bookShip = {}) => {
+    const blank = p => ({ kind: p.kind || 'physical', title: p.title, free_downloads: 0, paid_orders: 0, paid_qty: 0, paid_downloads: 0, to_ship: 0 });
+    const all = { ...Object.fromEntries(prods.filter(p => p.active).map(p => [p.id, blank(p)])), ...st };
+    Object.entries(bookShip).forEach(([id, n]) => { if (all[id]) all[id] = { ...all[id], to_ship: n }; });
+    const rows = Object.entries(all);
     if (!rows.length) return '';
     const c = (v, show) => show ? `<b>${v}</b>` : '<span class="meta">—</span>';
     return `<table style="margin:0 0 28px"><tr><th>Товар</th><th>Оплачено заказов</th><th>Штук</th><th>К отправке</th><th>Бесплатно скачали</th><th>Скачиваний по оплате</th></tr>
-      ${rows.map(([, v]) => `<tr><td>${esc(v.title)}</td><td>${c(v.paid_orders, true)}</td><td>${c(v.paid_qty, true)} <span class="meta">${UNIT[v.kind] || ''}</span></td><td>${c(v.to_ship, v.kind === 'physical')}</td><td>${c(v.free_downloads, v.kind === 'digital')}</td><td>${c(v.paid_downloads, v.kind === 'digital')}</td></tr>`).join('')}</table>`; };
+      ${rows.map(([, v]) => `<tr><td>${esc(v.title)}</td><td>${c(v.paid_orders, true)}</td><td>${c(v.paid_qty, true)} <span class="meta">${UNIT[v.kind] || ''}</span></td><td>${c(v.to_ship, v.kind === 'physical' || v.kind === 'book')}${v.kind === 'book' && v.to_ship ? ' <span class="meta">предзаказ</span>' : ''}</td><td>${c(v.free_downloads, v.kind === 'digital')}</td><td>${c(v.paid_downloads, v.kind === 'digital')}</td></tr>`).join('')}</table>`; };
 
-  let OF = ''; // фильтр заказов по товару; '' — все, кроме книги (у книги своя вкладка)
+  let OF = ''; // фильтр заказов по товару; '' — все
   async function orders(status) {
     const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
-    const [{ orders }, s] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary')]);
+    const [{ orders }, s, { products: prods }, { orders: bookOrders }] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
+    const bookShip = {}; (bookOrders || []).filter(o => ['paid', 'packed'].includes(o.status)).forEach(o => { bookShip[o.product_id] = (bookShip[o.product_id] || 0) + (o.qty || 1); });
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'new', 'cancelled', 'expired'];
     app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span>${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
-      ${statsTable(s.stats || {})}
+      ${statsTable(s.stats || {}, prods, bookShip)}
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
-        <option value="">все товары, кроме книги</option>${Object.entries(s.stats || {}).filter(([, v]) => v.kind !== 'book').map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
+        <option value="">все товары</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.filter(o => OF ? o.product_id === OF : !(s.stats[o.product_id] && s.stats[o.product_id].kind === 'book')).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
+      ${orders.filter(o => !OF || o.product_id === OF).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
     app.querySelector('#oProd').onchange = e => { OF = e.target.value; orders(status); };
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
     inboxP.then(r => { const el = document.getElementById('inboxLine'); if (!el) return;
