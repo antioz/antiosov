@@ -85,7 +85,7 @@
     const live = os.filter(o => o.status !== 'cancelled'), toShip = os.filter(o => ['paid', 'packed'].includes(o.status));
     const pref = o => o.pvz_id ? 'ПВЗ выбран' : o.addr.pref === 'pvz' ? 'ПВЗ рядом' : 'до двери';
     const fio = o => [o.addr.last_name, o.addr.first_name, o.addr.middle_name].filter(Boolean).join(' ') || o.name;
-    app.innerHTML = tabs('book') + `<div class="summary"><span>Заказов: <b>${live.length}</b></span><span>Экземпляров: <b>${live.reduce((a, o) => a + o.qty, 0)}</b></span><span>К отправке: <b>${toShip.length}</b></span><span>С пожеланием: <b>${live.filter(o => o.inscription).length}</b></span></div>
+    app.innerHTML = tabs('book') + `<div class="summary"><span>Заказов: <b>${live.length}</b></span><span>Экземпляров: <b>${live.reduce((a, o) => a + o.qty, 0)}</b></span><span>К отправке: <b>${toShip.length}</b></span><span>С пожеланием: <b>${live.filter(o => o.inscription).length}</b></span><a href="#product/${esc((os[0] && os[0].product_id) || 'vtoraya')}" style="color:inherit">настройки книги (цена, фото, письмо)</a></div>
       <p style="text-align:center"><button class="btn" id="csv" style="width:auto;padding:0 22px">CSV для Яндекс Доставки</button> <button class="btn ghost" id="js" style="width:auto;padding:0 22px">Всё в JSON</button></p>
       <table><tr><th>Заказ</th><th>Кому</th><th>Куда</th><th>На форзаце</th></tr>
       ${os.map(o => `<tr class="row" data-id="${o.id}" style="${o.status === 'cancelled' ? 'opacity:.45' : ''}"><td>${o.id}<br>${badge(o)}<br><small class="meta">${d(o.created_at)} · ${o.qty} шт · ${rub(o.total)}</small></td>
@@ -212,11 +212,16 @@
   }
 
   const evRow = p => { const v = (p.variants || [])[0] || { stock: 0, reserved: 0 }; return `мероприятие · ${p.event_at ? d(p.event_at) : 'дата не задана'} · свободно ${v.stock - v.reserved} / резерв ${v.reserved}`; };
+  let PF = ''; // фильтр вкладки «Товары»: '' — все (кроме книги)
   async function products() {
-    const { products } = await A('admin/products');
-    app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px">+ Добавить товар</a></p>
+    const { products: allP } = await A('admin/products');
+    const products = allP.filter(p => p.kind !== 'book' && (!PF || p.id === PF)); // книга — на своей вкладке
+    app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px;white-space:nowrap">+ Добавить товар</a></p>
+      <div style="text-align:center;margin:0 0 16px"><select id="pProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
+        <option value="">все товары</option>${allP.filter(p => p.kind !== 'book').map(p => `<option value="${esc(p.id)}" ${PF === p.id ? 'selected' : ''}>${esc(p.title)}${p.active ? '' : ' (скрыт)'}</option>`).join('')}</select></div>
       <table><tr><th>Товар</th><th>Цена</th><th>Остатки (доступно / резерв / предзаказ)</th><th>Показ</th></tr>
       ${products.map(p => `<tr class="row" data-id="${p.id}"><td>${esc(p.title)}<br><small class="meta">${p.id}</small></td><td>${rub(p.price)}</td><td>${p.kind === 'event' ? evRow(p) : p.kind === 'diploma' ? 'практикум (диплом)' : p.kind === 'book' ? `книга · предзаказов ${(p.variants || []).reduce((a, v) => a + v.preorder_count, 0)} · в наличии ${(p.variants || []).reduce((a, v) => a + v.stock - v.reserved, 0)}` : p.kind === 'digital' ? `цифровой · ${p.file_key ? 'архив загружен' : 'архива нет'}${p.free_until && p.free_file_key && Date.parse(p.free_until) > Date.now() ? ' · бесплатно до ' + new Date(p.free_until).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : ''}` : (p.variants || []).map(v => `${v.size !== '-' ? v.size + ': ' : ''}${v.stock - v.reserved}/${v.reserved}/${v.preorder_count}`).join(' · ')}</td><td>${p.active ? 'да' : 'нет'}</td></tr>`).join('')}</table>`;
+    app.querySelector('#pProd').onchange = e => { PF = e.target.value; products(); };
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#product/' + r.dataset.id); bindLogout();
   }
 
