@@ -1,6 +1,6 @@
 // Админ-маршруты. Доступ по JWT (пароль в ADMIN_PASSWORD, 30 дней).
 const crypto = require('crypto');
-const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext');
+const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients');
 const { json, HttpError } = require('./util');
 const ENV = process.env;
 const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
@@ -126,6 +126,12 @@ async function route(a, method, body, q, auth) {
       if (method === 'DELETE') { const key = String(body.key || ''); if (!PHOTO_KEY_RE.test(key)) throw new HttpError(400, 'validation', { field: 'key' }); await s3.deleteObject(key); return json(200, { ok: true }); }
       throw new HttpError(405, 'method');
     }
+    case 'admin/subscribers': { const l = await subscribers.list(); return json(200, { count: l.length, subscribers: l }); }
+    // {subject, body, test:true} — только на OWNER_EMAIL; иначе порция до 25 подписчиков с offset, первый вызов без mailing_id создаёт запись журнала
+    case 'admin/mailing': { if (method !== 'POST') throw new HttpError(405, 'method'); return json(200, await subscribers.sendMailing(body)); }
+    case 'admin/mailings': return json(200, { mailings: await subscribers.listMailings() });
+    // Клиенты — сводка по orders, ключ e-mail; subscribed — есть в subscribers (можно писать)
+    case 'admin/clients': return json(200, { clients: await clients.listClients() });
     default: return json(404, { error: 'not_found' });
   }
 }

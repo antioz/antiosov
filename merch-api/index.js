@@ -1,7 +1,7 @@
 // merch-api — Yandex Cloud Function (Node.js 18), HTTP-триггер. Маршрут в ?a=, тело — JSON.
 // Токен админки передаётся в заголовке X-Admin-Token: заголовок Authorization перехватывает сама платформа Cloud Functions (IAM) и отвечает 403 до вызова кода.
 const crypto = require('crypto');
-const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin');
+const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin'); const subscribers = require('./lib/subscribers');
 const { tbToken } = require('./lib/tbank');
 const { json, text, redirect, HttpError, cors, setOrigin } = require('./lib/util');
 const ENV = process.env;
@@ -16,6 +16,10 @@ const parseBody = ev => {
 const rawBody = ev => ev.isBase64Encoded ? Buffer.from(ev.body || '', 'base64').toString() : (ev.body || '');
 const header = (ev, name) => { const h = ev.headers || {}; const k = Object.keys(h).find(x => x.toLowerCase() === name); return k ? h[k] : ''; };
 const safeEq = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
+
+const page = msg => ({ statusCode: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  body: `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Антиосов</title></head>
+<body style="font-family:Inter,system-ui,sans-serif;font-size:17px;line-height:1.5;color:#0a0a0a;background:#fff;max-width:560px;margin:15vh auto;padding:0 16px"><p>${msg}</p><p><a href="https://antiosov.ru" style="color:#0a0a0a">antiosov.ru</a></p></body></html>` });
 
 async function notify(ev) {
   let body; try { body = JSON.parse(rawBody(ev) || '{}'); } catch (e) { return text(400, 'bad json'); }
@@ -68,7 +72,13 @@ module.exports.handler = async function (event) {
         const d = await ext.yd.quote({ pvz_id: b.pvz_id || null, weight_g: p.weight_g, dims_cm: p.dims_cm, qty });
         return json(200, { price_delivery: d.price_rub, days: d.days, total: p.price * qty + d.price_rub });
       }
-      case 'order': { if (method !== 'POST') return json(405, { error: 'method' }); return json(200, await orders.createOrder(parseBody(event))); }
+      case 'order': {
+        if (method !== 'POST') return json(405, { error: 'method' });
+        const b = parseBody(event); const r = await orders.createOrder(b);
+        // Рассылка — отдельное необязательное согласие: ошибка подписки заказ не роняет
+        if (b.news === true) { try { await subscribers.subscribe(b.email, r.id); } catch (e) { console.error('subscribe', e.message); } }
+        return json(200, r);
+      }
       case 'status': { const s = await orders.getStatus(String(q.id || ''), String(q.k || '')); return s ? json(200, s) : json(404, { error: 'no_order' }); }
       case 'pay': {
         const id = String(q.id || ''), k = String(q.k || ''); const i = await orders.getPayInfo(id, k);
@@ -82,6 +92,14 @@ module.exports.handler = async function (event) {
         catch (e) { if (e instanceof HttpError) return redirect(`${ENV.SITE}/products/p/?s=${encodeURIComponent(s)}&free=${e.error}`); throw e; }
       }
       case 'download': { if (method !== 'GET') return json(405, { error: 'method' }); return redirect(await orders.download(String(q.id || ''), String(q.k || ''))); }
+      // Отписка. GET (ссылка из подвала) только показывает кнопку: сканеры ссылок в почте открывают GET сами и отписали бы человека.
+      // POST формы → страница; POST one-click почтовика (RFC 8058, тело List-Unsubscribe=One-Click) → OK. Неверный токен = «нет в списке».
+      case 'unsub': {
+        if (method !== 'POST') return page('Отписаться от писем Антиосова?</p><form method="post"><button style="font:inherit;padding:10px 20px;border:1px solid #0a0a0a;background:#fff;cursor:pointer">Отписаться</button></form><p>');
+        const ok = await subscribers.unsubscribe(String(q.e || ''), String(q.t || ''));
+        if (/List-Unsubscribe=One-Click/i.test(rawBody(event))) return text(200, 'OK');
+        return page(ok ? 'Вы отписались от писем Антиосова.' : 'Этого адреса нет в списке.');
+      }
       case 'success': return await success(q);
       case 'notify': return await notify(event);
       default: return json(404, { error: 'not_found' });

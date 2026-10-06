@@ -6,8 +6,8 @@ function getTransport() {
   if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000 }); // Postbox отвечает на MAIL FROM до ~6 с
   return transport;
 }
-async function send({ to, subject, text, html }) {
-  await getTransport().sendMail({ from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, html });
+async function send({ to, subject, text, html, headers }) {
+  await getTransport().sendMail({ from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, html, ...(headers ? { headers } : {}) });
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

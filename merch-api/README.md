@@ -29,9 +29,22 @@
 | admin/products | GET/POST | JWT | список / создать / изменить / остатки; `admin/product` принимает `kind` и `file_key` (`^d/<id>/[0-9a-f]+\.zip$` или пусто; не передан — не меняется); мероприятие — `kind:'event'`, `event_at` (ISO), `venue`, `age_mark` (0+…18+), места — `variants:[{size:'-',stock}]`; практикум — `kind:'diploma'` (варианты, архивы, акция и поля мероприятия сохраняются пустыми) |
 | admin/file | POST | JWT | `{product_id}` → `{key, put_url}`: presigned PUT архива в закрытый `d/<id>/` (application/zip, 10 мин) |
 | admin/photo | POST/DELETE | JWT | presigned PUT в бакет (image/jpeg, TTL 10 мин) / удаление |
+| unsub&e=&t= | GET/POST | токен подписчика | отписка от рассылки (`DELETE` строки `subscribers`). GET — HTML «Вы отписались…» / «Этого адреса нет в списке.» (неверный токен — то же, строка не трогается); POST (one-click RFC 8058) → 200 `OK` |
+| admin/subscribers | GET | JWT | `{count, subscribers:[{email, consent_at, source}]}`, новые сверху |
+| admin/mailing | POST | JWT | `{subject, body, test:true}` → одно письмо на `OWNER_EMAIL`, `{sent, failed, done:true}`; `{subject, body, mailing_id?, offset}` → порция подписчикам → `{mailing_id, sent, failed, next_offset, total, done}`. Пустые/длинные `subject` (≤200) / `body` (≤20000) → 400 `validation` `{field}`; чужой `mailing_id` → 404 `no_mailing` |
+| admin/mailings | GET | JWT | журнал рассылок `{mailings:[{id, created_at, subject, sent, failed}]}`, новые сверху |
 | gc | внутренний | — | в начале catalog/order: заказы `new` старше `RESERVE_MIN` минут → `expired`, резерв снимается |
 
 Неизвестный `a` → 404 `{"error":"not_found"}`. Необработанное исключение → 500 `{"error":"internal"}` + stack в логах.
+
+## Рассылка (2026-10-06)
+
+Спека: `docs/superpowers/specs/2026-10-06-newsletter-design.md`, код — `lib/subscribers.js`.
+
+- Подписка: в теле `order` поле `news: true` (необязательная галочка) → после успешного заказа `subscribe(email, id заказа)`; ошибка подписки только логируется. Повторная подписка — UPSERT с новым `consent_at`/`consent_ver`/`source`, токен прежний. `NEWS_CONSENT_VER = '2026-10-06'`.
+- Таблицы: `subscribers (email PK, token 32 hex, consent_at, consent_ver, source)`, `mailings (id PK, created_at, subject, body, sent, failed)`. Отписка = удаление строки; от `purgePd` заказов не зависит.
+- Письмо: каждому отдельно, текст как есть + HTML (экранирование, переводы строк, кликабельные ссылки), подвал со ссылкой «Отписаться» (`SELF_URL?a=unsub&e=&t=`), заголовки `List-Unsubscribe: <…>` и `List-Unsubscribe-Post: List-Unsubscribe=One-Click`. Тестовое письмо себе — со ссылкой-пустышкой (`t=test`).
+- Порции: до 25 адресов за вызов (по алфавиту, с `offset`), и не дольше ~20 с (таймаут функции 30 с, Postbox отвечает до ~6 с) — тогда `next_offset` меньше `offset+25`. Админка вызывает, пока не `done`; счётчики `mailings.sent/failed` копятся. Ошибка на одном адресе → `failed+1`, остальные уходят.
 
 ## Переменные окружения
 
