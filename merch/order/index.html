@@ -32,7 +32,7 @@
   const payUrl = `${MERCH_API}?a=pay&id=${encodeURIComponent(id)}&k=${encodeURIComponent(k)}`;
   const render = s => {
     const t = {
-      paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Письмо с подтверждением ушло на почту.${s.is_preorder ? `<br>Это предзаказ — отправлю до ${esc(s.preorder_ship_by || 'указанной даты')}.` : ''}`],
+      paid: ['Спасибо', `Заказ <b>${esc(id)}</b> оплачен. Письмо с подтверждением ушло на почту.${s.is_preorder ? `<br>Это предзаказ — ${s.preorder_ship_by ? 'отправлю до ' + esc(s.preorder_ship_by) + '.' : 'напишу, когда отправлю.'}` : ''}`],
       packed: ['Собираю', `Заказ <b>${esc(id)}</b> собран и скоро отправится.`],
       shipped: ['В пути', `Заказ <b>${esc(id)}</b> отправлен — трек в письме.`],
       done: ['Получен', `Заказ <b>${esc(id)}</b> выполнен. Спасибо.`],

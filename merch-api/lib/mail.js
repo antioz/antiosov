@@ -13,7 +13,8 @@ async function send({ to, subject, text, html }) {
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const rub = n => { const v = (n == null || n === '') ? NaN : Number(n); return Number.isFinite(v) ? `${v.toLocaleString('ru-RU')} ₽` : '—'; };
 const where = o => o.pvz_address ? `Пункт выдачи: ${o.pvz_address}` : `Адрес: ${o.address_text}`;
-const item = o => `${o.product_title}${o.size && o.size !== '-' ? ', размер ' + o.size : ''} × ${o.qty}`;
+// Ключ варианта «Каберне / S» = цвет + размер.
+const item = o => `${o.product_title}${o.size && o.size !== '-' ? ', ' + (o.size.includes(' / ') ? o.size.replace(' / ', ', размер ') : 'размер ' + o.size) : ''} × ${o.qty}`;
 // Ссылка — единственный «сырой» элемент; href и подпись экранируются здесь, шаблон не собирает HTML руками
 const link = (href, label) => ({ html: `<a href="${esc(href)}">${esc(label)}</a>`, text: `${label}: ${href}` });
 // Строка — либо обычная строка (всегда экранируется), либо объект { html, text } из link()
@@ -40,7 +41,7 @@ function tplOwnerNewOrder(o) {
 function tplCustomerPaid(o) {
   const m = wrap('Заказ принят', [
     `Номер заказа: ${o.id}`, item(o), `Оплачено: ${rub(o.total)}`, where(o),
-    o.is_preorder ? `Это предзаказ: отправлю до ${o.preorder_ship_by || 'указанной на сайте даты'}.` : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.'),
+    o.is_preorder ? (o.preorder_ship_by ? `Это предзаказ: отправлю до ${o.preorder_ship_by}.` : 'Это предзаказ: напишу, когда отправлю.') : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.'),
     ...(o.inscription ? [`Надпись на форзаце — ваше пожелание: «${esc(o.inscription)}»`] : []),
     ...(o.product && o.product.kind === 'book' && o.delivery_mode !== 'yandex' ? ['Книга приедет в пункт выдачи Яндекс Доставки рядом с вашим адресом. Доставку оплачиваете при получении, по тарифу Яндекса.'] : []),
     'Вопросы — просто ответьте на это письмо.',
