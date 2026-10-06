@@ -7,7 +7,7 @@ function getTransport() {
   return transport;
 }
 async function send({ to, subject, text, html }) {
-  await getTransport().sendMail({ from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.OWNER_EMAIL, subject, text, html });
+  await getTransport().sendMail({ from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, html });
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
