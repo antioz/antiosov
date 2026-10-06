@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=3" />
+  <link rel="stylesheet" href="../merch.css?v=4" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -62,6 +62,7 @@
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
+      <div id="buy">
       ${twoAxes() ? `<div class="meta">Цвет</div><div class="sizes" id="colors"></div>` : ''}
       ${P.sizes.length ? `<div class="meta">Размер</div><div class="sizes" id="sizes"></div>` : ''}
       <div class="meta">Количество</div><div class="qty"><button type="button" id="minus" aria-label="меньше">−</button><span id="qty">1</span><button type="button" id="plus" aria-label="больше">+</button></div>
@@ -82,6 +83,14 @@
         <div class="sum total"><span>Итого</span><span id="sTotal"></span></div>
         <div id="err" class="notice err" style="display:none"></div>
         <button class="btn" id="pay" type="submit" style="margin-top:16px">Оплатить</button>
+      </form></div>
+      <form id="want" class="want" novalidate style="display:none">
+        <button class="btn" id="wantBtn" type="submit">Хочу такую</button>
+        <p class="want-t">сообщите мне, когда будет ещё</p>
+        <label class="field" data-f="name"><span>Имя</span><input name="name" autocomplete="name" required></label>
+        <label class="field" data-f="email"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/soobshchit/" target="_blank">согласие на обработку имени и e-mail</a>, чтобы мне написали, когда вещь будет ещё</span></label>
+        <div id="wErr" class="notice err" style="display:none"></div>
       </form>
     </div></div>`;
   const $ = s => root.querySelector(s);
@@ -186,7 +195,7 @@
       const left = end - (Date.now() + skew);
       if (left <= 0 || P.preorder_closed) {
         clearInterval(t); el.classList.add('over'); el.innerHTML = '<div class="cd-k">Предзаказ закрыт</div>';
-        if (!P.preorder_closed) { try { P = (await api('product', { q: { s: slug } })).product; } catch (e) {} renderSizes(); renderSum(); }
+        if (!P.preorder_closed) { try { P = (await api('product', { q: { s: slug } })).product; } catch (e) {} renderSizes(); renderSum(); renderWant(); }
         return;
       }
       const s = Math.floor(left / 1000), u = [[Math.floor(s / 86400), 'дн'], [Math.floor(s / 3600) % 24, 'час'], [Math.floor(s / 60) % 60, 'мин'], [s % 60, 'сек']];
@@ -194,7 +203,26 @@
     };
     const t = setInterval(tick, 1000); tick();
   }
-  renderSizes(); renderSum(); countdown(); showAll();
+  // Предзаказ закрыт (решает сервер) — вместо выбора и оплаты: «Хочу такую» + имя и e-mail, заявка в waitlist.
+  function renderWant() {
+    const closed = !!P.preorder_closed;
+    $('#buy').style.display = closed ? 'none' : ''; $('#want').style.display = closed ? '' : 'none';
+  }
+  $('#want').onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target), w = $('#want'), err = $('#wErr');
+    w.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); err.style.display = 'none';
+    const bad = (field, m) => { const el = w.querySelector(`[data-f="${field}"]`); if (el) el.classList.add('err'); err.textContent = m; err.style.display = ''; };
+    const body = { product_id: P.id, name: String(f.get('name') || '').trim(), email: String(f.get('email') || '').trim(), consent: f.get('consent') === 'on' };
+    if (body.name.length < 2) return bad('name', 'Напишите имя.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return bad('email', 'Проверьте e-mail.');
+    if (!body.consent) return bad('consent', 'Нужно согласие, иначе не смогу написать.');
+    const b = $('#wantBtn'); b.disabled = true; b.textContent = 'Секунду…';
+    try { await api('wait', { method: 'POST', body }); w.innerHTML = `<div class="want-ok">Записал. Напишу на ${esc(body.email)}, когда будет ещё.</div>`; }
+    catch (x) { b.disabled = false; b.textContent = 'Хочу такую'; const fl = x.data && x.data.field;
+      if (fl) bad(fl, { name: 'Напишите имя.', email: 'Проверьте e-mail.', consent: 'Нужно согласие, иначе не смогу написать.' }[fl] || 'Проверьте форму.');
+      else bad('', 'Не получилось, попробуйте ещё раз через минуту.'); }
+  };
+  renderSizes(); renderSum(); renderWant(); countdown(); showAll();
 })();
 </script>
 <script src="../../assets/reveal.js"></script>

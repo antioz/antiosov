@@ -255,7 +255,16 @@
       <label class="check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> <span>Показывать на сайте</span></label>${f('sort', 'Порядок (меньше — выше)', p.sort, 'number')}
       <div class="meta">Фото (первое — главное; ⇠ ⇢ порядок, × удалить)</div><div class="thumbs" id="thumbs"></div>
       <input type="file" id="file" accept="image/*" multiple ${isNew ? 'disabled title="сначала сохраните товар"' : ''}><p class="meta" id="upl"></p>
-      <button class="btn" style="margin-top:20px">Сохранить</button></form>`;
+      <button class="btn" style="margin-top:20px">Сохранить</button></form>
+      ${isNew ? '' : '<div id="wl" style="margin-top:32px"></div>'}`;
+    // Заявки «сообщите, когда будет ещё» (после закрытия предзаказа). Удаление — по отзыву согласия или после письма.
+    const paintWait = async () => { const el = app.querySelector('#wl'); if (!el) return;
+      let ls = []; try { ls = (await A('admin/waitlist', { q: { product_id: p.id } })).waitlist; } catch (e) { el.innerHTML = '<p class="meta">заявки: не загрузились</p>'; return; }
+      el.innerHTML = `<h2>Хотят ещё: ${ls.length}</h2>` + (ls.length ? `<table><tr><th>Имя</th><th>E-mail</th><th>Когда</th><th></th></tr>${ls.map(w => `<tr><td>${esc(w.name)}</td><td>${esc(w.email)}</td><td>${new Date(w.created_at).toLocaleString('ru-RU')}</td><td><a href="#" data-e="${esc(w.email)}" style="color:inherit">удалить</a></td></tr>`).join('')}</table>
+        <p><a href="mailto:?bcc=${encodeURIComponent(ls.map(w => w.email).join(','))}" style="color:inherit">написать всем (в скрытой копии)</a></p>` : '<p class="meta">пока никого</p>');
+      el.querySelectorAll('a[data-e]').forEach(a => a.onclick = async ev => { ev.preventDefault(); if (!confirm('Удалить заявку ' + a.dataset.e + '?')) return;
+        try { await A('admin/waitlist', { method: 'DELETE', body: { product_id: p.id, email: a.dataset.e } }); paintWait(); } catch (err) { fail(err); } }); };
+    paintWait();
     const form = app.querySelector('#pf'); const F = n => form.elements.namedItem(n); // form.id/form.title — свойства элемента, не поля
     const sizesOf = () => F('sizes').value.split(',').map(s => s.trim()).filter(Boolean);
     const renderStock = () => { const want = sizesOf().length ? sizesOf() : ['-']; const cur = Object.fromEntries([...app.querySelectorAll('#stock input')].map(i => [i.dataset.s, i.value]));
