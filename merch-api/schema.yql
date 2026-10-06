@@ -36,3 +36,6 @@ ALTER TABLE products ADD COLUMN venue Utf8;
 ALTER TABLE products ADD COLUMN age_mark Utf8;
 -- 2026-10-04 спеццена на билеты по секретной ссылке: код из PROMO_CODES, по нему считается лимит билетов.
 ALTER TABLE orders ADD COLUMN promo Utf8;
+-- 2026-10-06 рассылка: подписчики (согласие отдельной галочкой, отписка = DELETE) и журнал рассылок.
+CREATE TABLE IF NOT EXISTS subscribers (email Utf8, token Utf8, consent_at Timestamp, consent_ver Utf8, source Utf8, PRIMARY KEY (email));
+CREATE TABLE IF NOT EXISTS mailings (id Utf8, created_at Timestamp, subject Utf8, body Utf8, sent Int32, failed Int32, PRIMARY KEY (id));
