@@ -20,7 +20,7 @@
     app.innerHTML = `<form id="lf" class="center" style="max-width:320px"><label class="field"><span>Пароль</span><input type="password" name="p" autofocus></label><button class="btn">Войти</button></form>`;
     app.querySelector('#lf').onsubmit = async e => { e.preventDefault(); try { const r = await api('admin/login', { method: 'POST', body: { password: e.target.p.value } }); token = r.token; try { localStorage.setItem(tokKey, token); } catch (_) {} location.hash = '#orders'; route(); } catch (err) { alert(err.message === 'too_many' ? 'Слишком много попыток, подожди 10 минут' : 'Неверный пароль'); } };
   }
-  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#" id="logout">Выйти</a></div>`;
+  const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#mail" class="${cur === 'mail' ? 'on' : ''}">Рассылка</a><a href="#clients" class="${cur === 'clients' ? 'on' : ''}">Клиенты</a><a href="#" id="logout">Выйти</a></div>`;
   const bindLogout = () => { const l = document.getElementById('logout'); if (l) l.onclick = e => { e.preventDefault(); token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); }; };
 
   async function orders(status) {
@@ -79,6 +79,72 @@
       save(`kniga-predzakazy-${stamp}.csv`, '﻿' + [head, ...rows].map(r => r.map(cell).join(';')).join('\r\n'), 'text/csv;charset=utf-8'); };
     app.querySelector('#js').onclick = () => save(`kniga-predzakazy-${stamp}.json`, JSON.stringify(os, null, 2), 'application/json');
     bindLogout();
+  }
+
+  // Рассылка: подписчики (согласие отдельной галочкой в заказе), письмо себе на пробу, отправка всем порциями по 25
+  // (функция живёт 30 с — сервер шлёт порцию и отдаёт next_offset, админка зовёт снова, пока не done).
+  async function mail() {
+    const [{ count, subscribers: subs }, { mailings }] = await Promise.all([A('admin/subscribers'), A('admin/mailings')]);
+    app.innerHTML = tabs('mail') + `<div class="summary"><a href="#" id="subsT" style="color:inherit">Подписчиков: <b>${count}</b></a></div>
+      <div id="subs" style="display:none;margin:0 0 28px"><table><tr><th>E-mail</th><th>Согласие</th><th>Заказ</th></tr>
+      ${subs.map(x => `<tr><td>${esc(x.email)}</td><td>${d(x.consent_at)}</td><td>${x.source ? `<a href="#order/${esc(x.source)}" style="color:inherit">${esc(x.source)}</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="3" class="meta">пока никого</td></tr>'}</table></div>
+      <form id="mf" style="max-width:640px;margin:0 auto"><label class="field"><span>Тема</span><input name="subject" maxlength="200"></label>
+      <label class="field"><span>Текст (как есть; ссылки станут кликабельными, подвал с отпиской добавится сам)</span><textarea name="body" maxlength="20000" style="min-height:240px"></textarea></label>
+      <div class="row-actions"><button type="button" class="btn ghost" id="mTest">Отправить себе</button><button type="button" class="btn" id="mAll" ${count ? '' : 'disabled'}>Отправить всем (${count})</button></div>
+      <p class="meta" id="mSt"></p></form>
+      <h2 style="margin-top:36px;text-align:center">Журнал</h2>
+      <table><tr><th>Дата</th><th>Тема</th><th>Ушло</th><th>Ошибок</th></tr>
+      ${mailings.map(m => `<tr><td>${d(m.created_at)}</td><td>${esc(m.subject)}</td><td>${m.sent}</td><td>${m.failed}</td></tr>`).join('') || '<tr><td colspan="4" class="meta">рассылок ещё не было</td></tr>'}</table>`;
+    app.querySelector('#subsT').onclick = e => { e.preventDefault(); const b = app.querySelector('#subs'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
+    const form = app.querySelector('#mf'), st = app.querySelector('#mSt'), btns = [app.querySelector('#mTest'), app.querySelector('#mAll')];
+    const val = () => { const subject = form.elements.namedItem('subject').value.trim(), body = form.elements.namedItem('body').value; if (!subject || !body.trim()) { alert('Нужны тема и текст'); return null; } return { subject, body }; };
+    const lock = on => btns.forEach(b => { b.disabled = on || (b.id === 'mAll' && !count); });
+    const err = e => { if (e.code === 401) return fail(e); st.textContent = 'Ошибка: ' + (e.message === 'no_mailing' ? 'рассылка не найдена на сервере' : e.data && (e.data.field ? 'поле ' + e.data.field : e.data.error) || e.message); };
+    app.querySelector('#mTest').onclick = async () => { const m = val(); if (!m) return; lock(true); st.textContent = 'отправляю себе…';
+      try { const r = await A('admin/mailing', { method: 'POST', body: { ...m, test: true } }); st.textContent = r.sent ? 'пробное письмо ушло на адрес владельца' : 'не ушло — ошибка отправки'; } catch (e) { err(e); } lock(false); };
+    app.querySelector('#mAll').onclick = async () => { const m = val(); if (!m || !confirm(`Отправить ${count} подписчикам?`)) return; lock(true);
+      let mailing_id, offset = 0, sent = 0, failed = 0, total = count;
+      try {
+        for (;;) {
+          st.textContent = `ушло ${sent} из ${total}, ошибок ${failed}…`;
+          const r = await A('admin/mailing', { method: 'POST', body: { ...m, offset, ...(mailing_id ? { mailing_id } : {}) } });
+          mailing_id = r.mailing_id; sent += r.sent; failed += r.failed; total = r.total;
+          if (r.done) break;
+          if (!(r.next_offset > offset)) throw Object.assign(new Error('stuck'), { data: { error: 'сервер не продвинулся (next_offset ' + r.next_offset + ')' } }); // защита от зацикливания
+          offset = r.next_offset;
+        }
+        st.textContent = `готово: ушло ${sent} из ${total}, ошибок ${failed}`; alert(st.textContent); mail(); return;
+      } catch (e) { err(e); st.textContent += ` (остановлено: ушло ${sent} из ${total}, ошибок ${failed})`; }
+      lock(false); };
+    bindLogout();
+  }
+
+  // Клиенты: представление над заказами (ключ — e-mail), без своей таблицы. Фильтры работают локально, без перезапроса.
+  const CL = { onlyMail: false, q: '', sort: 'last', open: new Set() };
+  async function clients() {
+    const { clients: all } = await A('admin/clients');
+    const canMail = all.filter(c => c.subscribed).length;
+    app.innerHTML = tabs('clients') + `<div class="summary"><span>Клиентов: <b>${all.length}</b>, можно писать: <b>${canMail}</b></span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:center;margin:0 0 20px">
+        <label class="check" style="margin:0"><input type="checkbox" id="cOnly" ${CL.onlyMail ? 'checked' : ''}> <span>только кому можно писать</span></label>
+        <label class="field" style="margin:0;min-width:260px"><input id="cQ" placeholder="поиск: e-mail или телефон" value="${esc(CL.q)}"></label>
+        <label class="field" style="margin:0"><select id="cSort" style="height:44px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff"><option value="last" ${CL.sort === 'last' ? 'selected' : ''}>по дате последнего заказа</option><option value="sum" ${CL.sort === 'sum' ? 'selected' : ''}>по сумме</option></select></label>
+      </div><div id="cList"></div>`;
+    const digits = s => String(s || '').replace(/\D/g, '');
+    const paint = () => {
+      const q = CL.q.trim().toLowerCase(), qd = digits(q);
+      let list = all.filter(c => (!CL.onlyMail || c.subscribed) && (!q || c.email.toLowerCase().includes(q) || (qd.length >= 3 && (c.phones || []).some(p => digits(p).includes(qd)))));
+      list = list.slice().sort(CL.sort === 'sum' ? (a, b) => b.sum_paid - a.sum_paid || Date.parse(b.last_at) - Date.parse(a.last_at) : (a, b) => Date.parse(b.last_at) - Date.parse(a.last_at));
+      app.querySelector('#cList').innerHTML = `<table><tr><th>E-mail</th><th>Телефон</th><th>Заказов · оплачено</th><th>Сумма оплаченных</th><th>Последний заказ</th><th title="можно писать">✉</th></tr>
+        ${list.map(c => `<tr class="row" data-e="${esc(c.email)}"><td>${esc(c.email)}${(c.names || []).length ? `<br><small class="meta">${esc(c.names.join(', '))}</small>` : ''}</td><td>${(c.phones || []).map(esc).join('<br>') || '<span class="meta">—</span>'}</td><td>${c.orders_total} · ${c.orders_paid}</td><td>${rub(c.sum_paid)}</td><td>${dd(c.last_at)}</td><td>${c.subscribed ? `<span title="согласие ${c.subscribed_at ? dd(c.subscribed_at) : ''}">✉</span>` : ''}</td></tr>
+          ${CL.open.has(c.email) ? `<tr><td colspan="6" style="background:#fafafa;padding:4px 8px 12px"><table>${(c.orders || []).map(o => `<tr class="row" data-o="${esc(o.id)}"><td>${esc(o.id)}</td><td>${d(o.created_at)}</td><td>${esc(o.product_title || o.product_id)}</td><td>${badge(o)}</td><td>${rub(o.total)}</td></tr>`).join('')}</table></td></tr>` : ''}`).join('') || '<tr><td colspan="6" class="meta">никого не нашлось</td></tr>'}</table>`;
+      app.querySelectorAll('#cList tr[data-e]').forEach(r => r.onclick = () => { const e = r.dataset.e; CL.open.has(e) ? CL.open.delete(e) : CL.open.add(e); paint(); });
+      app.querySelectorAll('#cList tr[data-o]').forEach(r => r.onclick = ev => { ev.stopPropagation(); location.hash = '#order/' + r.dataset.o; });
+    };
+    app.querySelector('#cOnly').onchange = e => { CL.onlyMail = e.target.checked; paint(); };
+    app.querySelector('#cQ').oninput = e => { CL.q = e.target.value; paint(); };
+    app.querySelector('#cSort').onchange = e => { CL.sort = e.target.value; paint(); };
+    paint(); bindLogout();
   }
 
   const evRow = p => { const v = (p.variants || [])[0] || { stock: 0, reserved: 0 }; return `мероприятие · ${p.event_at ? d(p.event_at) : 'дата не задана'} · свободно ${v.stock - v.reserved} / резерв ${v.reserved}`; };
@@ -179,7 +245,7 @@
   async function route() {
     if (!token) return login();
     const h = location.hash.replace(/^#/, '') || 'orders'; const [page, arg] = h.split('/');
-    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else if (page === 'book') await book(); else location.hash = '#orders'; }
+    try { if (page === 'orders') await orders(arg); else if (page === 'order') await order(arg); else if (page === 'products') await products(); else if (page === 'product') await product(arg); else if (page === 'book') await book(); else if (page === 'mail') await mail(); else if (page === 'clients') await clients(); else location.hash = '#orders'; }
     catch (e) { fail(e); }
   }
   window.addEventListener('hashchange', route); route();
