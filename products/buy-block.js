@@ -57,7 +57,7 @@
       '<label class="bb-f" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>' +
       '<label class="bb-c" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>' +
       '<label class="bb-c" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>' +
-      '<label class="bb-c" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(что за письма)</a></span></label>' +
+      '<label class="bb-c" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>' +
       '<div class="bb-err" style="display:none"></div>' +
       '<button class="bb-btn" type="submit">' + esc(label) + '</button>' +
       '<p class="bb-fine">Это цифровой товар: после оплаты архив можно скачивать сколько угодно раз. Вернуть деньги можно, пока архив ни разу не скачан — подробно в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>' +
