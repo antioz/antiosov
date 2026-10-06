@@ -1,7 +1,7 @@
 // merch-api — Yandex Cloud Function (Node.js 18), HTTP-триггер. Маршрут в ?a=, тело — JSON.
 // Токен админки передаётся в заголовке X-Admin-Token: заголовок Authorization перехватывает сама платформа Cloud Functions (IAM) и отвечает 403 до вызова кода.
 const crypto = require('crypto');
-const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin'); const subscribers = require('./lib/subscribers');
+const orders = require('./lib/orders'); const ext = require('./lib/ext'); const admin = require('./lib/admin'); const subscribers = require('./lib/subscribers'); const waitlist = require('./lib/waitlist');
 const { tbToken } = require('./lib/tbank');
 const { json, text, redirect, HttpError, cors, setOrigin } = require('./lib/util');
 const ENV = process.env;
@@ -72,6 +72,7 @@ module.exports.handler = async function (event) {
         const d = await ext.yd.quote({ pvz_id: b.pvz_id || null, weight_g: p.weight_g, dims_cm: p.dims_cm, qty });
         return json(200, { price_delivery: d.price_rub, days: d.days, total: p.price * qty + d.price_rub });
       }
+      case 'wait': { if (method !== 'POST') return json(405, { error: 'method' }); return json(200, await waitlist.add(parseBody(event))); }
       case 'order': {
         if (method !== 'POST') return json(405, { error: 'method' });
         const b = parseBody(event); const r = await orders.createOrder(b);

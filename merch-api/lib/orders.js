@@ -346,7 +346,8 @@ async function gc() {
   let n = 0; for (const r of rows) if (await releaseNew(r.id, 'expired')) n++;
   // purgePd сканирует всю таблицу orders — не чаще раза в 6 часов на экземпляр функции, а не на каждый запрос каталога.
   if (Date.now() - lastPurge > 6 * 3600000) { lastPurge = Date.now(); try { await purgePd(); } catch (e) { console.error('purgePd', e.message); }
-    try { await backupBookOrders(); } catch (e) { console.error('backupBookOrders', e.message); } }
+    try { await backupBookOrders(); } catch (e) { console.error('backupBookOrders', e.message); }
+    try { await require('./waitlist').purge(); } catch (e) { console.error('waitlist purge', e.message); } }
   return n;
 }
 

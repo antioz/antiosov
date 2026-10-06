@@ -1,6 +1,6 @@
 // Админ-маршруты. Доступ по JWT (пароль в ADMIN_PASSWORD, 30 дней).
 const crypto = require('crypto');
-const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients'); const inbox = require('./inbox');
+const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients'); const inbox = require('./inbox'); const waitlist = require('./waitlist');
 const { json, HttpError } = require('./util');
 const ENV = process.env;
 const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
@@ -126,6 +126,11 @@ async function route(a, method, body, q, auth) {
       }
       if (method === 'DELETE') { const key = String(body.key || ''); if (!PHOTO_KEY_RE.test(key)) throw new HttpError(400, 'validation', { field: 'key' }); await s3.deleteObject(key); return json(200, { ok: true }); }
       throw new HttpError(405, 'method');
+    }
+    // Заявки «сообщите, когда будет ещё» по товару; DELETE {product_id, email} — убрать одну
+    case 'admin/waitlist': {
+      if (method === 'DELETE') { await waitlist.remove(body.product_id, body.email); return json(200, { ok: true }); }
+      return json(200, { waitlist: await waitlist.list(q.product_id) });
     }
     case 'admin/subscribers': { const [l, bp] = await Promise.all([subscribers.list(), subscribers.byProduct()]); return json(200, { count: l.length, subscribers: l, by_product: bp }); }
     // {subject, body, test:true} — только на OWNER_EMAIL; иначе порция до 25 подписчиков с offset, первый вызов без mailing_id создаёт запись журнала

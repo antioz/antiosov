@@ -43,3 +43,5 @@ CREATE TABLE IF NOT EXISTS mailings (id Utf8, created_at Timestamp, subject Utf8
 ALTER TABLE products ADD COLUMN mail_note Utf8;
 -- 2026-10-06 рассылка по покупателям товара: audience = '' (все подписчики) или id товара.
 ALTER TABLE mailings ADD COLUMN audience Utf8;
+-- 2026-10-06 «сообщите мне, когда будет ещё»: заявки после закрытия предзаказа (согласие /consent/soobshchit/, хранение год).
+CREATE TABLE IF NOT EXISTS waitlist (product_id Utf8, email Utf8, name Utf8, created_at Timestamp, consent_ver Utf8, PRIMARY KEY (product_id, email));
