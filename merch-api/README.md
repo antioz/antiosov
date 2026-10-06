@@ -51,7 +51,8 @@
 | `S3_KEY`, `S3_SECRET`, `S3_BUCKET` | статический ключ SA и имя бакета (`antiosov-merch`) — presigned PUT/DELETE фото; тот же ключ подписывает вызовы Postbox API |
 | `SMTP_USER`, `SMTP_PASS` | API-ключ SA со scope `yc.postbox.send` (id ключа / секрет) |
 | `MAIL_FROM` | `shop@antiosov.ru` (домен = Postbox identity) |
-| `OWNER_EMAIL` | куда слать уведомления о заказах |
+| `OWNER_EMAIL` | куда слать уведомления о заказах (без ПД покупателя — может быть зарубежным) |
+| `REPLY_TO` | адрес «Ответить» в письмах покупателям — только российский ящик: ответ покупателя содержит его ПД, а трансграничной передачи по уведомлению РКН нет |
 | `TB_TERMINAL`, `TB_PASSWORD` | боевой терминал Т-Банка (тот же, что у `paywall/prod.env`) |
 | `TAXATION`, `VAT` | чек: `usn_income`, `none` |
 | `YD_MODE` | `off` / `test` / `prod` — доставка Яндекс |
