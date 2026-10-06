@@ -39,8 +39,12 @@ function call(method, path, bodyObj) {
 
 (async () => {
   const action = process.argv[2] || 'get';
-  const r = action === 'create'
-    ? await call('POST', '/v2/email/identities', { EmailIdentity: DOMAIN })
+  // create-byo <privatekey.pem> — «расширенная настройка» DKIM: свой ключ, селектор postbox, в DNS — TXT postbox._domainkey.
+  // Простая (create) выдала CNAME на *.dkim.postbox.cloud.yandex.net, которых нет в DNS (NXDOMAIN) — домен не верифицировался.
+  const pem = () => require('fs').readFileSync(process.argv[3], 'utf8').replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+  const r = action === 'create' ? await call('POST', '/v2/email/identities', { EmailIdentity: DOMAIN })
+    : action === 'create-byo' ? await call('POST', '/v2/email/identities', { EmailIdentity: DOMAIN, DkimSigningAttributes: { DomainSigningSelector: 'postbox', DomainSigningPrivateKey: pem() } })
+    : action === 'delete' ? await call('DELETE', `/v2/email/identities/${DOMAIN}`)
     : await call('GET', `/v2/email/identities/${DOMAIN}`);
   console.log('HTTP', r.status);
   let j; try { j = JSON.parse(r.body); } catch (_) { console.log(r.body); process.exit(1); }
