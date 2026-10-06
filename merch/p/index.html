@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=2" />
+  <link rel="stylesheet" href="../merch.css?v=3" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -29,7 +29,8 @@
   const root = document.getElementById('root');
   const slug = new URLSearchParams(location.search).get('s') || '';
   let P, ydMode;
-  try { const r = await api('product', { q: { s: slug } }); P = r.product; ydMode = r.yd_mode; }
+  let skew = 0; // сервер решает, открыт ли предзаказ; часы страницы подгоняем под его now
+  try { const r = await api('product', { q: { s: slug } }); P = r.product; ydMode = r.yd_mode; if (r.now) skew = Date.parse(r.now) - Date.now(); }
   catch (e) { root.innerHTML = '<p class="center">Нет такой вещи. <a href="/merch/">Все вещи</a></p>'; return; }
   document.title = P.title + ' — Мерч — Дмитрий Антиосов';
   const QTY_MAX = 5;
@@ -46,7 +47,7 @@
   const isPre = () => { const v = variant(); return !!v && v.available <= 0 && P.preorder_allowed; };
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
 
-  root.innerHTML = `<div class="product">
+  root.innerHTML = `${P.preorder_until ? '<div class="countdown" id="cd"></div>' : ''}<div class="product">
     <div class="gallery">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
@@ -166,7 +167,24 @@
       showErr(m);
     }
   };
-  renderSizes(); renderSum(); showAll();
+  // Обратный отсчёт до конца предзаказа. На нуле перечитываем товар: сервер уже закрыл предзаказ — кнопки размеров гаснут.
+  function countdown() {
+    const el = $('#cd'); if (!el) return;
+    const end = Date.parse(P.preorder_until), fmt = new Date(end).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    const pad = n => String(n).padStart(2, '0');
+    const tick = async () => {
+      const left = end - (Date.now() + skew);
+      if (left <= 0 || P.preorder_closed) {
+        clearInterval(t); el.classList.add('over'); el.innerHTML = '<div class="cd-k">Предзаказ закрыт</div>';
+        if (!P.preorder_closed) { try { P = (await api('product', { q: { s: slug } })).product; } catch (e) {} renderSizes(); renderSum(); }
+        return;
+      }
+      const s = Math.floor(left / 1000), u = [[Math.floor(s / 86400), 'дн'], [Math.floor(s / 3600) % 24, 'час'], [Math.floor(s / 60) % 60, 'мин'], [s % 60, 'сек']];
+      el.innerHTML = `<div class="cd-k">Предзаказ</div><div class="cd-n">${u.map(([n, l]) => `<span><b>${pad(n)}</b><i>${l}</i></span>`).join('<em>:</em>')}</div><div class="cd-d">до ${fmt} по Москве</div>`;
+    };
+    const t = setInterval(tick, 1000); tick();
+  }
+  renderSizes(); renderSum(); countdown(); showAll();
 })();
 </script>
 <script src="../../assets/reveal.js"></script>

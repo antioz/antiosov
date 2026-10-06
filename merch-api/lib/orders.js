@@ -16,7 +16,16 @@ const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), 
   // Бесплатный период: до free_until отдаётся free_file_key (версия «с объявлением»). free_active считает сервер — таймер на странице лишь показывает.
   free_file_key: p.free_file_key || '', has_free_file: !!p.free_file_key, free_until: p.free_until || '',
   free_active: !!p.free_file_key && !!p.free_until && Date.parse(p.free_until) > Date.now(),
-  event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '' });
+  event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', ...preorderWindow(p) });
+// Срок предзаказа: PREORDER_UNTIL = 'товар@ISO;…' (в настройках функции). После срока сервер считает предзаказ закрытым —
+// таймер на карточке только показывает. Админка правит товар по сырой строке из БД, флаг preorder_allowed там не трогается.
+const preorderUntil = () => Object.fromEntries(String(ENV.PREORDER_UNTIL || '').split(';').map(x => x.trim().split('@')).filter(a => a.length === 2 && a[0] && Number.isFinite(Date.parse(a[1]))));
+function preorderWindow(p) {
+  const until = preorderUntil()[p.id] || '';
+  if (!until || !p.preorder_allowed) return { preorder_until: '' };
+  const open = Date.parse(until) > Date.now();
+  return { preorder_until: new Date(until).toISOString(), preorder_allowed: open, preorder_closed: !open };
+}
 // Цифровой заказ помечается delivery_mode = 'none' в самой строке заказа: releaseNew/confirmPaid/cancel решают по заказу,
 // не завися от того, что админ позже поменяет kind у товара.
 const isDigital = o => !!o && o.delivery_mode === 'none';
@@ -50,7 +59,7 @@ async function catalog(kind = 'physical') {
   const inSection = p => kind === 'digital' ? ['digital', 'event', 'diploma', 'book'].includes(p.kind) : p.kind === kind;
   return ps.map(parseProduct).filter(inSection).map(withUrls).map(p => ({
     id: p.id, kind: p.kind, has_file: p.has_file, free_active: p.free_active, free_until: p.free_active ? p.free_until : '', title: p.title, price: p.price, image_urls: p.image_urls, sizes: p.sizes,
-    preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by,
+    preorder_allowed: p.preorder_allowed, preorder_ship_by: p.preorder_ship_by, preorder_until: p.preorder_until, preorder_closed: !!p.preorder_closed,
     variants: (byP[p.id] || []).sort(bySizeOrder(p.sizes)),
     ...(p.kind === 'event' ? eventInfo(p, vs.filter(v => v.product_id === p.id)) : {}),
   }));
