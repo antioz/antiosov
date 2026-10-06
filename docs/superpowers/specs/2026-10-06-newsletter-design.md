@@ -54,3 +54,15 @@ CREATE TABLE mailings (id Utf8, created_at Timestamp, subject Utf8, body Utf8, s
 - Обезличенные заказы (`purgePd`) и заказы без e-mail — не показываем.
 - `GET ?a=admin/clients` → `{ clients: [{ email, names[], phones[], orders_total, orders_paid, sum_paid, first_at, last_at, kinds[], subscribed, subscribed_at, orders: [{ id, created_at, status, product_id, product_title, total }] }] }`. «Оплачен» = статус из `paid|packed|shipped|done`; `sum_paid` — сумма `total` таких заказов. `subscribed` — e-mail есть в `subscribers`.
 - Админка, вкладка «Клиенты»: таблица (e-mail, телефон, заказов всего/оплачено, сумма, последний заказ, ✉), раскрытие строки → заказы со ссылкой на заказ в админке; фильтр «только кому можно писать», поиск по e-mail/телефону, сортировка по сумме/дате последнего заказа.
+
+## Письма от клиентов (добавлено 2026-10-06)
+
+Ответы покупателей приходят на `REPLY_TO` = dimaantiosov@yandex.ru. Админка читает этот ящик по IMAP (imap.yandex.ru:993, пароль приложения в `.deploy.env`: `IMAP_USER`, `IMAP_PASS`), в YDB письма не копирует.
+
+- **Что считается письмом от клиента** (личная почта ящика в админку не попадает): отправитель — e-mail из `orders` или `subscribers`, ЛИБО письмо — ответ на наше (`In-Reply-To`/`References` содержит `@antiosov.ru`; наши письма уходят с Message-ID на домене antiosov.ru). Папка — только INBOX, за последние 90 дней.
+- «Новое» = без флага `\Seen`. Открытие письма в админке ставит `\Seen`.
+- `GET ?a=admin/inbox` → `{ unread, letters: [{ uid, date, from, from_name, subject, unread, snippet, client: { orders_total, sum_paid } | null }] }` (новые сверху, до 100).
+- `GET ?a=admin/letter&uid=` → `{ uid, date, from, from_name, subject, text, message_id, client: <как в admin/clients> | null }`, помечает прочитанным. HTML-письма → текст (теги вырезаны), вложения не показываем (только имена).
+- `POST ?a=admin/reply` `{ uid, text }` → ответ через Postbox: From `shop@antiosov.ru`, To отправитель, Subject `Re: …`, `In-Reply-To`/`References` = Message-ID письма, Reply-To `REPLY_TO`; копия кладётся IMAP APPEND в папку «Отправленные» ящика (`\Sent`). Ответ `{ ok: true }`.
+- Ошибка IMAP (нет пароля, Яндекс недоступен) → 503 `imap_unavailable`; главная админки показывает «письма: нет связи с почтой», остальное работает.
+- Админка: на главной (вкладка «Заказы», над списком) строка «Новых писем от клиентов: N» → ссылка на вкладку «Письма»; вкладка «Письма»: список (жирные — новые), открытие — текст, справка о клиенте (заказы/сумма), поле ответа и кнопка «Ответить».
