@@ -36,8 +36,16 @@ async function unsubscribe(email, token) {
 }
 
 const list = async () => (await db.query(`SELECT email, consent_at, source FROM subscribers ORDER BY consent_at DESC;`))[0];
+// Аудитория по товару: подписчики, у которых есть оплаченный заказ этого товара (PAID — как в clients.js). Пустой product_id = все подписчики.
+const PAID_IN = `('paid'u, 'packed'u, 'shipped'u, 'done'u)`;
+const AUD = `WHERE ($p = ''u OR email IN (SELECT customer_email FROM orders WHERE product_id = $p AND status IN ${PAID_IN}))`;
+async function byProduct() {
+  const [rows] = await db.query(`SELECT o.product_id AS product_id, COUNT(DISTINCT s.email) AS n FROM subscribers AS s JOIN orders AS o ON s.email = o.customer_email
+    WHERE o.status IN ${PAID_IN} GROUP BY o.product_id;`);
+  return Object.fromEntries(rows.map(r => [r.product_id, Number(r.n)]));
+}
 const count = async () => Number((await db.query(`SELECT COUNT(*) AS n FROM subscribers;`))[0][0].n);
-const listMailings = async () => (await db.query(`SELECT id, created_at, subject, sent, failed FROM mailings ORDER BY created_at DESC;`))[0];
+const listMailings = async () => (await db.query(`SELECT id, created_at, subject, sent, failed, audience FROM mailings ORDER BY created_at DESC;`))[0];
 
 function letter({ subject, body, url }) {
   const foot = 'Вы получили это письмо, потому что согласились на письма при заказе на antiosov.ru.';
@@ -60,6 +68,7 @@ async function sendMailing(b) {
     const ok = await sendOne(ENV.OWNER_EMAIL, letter({ subject, body, url: unsubUrl(ENV.OWNER_EMAIL, 'test') }));
     return { sent: ok ? 1 : 0, failed: ok ? 0 : 1, done: true };
   }
+  const audience = String(b.product_id || ''); // '' — все подписчики, иначе — подписчики, купившие товар
   let id = b.mailing_id ? String(b.mailing_id) : '';
   if (id) {
     const [[m]] = await db.query(`DECLARE $id AS Utf8; SELECT id FROM mailings WHERE id = $id;`, { $id: db.V.s(id) });
@@ -67,11 +76,11 @@ async function sendMailing(b) {
   } else {
     id = `N-${new Date().toISOString().slice(0, 10)}-${crypto.randomBytes(4).toString('hex')}`;
     await db.query(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DECLARE $b AS Utf8;
-      UPSERT INTO mailings (id, created_at, subject, body, sent, failed) VALUES ($id, CurrentUtcTimestamp(), $s, $b, 0, 0);`, { $id: db.V.s(id), $s: db.V.s(subject), $b: db.V.s(body) });
+      UPSERT INTO mailings (id, created_at, subject, body, sent, failed, audience) VALUES ($id, CurrentUtcTimestamp(), $s, $b, 0, 0, $a);`, { $id: db.V.s(id), $s: db.V.s(subject), $b: db.V.s(body), $a: db.V.s(audience) });
   }
   const offset = Math.max(0, parseInt(b.offset, 10) || 0);
-  const [[{ n }], chunk] = await db.query(`DECLARE $o AS Uint64; SELECT COUNT(*) AS n FROM subscribers;
-    SELECT email, token FROM subscribers ORDER BY email LIMIT ${BATCH} OFFSET $o;`, { $o: db.TypedValues.uint64(offset) });
+  const [[{ n }], chunk] = await db.query(`DECLARE $o AS Uint64; DECLARE $p AS Utf8; SELECT COUNT(*) AS n FROM subscribers ${AUD};
+    SELECT email, token FROM subscribers ${AUD} ORDER BY email LIMIT ${BATCH} OFFSET $o;`, { $o: db.TypedValues.uint64(offset), $p: db.V.s(audience) });
   const total = Number(n), t0 = Date.now();
   let sent = 0, failed = 0, i = 0;
   for (; i < chunk.length && (i === 0 || Date.now() - t0 < BUDGET_MS); i++) {
@@ -83,4 +92,4 @@ async function sendMailing(b) {
   return { mailing_id: id, sent, failed, next_offset, total, done: next_offset >= total || !chunk.length };
 }
 
-module.exports = { NEWS_CONSENT_VER, subscribe, unsubscribe, list, count, listMailings, unsubUrl, letter, sendMailing };
+module.exports = { NEWS_CONSENT_VER, subscribe, unsubscribe, list, byProduct, count, listMailings, unsubUrl, letter, sendMailing };

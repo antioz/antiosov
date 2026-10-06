@@ -519,11 +519,14 @@ async function downloadCount(id) {
 }
 // Статистика по продуктам для админки: бесплатные скачивания, оплаченные заказы, скачивания по оплаченным заказам.
 async function productStats() {
-  const [cs, os, ps] = await db.query(`SELECT name, value FROM counters WHERE StartsWith(name, 'free_dl:'u); SELECT product_id, status, qty, COALESCE(download_count, 0) AS dl FROM orders; SELECT id, kind FROM products;`);
-  const kind = Object.fromEntries(ps.map(p => [p.id, p.kind || 'physical'])); // скачивания имеют смысл только у kind='digital'
-  const st = {}; const row = id => (st[id] = st[id] || { kind: kind[id] || 'physical', free_downloads: 0, paid_orders: 0, paid_qty: 0, paid_downloads: 0 });
+  const [cs, os, ps] = await db.query(`SELECT name, value FROM counters WHERE StartsWith(name, 'free_dl:'u); SELECT product_id, status, qty, COALESCE(download_count, 0) AS dl FROM orders; SELECT id, kind, title FROM products;`);
+  const prod = Object.fromEntries(ps.map(p => [p.id, p])); // скачивания имеют смысл только у kind='digital'
+  const st = {}; const row = id => (st[id] = st[id] || { kind: (prod[id] && prod[id].kind) || 'physical', title: (prod[id] && prod[id].title) || id, free_downloads: 0, paid_orders: 0, paid_qty: 0, paid_downloads: 0, to_ship: 0 });
   for (const c of cs) row(c.name.slice(8)).free_downloads = c.value;
-  for (const o of os) if (DL_STATUSES.includes(o.status)) { const r = row(o.product_id); r.paid_orders++; r.paid_qty += o.qty || 1; r.paid_downloads += o.dl; }
+  for (const o of os) {
+    if (DL_STATUSES.includes(o.status)) { const r = row(o.product_id); r.paid_orders++; r.paid_qty += o.qty || 1; r.paid_downloads += o.dl; }
+    if (['paid', 'packed'].includes(o.status) && (!prod[o.product_id] || (prod[o.product_id].kind || 'physical') === 'physical')) row(o.product_id).to_ship++; // ждут отправки: вещи (книга — своя вкладка)
+  }
   return st;
 }
 async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i && i.status === 'new' && i.tb_payment_url) ? i.tb_payment_url : null; }

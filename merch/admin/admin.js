@@ -23,14 +23,27 @@
   const tabs = cur => `<div class="tabs"><a href="#orders" class="${cur === 'orders' ? 'on' : ''}">Заказы</a><a href="#products" class="${cur === 'products' ? 'on' : ''}">Товары</a><a href="#book" class="${cur === 'book' ? 'on' : ''}">Книга</a><a href="#mail" class="${cur === 'mail' ? 'on' : ''}">Рассылка</a><a href="#clients" class="${cur === 'clients' ? 'on' : ''}">Клиенты</a><a href="#inbox" class="${cur === 'inbox' || cur === 'letter' ? 'on' : ''}">Письма</a><a href="#" id="logout">Выйти</a></div>`;
   const bindLogout = () => { const l = document.getElementById('logout'); if (l) l.onclick = e => { e.preventDefault(); token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); }; };
 
+  // Сводка по товарам (книга — на своей вкладке). Пустые ячейки — показатель к товару не относится.
+  const UNIT = { event: 'билетов', book: 'экземпляров', diploma: 'участников', digital: 'покупок', physical: 'штук' };
+  const statsTable = st => { const rows = Object.entries(st).filter(([, v]) => v.kind !== 'book' && (v.paid_orders || v.free_downloads || v.to_ship));
+    if (!rows.length) return '';
+    const c = (v, show) => show ? `<b>${v}</b>` : '<span class="meta">—</span>';
+    return `<table style="margin:0 0 28px"><tr><th>Товар</th><th>Оплачено заказов</th><th>Штук</th><th>К отправке</th><th>Бесплатно скачали</th><th>Скачиваний по оплате</th></tr>
+      ${rows.map(([, v]) => `<tr><td>${esc(v.title)}</td><td>${c(v.paid_orders, true)}</td><td>${c(v.paid_qty, true)} <span class="meta">${UNIT[v.kind] || ''}</span></td><td>${c(v.to_ship, v.kind === 'physical')}</td><td>${c(v.free_downloads, v.kind === 'digital')}</td><td>${c(v.paid_downloads, v.kind === 'digital')}</td></tr>`).join('')}</table>`; };
+
+  let OF = ''; // фильтр заказов по товару; '' — все, кроме книги (у книги своя вкладка)
   async function orders(status) {
     const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
     const [{ orders }, s] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary')]);
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'new', 'cancelled', 'expired'];
-    app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span><span>К отправке: <b>${s.to_ship}</b></span><span>Предзаказов: <b>${s.preorders}</b></span><span class="meta">доставка: ${s.yd_mode}</span>${Object.entries(s.stats || {}).map(([id, v]) => (v.kind === 'digital' ? `<span>${esc(id)}: бесплатно скачали <b>${v.free_downloads}</b> · оплачено <b>${v.paid_orders}</b> · скачиваний по оплате <b>${v.paid_downloads}</b></span>` : `<span>${esc(id)}: оплачено заказов <b>${v.paid_orders}</b> · ${v.kind === 'event' ? 'билетов' : v.kind === 'book' ? 'экземпляров' : 'штук'} <b>${v.paid_qty}</b></span>`)).join('')}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
+    app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span>${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
+      ${statsTable(s.stats || {})}
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
+      <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
+        <option value="">все товары, кроме книги</option>${Object.entries(s.stats || {}).filter(([, v]) => v.kind !== 'book').map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
       <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
+      ${orders.filter(o => OF ? o.product_id === OF : !(s.stats[o.product_id] && s.stats[o.product_id].kind === 'book')).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
+    app.querySelector('#oProd').onchange = e => { OF = e.target.value; orders(status); };
     app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
     inboxP.then(r => { const el = document.getElementById('inboxLine'); if (!el) return;
       if (r.error || typeof r.unread !== 'number') { el.className = 'meta'; el.textContent = 'письма: нет связи с почтой'; return; }
@@ -88,30 +101,35 @@
   // Рассылка: подписчики (согласие отдельной галочкой в заказе), письмо себе на пробу, отправка всем порциями по 25
   // (функция живёт 30 с — сервер шлёт порцию и отдаёт next_offset, админка зовёт снова, пока не done).
   async function mail() {
-    const [{ count, subscribers: subs }, { mailings }] = await Promise.all([A('admin/subscribers'), A('admin/mailings')]);
+    const [{ count, subscribers: subs, by_product: bp = {} }, { mailings }, { products: prods }] = await Promise.all([A('admin/subscribers'), A('admin/mailings'), A('admin/products')]);
+    const ptitle = Object.fromEntries(prods.map(p => [p.id, p.title])); let aud = ''; const audN = () => aud ? (bp[aud] || 0) : count;
     app.innerHTML = tabs('mail') + `<div class="summary"><a href="#" id="subsT" style="color:inherit">Подписчиков: <b>${count}</b></a></div>
       <div id="subs" style="display:none;margin:0 0 28px"><table><tr><th>E-mail</th><th>Согласие</th><th>Заказ</th></tr>
       ${subs.map(x => `<tr><td>${esc(x.email)}</td><td>${d(x.consent_at)}</td><td>${x.source ? `<a href="#order/${esc(x.source)}" style="color:inherit">${esc(x.source)}</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="3" class="meta">пока никого</td></tr>'}</table></div>
-      <form id="mf" style="max-width:640px;margin:0 auto"><label class="field"><span>Тема</span><input name="subject" maxlength="200"></label>
+      <form id="mf" style="max-width:640px;margin:0 auto"><label class="field"><span>Кому</span><select id="mAud" style="height:44px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
+        <option value="">все подписчики (${count})</option>${prods.filter(p => bp[p.id]).map(p => `<option value="${esc(p.id)}">купили «${esc(p.title)}» (${bp[p.id]})</option>`).join('')}</select>
+        <small class="meta">только подписчики; купившие — с оплаченным заказом товара</small></label>
+      <label class="field"><span>Тема</span><input name="subject" maxlength="200"></label>
       <label class="field"><span>Текст (как есть; ссылки станут кликабельными, подвал с отпиской добавится сам)</span><textarea name="body" maxlength="20000" style="min-height:240px"></textarea></label>
-      <div class="row-actions"><button type="button" class="btn ghost" id="mTest">Отправить себе</button><button type="button" class="btn" id="mAll" ${count ? '' : 'disabled'}>Отправить всем (${count})</button></div>
+      <div class="row-actions"><button type="button" class="btn ghost" id="mTest">Отправить себе</button><button type="button" class="btn" id="mAll" ${count ? '' : 'disabled'}>Отправить (${count})</button></div>
       <p class="meta" id="mSt"></p></form>
       <h2 style="margin-top:36px;text-align:center">Журнал</h2>
-      <table><tr><th>Дата</th><th>Тема</th><th>Ушло</th><th>Ошибок</th></tr>
-      ${mailings.map(m => `<tr><td>${d(m.created_at)}</td><td>${esc(m.subject)}</td><td>${m.sent}</td><td>${m.failed}</td></tr>`).join('') || '<tr><td colspan="4" class="meta">рассылок ещё не было</td></tr>'}</table>`;
+      <table><tr><th>Дата</th><th>Тема</th><th>Кому</th><th>Ушло</th><th>Ошибок</th></tr>
+      ${mailings.map(m => `<tr><td>${d(m.created_at)}</td><td>${esc(m.subject)}</td><td>${m.audience ? 'купили «' + esc(ptitle[m.audience] || m.audience) + '»' : 'все подписчики'}</td><td>${m.sent}</td><td>${m.failed}</td></tr>`).join('') || '<tr><td colspan="5" class="meta">рассылок ещё не было</td></tr>'}</table>`;
     app.querySelector('#subsT').onclick = e => { e.preventDefault(); const b = app.querySelector('#subs'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
     const form = app.querySelector('#mf'), st = app.querySelector('#mSt'), btns = [app.querySelector('#mTest'), app.querySelector('#mAll')];
     const val = () => { const subject = form.elements.namedItem('subject').value.trim(), body = form.elements.namedItem('body').value; if (!subject || !body.trim()) { alert('Нужны тема и текст'); return null; } return { subject, body }; };
-    const lock = on => btns.forEach(b => { b.disabled = on || (b.id === 'mAll' && !count); });
+    const lock = on => btns.forEach(b => { b.disabled = on || (b.id === 'mAll' && !audN()); });
+    app.querySelector('#mAud').onchange = e => { aud = e.target.value; const b = app.querySelector('#mAll'); b.textContent = `Отправить (${audN()})`; lock(false); };
     const err = e => { if (e.code === 401) return fail(e); st.textContent = 'Ошибка: ' + (e.message === 'no_mailing' ? 'рассылка не найдена на сервере' : e.data && (e.data.field ? 'поле ' + e.data.field : e.data.error) || e.message); };
     app.querySelector('#mTest').onclick = async () => { const m = val(); if (!m) return; lock(true); st.textContent = 'отправляю себе…';
       try { const r = await A('admin/mailing', { method: 'POST', body: { ...m, test: true } }); st.textContent = r.sent ? 'пробное письмо ушло на адрес владельца' : 'не ушло — ошибка отправки'; } catch (e) { err(e); } lock(false); };
-    app.querySelector('#mAll').onclick = async () => { const m = val(); if (!m || !confirm(`Отправить ${count} подписчикам?`)) return; lock(true);
-      let mailing_id, offset = 0, sent = 0, failed = 0, total = count;
+    app.querySelector('#mAll').onclick = async () => { const m = val(); if (!m || !confirm(`Отправить ${audN()} подписчикам${aud ? ', купившим «' + (ptitle[aud] || aud) + '»' : ''}?`)) return; lock(true);
+      let mailing_id, offset = 0, sent = 0, failed = 0, total = audN(); const product_id = aud;
       try {
         for (;;) {
           st.textContent = `ушло ${sent} из ${total}, ошибок ${failed}…`;
-          const r = await A('admin/mailing', { method: 'POST', body: { ...m, offset, ...(mailing_id ? { mailing_id } : {}) } });
+          const r = await A('admin/mailing', { method: 'POST', body: { ...m, offset, product_id, ...(mailing_id ? { mailing_id } : {}) } });
           mailing_id = r.mailing_id; sent += r.sent; failed += r.failed; total = r.total;
           if (r.done) break;
           if (!(r.next_offset > offset)) throw Object.assign(new Error('stuck'), { data: { error: 'сервер не продвинулся (next_offset ' + r.next_offset + ')' } }); // защита от зацикливания
@@ -223,6 +241,7 @@
       <div class="meta" style="margin-bottom:6px">Остатки по размерам</div><div class="stock" id="stock"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:14px">${f('weight_g', 'Вес, г', p.weight_g, 'number')}${f('dx', 'Длина, см', p.dims_cm.x, 'number')}${f('dy', 'Ширина, см', p.dims_cm.y, 'number')}${f('dz', 'Высота, см', p.dims_cm.z, 'number')}</div>
       <label class="check"><input type="checkbox" name="preorder_allowed" ${p.preorder_allowed ? 'checked' : ''}> <span>Разрешить предзаказ, когда размера нет</span></label>${f('preorder_ship_by', 'Предзаказ: отправка до (текст, напр. «15 октября»)', p.preorder_ship_by)}</div>
+      <label class="field"><span>Текст в письме после оплаты (первой строкой вместо срока отправки; пусто — обычное письмо)</span><textarea name="mail_note" rows="3">${esc(p.mail_note || '')}</textarea></label>
       <label class="check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> <span>Показывать на сайте</span></label>${f('sort', 'Порядок (меньше — выше)', p.sort, 'number')}
       <div class="meta">Фото (первое — главное; ⇠ ⇢ порядок, × удалить)</div><div class="thumbs" id="thumbs"></div>
       <input type="file" id="file" accept="image/*" multiple ${isNew ? 'disabled title="сначала сохраните товар"' : ''}><p class="meta" id="upl"></p>
@@ -273,7 +292,7 @@
     };
     const bodyOf = () => { const b = baseOf(); return b.kind !== 'event' ? b : { ...b, event_at: F('event_at').value ? new Date(F('event_at').value).toISOString() : '', venue: F('venue').value.trim(), age_mark: F('age_mark').value, variants: [{ size: '-', stock: Math.max(0, +F('seats').value | 0) }], sizes: [] }; };
     const baseOf = () => ({ id: F('id').value.trim(), title: F('title').value, description_md: F('description_md').value, price: +F('price').value, images: p.images, weight_g: +F('weight_g').value,
-        dims_cm: { x: +F('dx').value, y: +F('dy').value, z: +F('dz').value }, sizes: sizesOf(), preorder_allowed: F('preorder_allowed').checked, preorder_ship_by: F('preorder_ship_by').value, active: F('active').checked, sort: +F('sort').value,
+        dims_cm: { x: +F('dx').value, y: +F('dy').value, z: +F('dz').value }, sizes: sizesOf(), preorder_allowed: F('preorder_allowed').checked, preorder_ship_by: F('preorder_ship_by').value, mail_note: F('mail_note') ? F('mail_note').value : undefined, active: F('active').checked, sort: +F('sort').value,
         variants: [...app.querySelectorAll('#stock input')].map(i => ({ size: i.dataset.s, stock: +i.value })), kind: F('kind').value, file_key: p.file_key || '',
         free_file_key: p.free_file_key || '', free_until: F('free_until').value ? new Date(F('free_until').value).toISOString() : '' });
     const save = () => A('admin/product', { method: 'POST', body: bodyOf() });

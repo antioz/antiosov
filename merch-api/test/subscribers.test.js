@@ -129,3 +129,21 @@ test('admin: subscribers, mailing test, рассылка с List-Unsubscribe, о
   const j = body(r).mailings.find(x => x.id === mid); assert.ok(j); assert.deepEqual([j.sent, j.failed, j.subject], [sent, failed, 'Новости']); assert.ok(j.created_at);
   assert.ok(!('body' in j));
 });
+
+test('рассылка по товару: только подписчики с оплаченным заказом товара; by_product считает их', async () => {
+  const H = await login();
+  for (const e of [E1, E2]) await db.query(`DECLARE $e AS Utf8; UPSERT INTO subscribers (email, token, consent_at, consent_ver, source) VALUES ($e, 'f'u, CurrentUtcTimestamp(), '2026-10-06'u, ''u);`, { $e: db.V.s(e) });
+  await db.query(`DECLARE $p AS Utf8; DECLARE $e AS Utf8; DECLARE $e2 AS Utf8; UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, qty, total, customer_email)
+    VALUES ('T-AUD-1'u, 'k'u, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'paid'u, $p, 1, 1, $e), ('T-AUD-2'u, 'k'u, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, 1, 1, $e2);`,
+  { $p: db.V.s(P), $e: db.V.s(E1), $e2: db.V.s(E2) });
+  try {
+    const subs = body(await handler(ev('admin/subscribers', { headers: H })));
+    assert.equal(subs.by_product[P], 1, JSON.stringify(subs.by_product));
+    calls.mail.length = 0;
+    const r = body(await handler(ev('admin/mailing', { method: 'POST', headers: H, body: { subject: 'Покупателям', body: 'текст', product_id: P } })));
+    mailingIds.push(r.mailing_id);
+    assert.equal(r.total, 1); assert.deepEqual(calls.mail.map(m => m.to), [E1], 'неоплаченный (E2) не должен получить');
+    const j = body(await handler(ev('admin/mailings', { headers: H }))).mailings.find(m => m.id === r.mailing_id);
+    assert.equal(j.audience, P);
+  } finally { await db.query(`DELETE FROM orders WHERE id = 'T-AUD-1'u OR id = 'T-AUD-2'u;`); await clean(); }
+});
