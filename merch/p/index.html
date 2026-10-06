@@ -27,7 +27,9 @@
 <script>
 (async () => {
   const root = document.getElementById('root');
-  const slug = new URLSearchParams(location.search).get('s') || '';
+  const slug = new URLSearchParams(location.search).get('s') || ((location.pathname.match(/^\/merch\/([a-z0-9][a-z0-9-]*)\/(?:index\.html)?$/) || [])[1]) || ''; // короткий адрес /merch/<slug>/
+  // Старая ссылка ?s= → короткий адрес в строке браузера, если для вещи собрана страница (у неё своё превью в соцсетях)
+  if (slug && location.pathname.startsWith('/merch/p/')) fetch(`/merch/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) history.replaceState(null, '', `/merch/${encodeURIComponent(slug)}/${location.hash}`); }).catch(() => {});
   let P, ydMode;
   let skew = 0; // сервер решает, открыт ли предзаказ; часы страницы подгоняем под его now
   try { const r = await api('product', { q: { s: slug } }); P = r.product; ydMode = r.yd_mode; if (r.now) skew = Date.parse(r.now) - Date.now(); }
