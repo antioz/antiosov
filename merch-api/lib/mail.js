@@ -1,13 +1,17 @@
 // Postbox по SMTP (465, логин = id API-ключа SA со scope yc.postbox.send). Шаблоны — простой HTML.
-const nodemailer = require('nodemailer');
+const nodemailer = require('nodemailer'); const MailComposer = require('nodemailer/lib/mail-composer');
 const ENV = process.env;
 let transport = null;
 function getTransport() {
   if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000 }); // Postbox отвечает на MAIL FROM до ~6 с
   return transport;
 }
-async function send({ to, subject, text, html, headers }) {
-  await getTransport().sendMail({ from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, html, ...(headers ? { headers } : {}) });
+// keepRaw: вернуть собранное письмо (Buffer) — для копии в «Отправленные» ящика при ответе клиенту из админки.
+async function send({ to, subject, text, html, headers, keepRaw }) {
+  const msg = { from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, ...(html ? { html } : {}), ...(headers ? { headers } : {}),
+    messageId: `<${require('crypto').randomUUID()}@antiosov.ru>`, date: new Date() };
+  await getTransport().sendMail(msg);
+  if (keepRaw) return new MailComposer(msg).compile().build();
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

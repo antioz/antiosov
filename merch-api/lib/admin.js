@@ -1,6 +1,6 @@
 // Админ-маршруты. Доступ по JWT (пароль в ADMIN_PASSWORD, 30 дней).
 const crypto = require('crypto');
-const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients');
+const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients'); const inbox = require('./inbox');
 const { json, HttpError } = require('./util');
 const ENV = process.env;
 const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
@@ -132,6 +132,10 @@ async function route(a, method, body, q, auth) {
     case 'admin/mailings': return json(200, { mailings: await subscribers.listMailings() });
     // Клиенты — сводка по orders, ключ e-mail; subscribed — есть в subscribers (можно писать)
     case 'admin/clients': return json(200, { clients: await clients.listClients() });
+    // Письма от клиентов из ящика REPLY_TO (IMAP); 503 imap_unavailable — нет пароля или Яндекс недоступен
+    case 'admin/inbox': return json(200, await inbox.list());
+    case 'admin/letter': return json(200, await inbox.get(parseInt(q.uid, 10) || 0));
+    case 'admin/reply': { if (method !== 'POST') throw new HttpError(405, 'method'); return json(200, await inbox.reply(parseInt(body.uid, 10) || 0, body.text)); }
     default: return json(404, { error: 'not_found' });
   }
 }
