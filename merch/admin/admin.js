@@ -216,7 +216,7 @@
   async function products() {
     const { products: allP } = await A('admin/products');
     const products = allP.filter(p => p.kind !== 'book' && (!PF || p.id === PF)); // книга — на своей вкладке
-    app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px;white-space:nowrap">+ Добавить товар</a></p>
+    app.innerHTML = tabs('products') + `<p style="text-align:center"><a class="btn" href="#product/new" style="width:auto;padding:0 24px;white-space:nowrap;line-height:52px;vertical-align:middle">+ Добавить товар</a></p>
       <div style="text-align:center;margin:0 0 16px"><select id="pProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
         <option value="">все товары</option>${allP.filter(p => p.kind !== 'book').map(p => `<option value="${esc(p.id)}" ${PF === p.id ? 'selected' : ''}>${esc(p.title)}${p.active ? '' : ' (скрыт)'}</option>`).join('')}</select></div>
       <table><tr><th>Товар</th><th>Цена</th><th>Остатки (доступно / резерв / предзаказ)</th><th>Показ</th></tr>
