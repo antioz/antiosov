@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=4" />
+  <link rel="stylesheet" href="../merch.css?v=5" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -45,6 +45,9 @@
   const SEP = ' / ';
   const twoAxes = () => P.sizes.length > 0 && P.sizes.every(s => s.includes(SEP));
   const axis = i => [...new Set(P.sizes.map(s => s.split(SEP)[i]))];
+  // Размерная сетка одежды: показываем, если размеры — буквенные (S, M, L…).
+  const SIZE_CHART = [['Размер', 'S', 'M', 'L'], ['RU', '46', '48', '50'], ['Обхват груди, см', '90–94', '94–98', '98–102'], ['Обхват бёдер, см', '98–102', '102–106', '106–110'], ['Обхват талии, см', '70–74', '74–78', '78–82']];
+  const hasChart = () => P.sizes.length > 0 && P.sizes.every(s => /^(XXS|XS|S|M|L|XL|XXL|XXXL)$/.test(twoAxes() ? s.split(SEP)[1] : s));
   const variant = () => P.variants.find(v => v.size === (P.sizes.length ? S.size : '-'));
   const isPre = () => { const v = variant(); return !!v && v.available <= 0 && P.preorder_allowed; };
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
@@ -54,6 +57,9 @@
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
+      ${hasChart() ? `<button type="button" class="chart-link" id="chartOpen">Размерная сетка</button>
+      <dialog class="chart" id="chart"><div class="chart-h"><h3>Размерная сетка</h3><button type="button" id="chartClose" aria-label="закрыть">×</button></div>
+        <table>${SIZE_CHART.map(([k, ...v], i) => `<tr><th>${k}</th>${v.map(x => i ? `<td>${x}</td>` : `<td><b>${x}</b></td>`).join('')}</tr>`).join('')}</table></dialog>` : ''}
       <div id="buy">
       ${twoAxes() ? `<div class="meta">Цвет</div><div class="sizes" id="colors"></div>` : ''}
       ${P.sizes.length ? `<div class="meta">Размер</div><div class="sizes" id="sizes"></div>` : ''}
@@ -86,6 +92,7 @@
       </form>
     </div></div>`;
   const $ = s => root.querySelector(s);
+  if ($('#chart')) { $('#chartOpen').onclick = () => $('#chart').showModal(); $('#chartClose').onclick = () => $('#chart').close(); $('#chart').onclick = e => { if (e.target === $('#chart')) $('#chart').close(); }; }
 
   const btn = (val, label, on, keys) => { const vs = keys.map(k => P.variants.find(x => x.size === k) || { available: 0 }); const avail = vs.some(v => v.available > 0);
     const pre = !avail && P.preorder_allowed; const out = !avail && !P.preorder_allowed;
