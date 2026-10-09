@@ -54,14 +54,16 @@
     }
     .poem .src { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
     .poem .src a { color: inherit; }
+    .col { width: 100%; max-width: 34em; display: flex; flex-direction: column; align-items: flex-start; }
     .more {
-      margin-top: 48px; padding: 14px 40px; cursor: pointer;
-      font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif; font-style: italic; font-size: 26px;
-      color: var(--ink); background: none; border: 1px solid var(--ink); border-radius: 999px;
-      transition: background .2s ease, color .2s ease;
+      margin-top: 40px; padding: 6px 0; cursor: pointer;
+      font-family: 'Inter', system-ui, sans-serif; font-size: 12px;
+      letter-spacing: 0.3em; text-transform: uppercase;
+      color: var(--ink); background: none; border: 0; border-bottom: 1px solid var(--ink);
+      transition: color .2s ease, border-color .2s ease;
     }
-    @media (hover: hover) { .more:hover { background: var(--ink); color: var(--bg); } }
-    .more:active { background: var(--ink); color: var(--bg); }
+    @media (hover: hover) { .more:hover { color: var(--dim); border-color: var(--dim); } }
+    .more:active { color: var(--dim); border-color: var(--dim); }
     footer { display: flex; justify-content: center; padding: 24px 16px 56px; }
     footer a {
       font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -75,12 +77,14 @@
   <main>
     <div class="top"><a href="/texts/">Стихи</a></div>
     <div class="stage">
+      <div class="col">
       <article class="poem" id="poem" aria-live="polite">
         <h1 id="title"></h1>
         <p class="text" id="text"></p>
         <div class="src" id="src"></div>
       </article>
-      <button class="more" id="more" type="button">ещё</button>
+      <button class="more" id="more" type="button">ещё →</button>
+      </div>
     </div>
     <footer><a href="/texts/">← художественные тексты</a></footer>
   </main>
