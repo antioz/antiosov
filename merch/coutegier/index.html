@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=5" />
+  <link rel="stylesheet" href="../merch.css?v=6" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -67,7 +67,7 @@
       <div class="desc">${md(P.description_md)}</div>
       ${hasChart() ? `<button type="button" class="chart-link" id="chartOpen">Размерная сетка</button>
       <dialog class="chart" id="chart"><div class="chart-h"><h3>Размерная сетка</h3><button type="button" id="chartClose" aria-label="закрыть">×</button></div>
-        <table>${SIZE_CHART.map(([k, ...v], i) => `<tr><th>${k}</th>${v.map(x => i ? `<td>${x}</td>` : `<td><b>${x}</b></td>`).join('')}</tr>`).join('')}</table></dialog>` : ''}
+        <table>${SIZE_CHART.map(([k, ...v], i) => `<tr><th>${k}</th>${v.map(x => i ? `<td>${x}</td>` : `<td><b>${x}</b></td>`).join('')}</tr>`).join('')}</table><p class="chart-note">Плотность изделия 200 г/м².</p></dialog>` : ''}
       <div id="buy">
       ${twoAxes() ? `<div class="meta">Цвет</div><div class="sizes" id="colors"></div>` : ''}
       ${P.sizes.length ? `<div class="meta">Размер</div><div class="sizes" id="sizes"></div>` : ''}

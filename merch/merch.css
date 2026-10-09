@@ -46,3 +46,4 @@ footer{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 24px;padding:
 .chart-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px} .chart h3{margin:0;font-family:var(--serif);font-style:italic;font-weight:400;font-size:28px} .chart-h button{border:0;background:none;font-size:28px;line-height:1;color:var(--ink);cursor:pointer;padding:0 4px}
 .chart table{width:100%;border-collapse:collapse;font-size:14px} .chart th,.chart td{padding:12px 6px;border-bottom:1px solid var(--line);text-align:center;font-weight:400} .chart th{text-align:left;color:var(--dim);font-size:13px;line-height:1.3} .chart td b{font-weight:400;letter-spacing:.1em}
 @media(max-width:420px){.chart{padding:16px 14px 20px} .chart table{font-size:13px} .chart th,.chart td{padding:10px 3px}}
+.chart-note{margin:14px 0 0;font-size:13px;color:#555}
