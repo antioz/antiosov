@@ -79,6 +79,7 @@ async function route(a, method, body, q, auth) {
   requireAuth(auth);
   switch (a) {
     case 'admin/summary': {
+      await orders.maintenance();
       const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
       const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
