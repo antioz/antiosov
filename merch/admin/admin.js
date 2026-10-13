@@ -46,10 +46,17 @@
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
         <option value="">все товары</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
-      <table><tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.filter(o => !OF || o.product_id === OF).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}</table>`;
-    app.querySelector('#oProd').onchange = e => { OF = e.target.value; orders(status); };
-    app.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id); bindLogout();
+      <table id="oTbl"></table>`;
+    // Фильтр по товару — по уже загруженным заказам, без повторного запроса (холодный старт функции — до 20 с).
+    const drawOrders = () => {
+      const t = app.querySelector('#oTbl');
+      t.innerHTML = `<tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
+      ${orders.filter(o => !OF || o.product_id === OF).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
+      t.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id);
+    };
+    drawOrders();
+    app.querySelector('#oProd').onchange = e => { OF = e.target.value; drawOrders(); };
+    bindLogout();
     inboxP.then(r => { const el = document.getElementById('inboxLine'); if (!el) return;
       if (r.error || typeof r.unread !== 'number') { el.className = 'meta'; el.textContent = 'письма: нет связи с почтой'; return; }
       el.className = ''; el.innerHTML = `<a href="#inbox" style="color:inherit">Новых писем от клиентов: ${r.unread > 0 ? `<b>${r.unread}</b>` : r.unread}</a>`; });
