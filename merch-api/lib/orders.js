@@ -344,11 +344,18 @@ async function gc() {
   const cutoff = new Date(Date.now() - envInt('RESERVE_MIN', 20) * 60000);
   const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders VIEW by_status WHERE status = 'new'u AND created_at < $c LIMIT 100;`, { $c: db.V.ts(cutoff) });
   let n = 0; for (const r of rows) if (await releaseNew(r.id, 'expired')) n++;
-  // purgePd сканирует всю таблицу orders — не чаще раза в 6 часов на экземпляр функции, а не на каждый запрос каталога.
-  if (Date.now() - lastPurge > 6 * 3600000) { lastPurge = Date.now(); try { await purgePd(); } catch (e) { console.error('purgePd', e.message); }
-    try { await backupBookOrders(); } catch (e) { console.error('backupBookOrders', e.message); }
-    try { await require('./waitlist').purge(); } catch (e) { console.error('waitlist purge', e.message); } }
   return n;
+}
+
+// Тяжёлое обслуживание: обезличивание, копии заказов книги в бакет, чистка заявок «сообщите мне». Вызывается из админки
+// (admin/summary), не чаще раза в 6 часов на экземпляр. Из каталога и заказа не вызывать: на холодном экземпляре это
+// 20–30 с, и каталог для покупателя падал по таймауту функции (13.10.2026).
+async function maintenance() {
+  if (Date.now() - lastPurge <= 6 * 3600000) return;
+  lastPurge = Date.now();
+  try { await purgePd(); } catch (e) { console.error('purgePd', e.message); }
+  try { await backupBookOrders(); } catch (e) { console.error('backupBookOrders', e.message); }
+  try { await require('./waitlist').purge(); } catch (e) { console.error('waitlist purge', e.message); }
 }
 
 // Срок хранения ПД из политики и согласия (/merch/privacy/, /consent/) — 3 года с даты заказа. Потом заказ обезличивается:
@@ -584,4 +591,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
