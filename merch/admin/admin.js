@@ -14,7 +14,7 @@
   const isEvent = o => o.kind === 'event' || o.delivery_mode === 'event';
   const dlMark = o => isDigital(o) ? `<br><small class="meta">${o.downloaded_at ? 'скачан ' + dd(o.downloaded_at) : 'не скачан'}</small>` : '';
   const item = o => `${esc(o.product_title)}${o.size && o.size !== '-' ? ' ' + esc(o.size) : ''} × ${o.qty}`;
-  const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else alert('Ошибка: ' + (e.data && e.data.error || e.message)); };
+  const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else { const x = e.data || {}; const m = { need_mark_codes: `Нужны коды маркировки: по одному на каждую штуку (нужно ${x.need}, вписано ${x.have}). Впиши их в поле «Коды «Честного знака»» ниже и сохрани.`, closing_failed: 'Т-Банк не принял закрывающий чек: ' + (x.tb ? (x.tb.Message || '') + ' ' + (x.tb.Details || '') + ' (код ' + (x.tb.ErrorCode || '?') + ')' : (x.message || '')) + '. Статус не изменён.', closing_done: 'Закрывающий чек уже пробит — коды не меняются.', validation: x.field === 'mark_codes' ? (x.reason === 'duplicate' ? 'Один код вписан дважды.' : x.reason === 'too_many' ? `Кодов больше, чем штук в заказе (${x.need}).` : 'Это не код «Честного знака»: он начинается с 01, затем 14 цифр, затем 21… ' + (x.code || '')) : 'Проверь поле ' + x.field }[x.error]; alert(m || 'Ошибка: ' + (x.error || e.message)); } };
 
   function login() {
     app.innerHTML = `<form id="lf" class="center" style="max-width:320px"><label class="field"><span>Пароль</span><input type="password" name="p" autofocus></label><button class="btn">Войти</button></form>`;
@@ -62,6 +62,17 @@
       el.className = ''; el.innerHTML = `<a href="#inbox" style="color:inherit">Новых писем от клиентов: ${r.unread > 0 ? `<b>${r.unread}</b>` : r.unread}</a>`; });
   }
 
+  // Чек при отправке: первый чек был «предоплата 100%» → при переходе в «отправлен» сервер пробивает закрывающий (полный расчёт).
+  // Маркированный товар — с кодом «Честного знака» на каждую штуку; без кодов статус не сменится.
+  const closingBlock = o => {
+    const marked = o.product && o.product.marked, codes = (() => { try { return JSON.parse(o.mark_codes || '[]'); } catch (_) { return []; } })();
+    const head = o.closing_receipt_at ? `пробит ${d(o.closing_receipt_at)}` : `не пробит — пробьётся сам при переходе в «отправлен»${marked ? ', когда вписаны коды' : ''}`;
+    return `<div style="margin:24px 0;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+      <div class="kv"><b>Закрывающий чек</b><span>${head}${o.closing_error ? `<br><small style="color:#7a1c1c">${esc(o.closing_error)}</small>` : ''}</span>
+      ${marked && o.closing_receipt_at ? `<b>Коды ЧЗ</b><span style="font-family:monospace;font-size:13px">${codes.map(esc).join('<br>')}</span>` : ''}</div>
+      ${marked && !o.closing_receipt_at ? `<label class="field" style="margin:12px 0 8px"><span>Коды «Честного знака» — по одному на строку, по коду на каждую штуку (<b id="mcCount"></b>). Сканер DataMatrix или вручную строка под квадратом: 01…21…</span><textarea id="markCodes" rows="${Math.max(3, o.qty + 1)}" style="font-family:monospace;font-size:13px">${esc(codes.join('\n'))}</textarea></label><button class="btn ghost" id="saveCodes" style="width:auto;padding:0 20px">Сохранить коды</button>` : ''}
+      ${!o.closing_receipt_at && ['shipped', 'done'].includes(o.status) ? ` <button class="btn ghost" data-act="close_receipt" style="width:auto;padding:0 20px;margin-top:8px">Пробить закрывающий чек</button>` : ''}</div>`;
+  };
   async function order(id) {
     const { order: o } = await A('admin/order', { q: { id } });
     const ev = isEvent(o), dip = isDiploma(o), dig = isDigital(o) && !ev, noShip = dig || ev || dip;
@@ -75,11 +86,19 @@
       <div class="row-actions">${NEXT[o.status] && !noShip ? `<button class="btn" data-act="next">→ ${NEXT[o.status]}</button>` : ''}
         ${['new', 'paid', 'packed'].includes(o.status) ? `<button class="btn ghost" data-act="cancel">Отменить${o.status !== 'new' ? ' и вернуть деньги' : ''}</button>` : ''}
         ${o.delivery_mode === 'yandex' && !o.yd_request_id && ['paid', 'packed'].includes(o.status) ? `<button class="btn ghost" data-act="retry_yd">Создать заявку Яндекс</button>` : ''}</div>
+      ${o.needs_closing ? closingBlock(o) : ''}
       <label class="field"><span>Заметка (при статусе «отправлен» без заявки Яндекса уходит покупателю как трек)</span><textarea id="note">${esc(o.admin_note)}</textarea></label><button class="btn ghost" id="saveNote" style="width:auto;padding:0 20px">Сохранить заметку</button>`;
     app.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
       if (b.dataset.act === 'cancel' && dig && o.status !== 'new' && o.downloaded_at && !confirm('Архив уже скачан — по оферте возврат не положен. Всё равно вернуть деньги?')) return;
       if (b.dataset.act === 'cancel' && !confirm(o.status === 'new' ? 'Отменить заказ?' : ev ? `Отменить и вернуть ${rub(o.total)}? Места вернутся в продажу.` : `Отменить и вернуть ${rub(o.total)} покупателю?`)) return;
       b.disabled = true; try { await A('admin/order', { method: 'POST', body: { id, action: b.dataset.act } }); order(id); } catch (e) { fail(e); b.disabled = false; } });
+    const mc = app.querySelector('#markCodes');
+    if (mc) {
+      const cnt = () => { const n = mc.value.split(/\r?\n/).filter(s => s.trim()).length; app.querySelector('#mcCount').textContent = `${n} из ${o.qty}`; };
+      mc.oninput = cnt; cnt();
+      // Сканер DataMatrix печатает код и Enter — каждый код ложится своей строкой.
+      app.querySelector('#saveCodes').onclick = async () => { try { await A('admin/order', { method: 'POST', body: { id, action: 'mark_codes', mark_codes: mc.value } }); order(id); } catch (e) { fail(e); } };
+    }
     app.querySelector('#saveNote').onclick = async () => { try { await A('admin/order', { method: 'POST', body: { id, action: 'note', note: app.querySelector('#note').value } }); order(id); } catch (e) { fail(e); } };
     bindLogout();
   }
@@ -257,7 +276,7 @@
       <div id="phys">${f('sizes', 'Размеры через запятую (пусто — без размера)', p.sizes.join(', '))}
       <div class="meta" style="margin-bottom:6px">Остатки по размерам</div><div class="stock" id="stock"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:14px">${f('weight_g', 'Вес, г', p.weight_g, 'number')}${f('dx', 'Длина, см', p.dims_cm.x, 'number')}${f('dy', 'Ширина, см', p.dims_cm.y, 'number')}${f('dz', 'Высота, см', p.dims_cm.z, 'number')}</div>
-      <label class="check"><input type="checkbox" name="preorder_allowed" ${p.preorder_allowed ? 'checked' : ''}> <span>Разрешить предзаказ, когда размера нет</span></label>${f('preorder_ship_by', 'Предзаказ: отправка до (текст, напр. «15 октября»)', p.preorder_ship_by)}</div>
+      <label class="check"><input type="checkbox" name="preorder_allowed" ${p.preorder_allowed ? 'checked' : ''}> <span>Разрешить предзаказ, когда размера нет</span></label><label class="check"><input type="checkbox" name="marked" ${p.marked ? 'checked' : ''}> <span>Маркировка «Честный знак»: первый чек — предоплата, при отправке — закрывающий чек с кодами</span></label>${f('preorder_ship_by', 'Предзаказ: отправка до (текст, напр. «15 октября»)', p.preorder_ship_by)}</div>
       <label class="field"><span>Текст в письме после оплаты (первой строкой вместо срока отправки; пусто — обычное письмо)</span><textarea name="mail_note" rows="3">${esc(p.mail_note || '')}</textarea></label>
       <label class="check"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}> <span>Показывать на сайте</span></label>${f('sort', 'Порядок (меньше — выше)', p.sort, 'number')}
       <div class="meta">Фото (первое — главное; ⇠ ⇢ порядок, × удалить)</div><div class="thumbs" id="thumbs"></div>
@@ -318,7 +337,7 @@
     };
     const bodyOf = () => { const b = baseOf(); return b.kind !== 'event' ? b : { ...b, event_at: F('event_at').value ? new Date(F('event_at').value).toISOString() : '', venue: F('venue').value.trim(), age_mark: F('age_mark').value, variants: [{ size: '-', stock: Math.max(0, +F('seats').value | 0) }], sizes: [] }; };
     const baseOf = () => ({ id: F('id').value.trim(), title: F('title').value, description_md: F('description_md').value, price: +F('price').value, images: p.images, weight_g: +F('weight_g').value,
-        dims_cm: { x: +F('dx').value, y: +F('dy').value, z: +F('dz').value }, sizes: sizesOf(), preorder_allowed: F('preorder_allowed').checked, preorder_ship_by: F('preorder_ship_by').value, mail_note: F('mail_note') ? F('mail_note').value : undefined, active: F('active').checked, sort: +F('sort').value,
+        dims_cm: { x: +F('dx').value, y: +F('dy').value, z: +F('dz').value }, sizes: sizesOf(), preorder_allowed: F('preorder_allowed').checked, marked: F('marked') ? F('marked').checked : undefined, preorder_ship_by: F('preorder_ship_by').value, mail_note: F('mail_note') ? F('mail_note').value : undefined, active: F('active').checked, sort: +F('sort').value,
         variants: [...app.querySelectorAll('#stock input')].map(i => ({ size: i.dataset.s, stock: +i.value })), kind: F('kind').value, file_key: p.file_key || '',
         free_file_key: p.free_file_key || '', free_until: F('free_until').value ? new Date(F('free_until').value).toISOString() : '' });
     const save = () => A('admin/product', { method: 'POST', body: bodyOf() });

@@ -45,3 +45,10 @@ ALTER TABLE products ADD COLUMN mail_note Utf8;
 ALTER TABLE mailings ADD COLUMN audience Utf8;
 -- 2026-10-06 «сообщите мне, когда будет ещё»: заявки после закрытия предзаказа (согласие /consent/soobshchit/, хранение год).
 CREATE TABLE IF NOT EXISTS waitlist (product_id Utf8, email Utf8, name Utf8, created_at Timestamp, consent_ver Utf8, PRIMARY KEY (product_id, email));
+-- 2026-10-13 «Честный знак» и закрывающие чеки: marked — товар с кодами маркировки (первый чек всегда «предоплата 100%»,
+-- коды — в закрывающем чеке при отправке); prepay_receipt — первый чек был предоплатой, при отправке нужен закрывающий.
+ALTER TABLE products ADD COLUMN marked Bool;
+ALTER TABLE orders ADD COLUMN prepay_receipt Bool;
+ALTER TABLE orders ADD COLUMN mark_codes Utf8;
+ALTER TABLE orders ADD COLUMN closing_receipt_at Utf8;
+ALTER TABLE orders ADD COLUMN closing_error Utf8;
