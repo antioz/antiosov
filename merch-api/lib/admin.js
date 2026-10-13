@@ -31,7 +31,7 @@ async function upsertProduct(b) {
   if (b.file_key !== undefined && b.file_key !== null && !fileKeyOk(id, String(b.file_key))) throw new HttpError(400, 'validation', { field: 'file_key' });
   if (b.free_file_key !== undefined && b.free_file_key !== null && !fileKeyOk(id, String(b.free_file_key))) throw new HttpError(400, 'validation', { field: 'free_file_key' });
   if (b.free_until !== undefined && b.free_until !== null && b.free_until !== '' && !Number.isFinite(Date.parse(String(b.free_until)))) throw new HttpError(400, 'validation', { field: 'free_until' });
-  const [[prev]] = await db.query(`DECLARE $id AS Utf8; SELECT kind, file_key, free_file_key, free_until, event_at, venue, age_mark, mail_note FROM products WHERE id = $id;`, { $id: db.V.s(id) });
+  const [[prev]] = await db.query(`DECLARE $id AS Utf8; SELECT kind, file_key, free_file_key, free_until, event_at, venue, age_mark, mail_note, marked FROM products WHERE id = $id;`, { $id: db.V.s(id) });
   // Поля акции, как kind/file_key: не пришли в теле → остаются как в БД. free_until хранится в ISO UTC.
   const keep = (v, old) => (v !== undefined && v !== null) ? String(v) : ((prev && old) || '');
   let free_file_key = keep(b.free_file_key, prev && prev.free_file_key);
@@ -41,6 +41,8 @@ async function upsertProduct(b) {
   let event_at = (b.event_at !== undefined && b.event_at !== null) ? (b.event_at === '' ? '' : new Date(String(b.event_at)).toISOString()) : ((prev && prev.event_at) || '');
   let venue = keep(b.venue, prev && prev.venue).trim().slice(0, 300), age_mark = keep(b.age_mark, prev && prev.age_mark);
   const mail_note = keep(b.mail_note, prev && prev.mail_note).trim().slice(0, 2000); // не пришло в теле → как в БД
+  // «Честный знак»: только вещь или книга; не пришло в теле → как в БД.
+  const marked = ['physical', 'book'].includes(b.kind !== undefined ? b.kind : (prev && prev.kind) || 'physical') && (b.marked !== undefined ? !!b.marked : !!(prev && prev.marked));
   let file_key = (b.file_key !== undefined && b.file_key !== null) ? String(b.file_key) : ((prev && prev.file_key) || '');
   const digital = kind === 'digital', event = kind === 'event', diploma = kind === 'diploma';
   // Практикум (диплом): без вариантов, архивов, акции и полей мероприятия — сохраняется пусто, что бы ни пришло.
@@ -57,12 +59,12 @@ async function upsertProduct(b) {
     const drop = have.filter(h => !want.includes(h.size));
     for (const h of drop) if (h.reserved > 0 || h.preorder_count > 0) throw new HttpError(409, 'size_in_use', { size: h.size });
     await run(`DECLARE $id AS Utf8; DECLARE $title AS Utf8; DECLARE $d AS Utf8; DECLARE $price AS Int32; DECLARE $img AS Json; DECLARE $w AS Int32; DECLARE $dims AS Json;
-      DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32; DECLARE $kind AS Utf8; DECLARE $fk AS Utf8; DECLARE $ffk AS Utf8; DECLARE $fu AS Utf8; DECLARE $ea AS Utf8; DECLARE $ve AS Utf8; DECLARE $am AS Utf8; DECLARE $mn AS Utf8;
-      UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at, kind, file_key, free_file_key, free_until, event_at, venue, age_mark, mail_note)
-      VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp(), $kind, $fk, $ffk, $fu, $ea, $ve, $am, $mn);`,
+      DECLARE $sizes AS Json; DECLARE $pa AS Bool; DECLARE $psb AS Utf8; DECLARE $active AS Bool; DECLARE $sort AS Int32; DECLARE $kind AS Utf8; DECLARE $fk AS Utf8; DECLARE $ffk AS Utf8; DECLARE $fu AS Utf8; DECLARE $ea AS Utf8; DECLARE $ve AS Utf8; DECLARE $am AS Utf8; DECLARE $mn AS Utf8; DECLARE $mk AS Bool;
+      UPSERT INTO products (id, title, description_md, price, images, weight_g, dims_cm, sizes, preorder_allowed, preorder_ship_by, active, sort, updated_at, kind, file_key, free_file_key, free_until, event_at, venue, age_mark, mail_note, marked)
+      VALUES ($id, $title, $d, $price, $img, $w, $dims, $sizes, $pa, $psb, $active, $sort, CurrentUtcTimestamp(), $kind, $fk, $ffk, $fu, $ea, $ve, $am, $mn, $mk);`,
       { $id: db.V.s(id), $title: db.V.s(title), $d: db.V.s(String(b.description_md || '')), $price: db.V.i(price), $img: db.V.j(images), $w: db.V.i(parseInt(b.weight_g, 10) || 300),
         $dims: db.V.j(dims_cm), $sizes: db.V.j(sizes), $pa: db.V.b(!digital && !event && !diploma && b.preorder_allowed), $psb: db.V.s(String(b.preorder_ship_by || '')), $active: db.V.b(b.active), $sort: db.V.i(parseInt(b.sort, 10) || 0),
-        $kind: db.V.s(kind), $fk: db.V.s(file_key), $ffk: db.V.s(free_file_key), $fu: db.V.s(free_until), $ea: db.V.s(event_at), $ve: db.V.s(venue), $am: db.V.s(age_mark), $mn: db.V.s(mail_note) });
+        $kind: db.V.s(kind), $fk: db.V.s(file_key), $ffk: db.V.s(free_file_key), $fu: db.V.s(free_until), $ea: db.V.s(event_at), $ve: db.V.s(venue), $am: db.V.s(age_mark), $mn: db.V.s(mail_note), $mk: db.V.b(marked) });
     for (const h of drop) await run(`DECLARE $id AS Utf8; DECLARE $s AS Utf8; DELETE FROM variants WHERE product_id = $id AND size = $s;`, { $id: db.V.s(id), $s: db.V.s(h.size) });
     for (const s of want) {
       const h = have.find(x => x.size === s);
@@ -94,6 +96,8 @@ async function route(a, method, body, q, auth) {
       if (method === 'GET') { const o = await orders.getOrder(String(q.id || '')); return o ? json(200, { order: o }) : json(404, { error: 'no_order' }); }
       const id = String(body.id || '');
       switch (body.action) {
+        case 'mark_codes': return json(200, { order: await orders.setMarkCodes(id, body.mark_codes) });
+        case 'close_receipt': return json(200, { order: await orders.sendClosing(id) });
         case 'next': { const cur = await orders.getOrder(id); if (!cur) throw new HttpError(404, 'no_order'); const to = orders.nextStatus(cur); if (!to) throw new HttpError(409, 'bad_transition'); return json(200, { order: await orders.transition(id, to) }); }
         case 'cancel': return json(200, { order: await orders.cancel(id) });
         case 'retry_yd': return json(200, { order: await orders.retryYd(id) });

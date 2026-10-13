@@ -14,7 +14,7 @@ function tbCall(method, params, timeoutMs = 8000) {
   const body = JSON.stringify({ ...params, Token: tbToken(params) });
   return new Promise((resolve, reject) => {
     const req = https.request({
-      hostname: 'securepay.tinkoff.ru', path: '/v2/' + method, method: 'POST', agent, timeout: timeoutMs,
+      hostname: 'securepay.tinkoff.ru', path: method.startsWith('/') ? method : '/v2/' + method, method: 'POST', agent, timeout: timeoutMs,
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
     }, res => {
       let data = ''; res.on('data', c => data += c);
@@ -25,14 +25,19 @@ function tbCall(method, params, timeoutMs = 8000) {
   });
 }
 
-// Чек 54-ФЗ. items: [{name, price_rub, qty, object, method}]
+// Чек 54-ФЗ. items: [{name, price_rub, qty, object, method, mark_code?}]
+// Есть позиция с mark_code → чек ФФД 1.2: «товар с кодом маркировки», единица «шт», код как прочитан сканером (RAWCODE), режим 0.
 function receipt(email, items) {
+  const ffd12 = items.some(it => it.mark_code);
   return {
     Email: email,
     Taxation: ENV.TAXATION || 'usn_income',
+    ...(ffd12 ? { FfdVersion: '1.2' } : {}),
     Items: items.map(it => ({
       Name: it.name.slice(0, 128), Price: it.price_rub * 100, Quantity: it.qty, Amount: it.price_rub * it.qty * 100,
-      Tax: ENV.VAT || 'none', PaymentMethod: it.method || 'full_payment', PaymentObject: it.object || 'commodity',
+      Tax: ENV.VAT || 'none', PaymentMethod: it.method || 'full_payment',
+      ...(ffd12 ? { MeasurementUnit: 'шт' } : {}),
+      ...(it.mark_code ? { PaymentObject: 'goods_with_marking_code', MarkProcessingMode: '0', MarkCode: { MarkCodeType: 'RAWCODE', Value: it.mark_code } } : { PaymentObject: it.object || 'commodity' }),
     })),
   };
 }
@@ -53,7 +58,14 @@ async function init({ orderId, amountRub, description, email, receiptItems, succ
   return { paymentId: String(res.PaymentId), paymentUrl: res.PaymentURL };
 }
 const getState = paymentId => tbCall('GetState', { TerminalKey: ENV.TB_TERMINAL, PaymentId: paymentId });
+// Закрывающий чек (полный расчёт) по платежу, первый чек которого был предоплатой: оплата — зачёт аванса.
+// Метод живёт в /cashbox/, не в /v2/; подпись Token — та же.
+function closingReceipt(paymentId, email, items) {
+  const r = receipt(email, items);
+  r.Payments = { Electronic: 0, AdvancePayment: r.Items.reduce((a, it) => a + it.Amount, 0) };
+  return tbCall('/cashbox/SendClosingReceipt', { TerminalKey: ENV.TB_TERMINAL, PaymentId: String(paymentId), Receipt: r }, 15000);
+}
 // Полный возврат: чек не передаётся (Т-Банк формирует чек возврата сам по исходному).
 const cancel = paymentId => tbCall('Cancel', { TerminalKey: ENV.TB_TERMINAL, PaymentId: paymentId });
 
-module.exports = { tbToken, tbCall, receipt, init, getState, cancel, tbDate };
+module.exports = { tbToken, tbCall, receipt, init, getState, cancel, tbDate, closingReceipt };

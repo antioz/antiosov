@@ -12,7 +12,7 @@ const asDims = d => { const n = k => Number(d && d[k]); return (d && typeof d ==
 const KINDS = ['physical', 'digital', 'event', 'diploma', 'book'];
 // kind: NULL/пусто у старых товаров = physical. has_file — наружу вместо file_key (ключ архива публично не отдаём).
 const parseProduct = p => p && ({ ...p, images: asArr(parseJson(p.images, [])), dims_cm: asDims(parseJson(p.dims_cm, null)), sizes: asArr(parseJson(p.sizes, [])),
-  kind: KINDS.includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', has_file: !!p.file_key,
+  kind: KINDS.includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', has_file: !!p.file_key, marked: !!p.marked,
   // Бесплатный период: до free_until отдаётся free_file_key (версия «с объявлением»). free_active считает сервер — таймер на странице лишь показывает.
   free_file_key: p.free_file_key || '', has_free_file: !!p.free_file_key, free_until: p.free_until || '',
   free_active: !!p.free_file_key && !!p.free_until && Date.parse(p.free_until) > Date.now(),
@@ -158,16 +158,16 @@ async function createOrder(input) {
     const n = (c ? c.value : 0) + 1;
     await run(`DECLARE $n AS Int32; UPSERT INTO counters (name, value) VALUES ('order'u, $n);`, { $n: db.V.i(n) });
     const id = 'M-' + String(n).padStart(6, '0');
-    await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; DECLARE $pre AS Bool;
+    await run(`DECLARE $id AS Utf8; DECLARE $k AS Utf8; DECLARE $p AS Utf8; DECLARE $s AS Utf8; DECLARE $q AS Int32; DECLARE $pre AS Bool; DECLARE $pp AS Bool;
       DECLARE $pi AS Int32; DECLARE $pd AS Int32; DECLARE $t AS Int32; DECLARE $n AS Utf8; DECLARE $ph AS Utf8; DECLARE $e AS Utf8;
       DECLARE $addr AS Utf8; DECLARE $pvz AS Utf8; DECLARE $pvza AS Utf8; DECLARE $dm AS Utf8; DECLARE $ydenv AS Utf8; DECLARE $days AS Int32;
       DECLARE $ins AS Utf8; DECLARE $ad AS Utf8;
       UPSERT INTO orders (id, k, created_at, updated_at, status, product_id, size, qty, is_preorder, price_item, price_delivery, total,
         customer_name, customer_phone, customer_email, address_text, pvz_id, pvz_address, delivery_mode, yd_env, delivery_days,
-        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note, inscription, addr)
+        yd_request_id, yd_track_url, yd_error, tb_payment_id, tb_payment_url, tb_refund_id, mail_error, consent_at, admin_note, inscription, addr, prepay_receipt)
       VALUES ($id, $k, CurrentUtcTimestamp(), CurrentUtcTimestamp(), 'new'u, $p, $s, $q, $pre, $pi, $pd, $t, $n, $ph, $e, $addr, $pvz, $pvza, $dm, $ydenv, $days,
-        ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u, $ins, $ad);`,
-      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $s: db.V.s(v.size), $q: db.V.i(v.qty), $pre: db.V.b(is_preorder), $pi: db.V.i(product.price), $pd: db.V.i(price_delivery), $t: db.V.i(total),
+        ''u, ''u, ''u, ''u, ''u, ''u, ''u, CurrentUtcTimestamp(), ''u, $ins, $ad, $pp);`,
+      { $id: db.V.s(id), $k: db.V.s(k), $p: db.V.s(product.id), $s: db.V.s(v.size), $q: db.V.i(v.qty), $pre: db.V.b(is_preorder), $pp: db.V.b(is_preorder || product.marked), $pi: db.V.i(product.price), $pd: db.V.i(price_delivery), $t: db.V.i(total),
         $n: db.V.s(v.name), $ph: db.V.s(v.phone), $e: db.V.s(v.email), $addr: db.V.s(v.address_text), $pvz: db.V.s(v.pvz_id), $pvza: db.V.s(v.pvz_address),
         $dm: db.V.s(ydMode === 'off' ? 'flat' : 'yandex'), $ydenv: db.V.s(ydMode), $days: db.V.i(delivery.days || 0), $ins: db.V.s(v.inscription), $ad: db.V.s(v.addr) });
     return { id, is_preorder };
@@ -179,7 +179,8 @@ async function createOrder(input) {
   try {
     pay = await ext.tbank.init({
       orderId: id, amountRub: total, description: `Заказ ${id}: ${itemName} × ${v.qty}`, email: v.email, dueDate: due,
-      receiptItems: [{ name: itemName, price_rub: product.price, qty: v.qty, object: 'commodity', method: is_preorder ? 'full_prepayment' : 'full_payment' },
+      // Предзаказ или товар с маркировкой (код известен только при сборке) — «предоплата 100%», при отправке — закрывающий чек.
+      receiptItems: [{ name: itemName, price_rub: product.price, qty: v.qty, object: 'commodity', method: is_preorder || product.marked ? 'full_prepayment' : 'full_payment' },
         ...(price_delivery > 0 ? [{ name: 'Доставка', price_rub: price_delivery, qty: 1, object: 'service', method: 'full_payment' }] : [])],
       successUrl: `${ENV.SELF_URL}?a=success&id=${id}&k=${k}`, failUrl: `${ENV.SITE}/merch/order/?id=${id}&k=${k}&fail=1`, notifyUrl: `${ENV.SELF_URL}?a=notify`,
     });
@@ -374,7 +375,7 @@ async function purgePd() {
 // ---------- оплата ----------
 // run — функция транзакции (читать внутри tx) или null (авто-транзакция).
 // Поля для админки (предупреждение перед возвратом скачанного): kind заказа и отметки скачивания, NULL → 0/null.
-const orderExtras = o => ({ kind: orderKind(o), downloaded_at: o.downloaded_at || null, download_count: o.download_count || 0 });
+const orderExtras = o => ({ kind: orderKind(o), downloaded_at: o.downloaded_at || null, download_count: o.download_count || 0, needs_closing: needsClosing(o) });
 async function loadOrderWithProduct(run, id) {
   if (id === undefined) { id = run; run = null; }
   const q = run || db.query;
@@ -415,7 +416,7 @@ async function confirmPaid(orderId, paymentId, amountRub) {
   return { ok: true };
 }
 
-const FIELDS = new Set(['mail_error', 'yd_error', 'admin_note']);
+const FIELDS = new Set(['mail_error', 'yd_error', 'admin_note', 'mark_codes', 'closing_receipt_at', 'closing_error']);
 async function setField(id, field, value) {
   if (!FIELDS.has(field)) throw new Error('bad field ' + field);
   await db.query(`DECLARE $id AS Utf8; DECLARE $v AS Utf8; UPDATE orders SET ${field} = $v, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(id), $v: db.V.s(value) });
@@ -543,7 +544,59 @@ async function getPayUrl(id, k) { const i = await getPayInfo(id, k); return (i &
 const NEXT = { paid: 'packed', packed: 'shipped', shipped: 'done' };
 const NEXT_DIGITAL = {}; // цифровой: переходов нет — packed/shipped закрыли бы покупателю скачивание (can_download только paid|done)
 const nextStatus = o => (isDigital(o) || isEvent(o) || isDiploma(o) ? NEXT_DIGITAL : NEXT)[o.status]; // у билета и практикума тоже нет «собран/отправлен»
+// ---------- закрывающий чек и коды маркировки ----------
+// Нужен, если первый чек был «предоплата 100%» (предзаказ или маркированный товар): при передаче товара — чек полного расчёта.
+const needsClosing = o => ['physical', 'book'].includes(orderKind(o)) && !!(o.prepay_receipt || o.is_preorder);
+// Код маркировки «Честного знака»: 01 + GTIN (14 цифр) + 21 + серийный номер; хвост с криптоподписью (91/92/93) — если сканер его отдал.
+const MARK_RE = /^01\d{14}21\S{1,20}/;
+function parseMarkCodes(raw) {
+  const list = (Array.isArray(raw) ? raw : String(raw || '').split(/\r?\n/)).map(s => String(s).replace(/^\s+|\s+$/g, '')).filter(Boolean);
+  const bad = list.find(c => !MARK_RE.test(c) || c.length > 200);
+  if (bad) throw new HttpError(400, 'validation', { field: 'mark_codes', code: bad.slice(0, 40) });
+  if (new Set(list).size !== list.length) throw new HttpError(400, 'validation', { field: 'mark_codes', reason: 'duplicate' });
+  return list;
+}
+const storedCodes = o => { try { const a = JSON.parse(o.mark_codes || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+
+async function setMarkCodes(id, raw) {
+  const o = await loadOrderWithProduct(id);
+  if (!o) throw new HttpError(404, 'no_order');
+  if (o.closing_receipt_at) throw new HttpError(409, 'closing_done');
+  const codes = parseMarkCodes(raw);
+  if (codes.length > o.qty) throw new HttpError(400, 'validation', { field: 'mark_codes', reason: 'too_many', need: o.qty });
+  await setField(id, 'mark_codes', JSON.stringify(codes));
+  return loadOrderWithProduct(id);
+}
+
+// Отправить закрывающий чек. Маркированный товар — по коду на каждую штуку (qty позиций по 1 шт). Доставка в первом чеке уже была полным расчётом.
+async function sendClosing(id) {
+  const o = await loadOrderWithProduct(id);
+  if (!o) throw new HttpError(404, 'no_order');
+  if (!needsClosing(o)) throw new HttpError(409, 'closing_not_needed');
+  if (o.closing_receipt_at) return o;
+  if (!['paid', 'packed', 'shipped', 'done'].includes(o.status) || !o.tb_payment_id) throw new HttpError(409, 'bad_transition', { from: o.status });
+  const marked = !!(o.product && o.product.marked), codes = storedCodes(o);
+  if (marked && codes.length !== o.qty) throw new HttpError(409, 'need_mark_codes', { need: o.qty, have: codes.length });
+  const name = `${o.product_title}${o.size && o.size !== '-' ? ' ' + o.size : ''}`;
+  const items = marked ? codes.map(c => ({ name, price_rub: o.price_item, qty: 1, object: 'commodity', method: 'full_payment', mark_code: c }))
+    : [{ name, price_rub: o.price_item, qty: o.qty, object: 'commodity', method: 'full_payment' }];
+  let res;
+  try { res = await ext.tbank.closingReceipt(o.tb_payment_id, o.customer_email, items); }
+  catch (e) { await setField(id, 'closing_error', e.message.slice(0, 500)); throw new HttpError(502, 'closing_failed', { message: e.message }); }
+  if (!res || res.Success !== true) {
+    const msg = JSON.stringify(res || {}).slice(0, 500);
+    await setField(id, 'closing_error', msg);
+    throw new HttpError(502, 'closing_failed', { tb: res });
+  }
+  await setField(id, 'closing_error', '');
+  await setField(id, 'closing_receipt_at', new Date().toISOString());
+  console.log('closing receipt', id, o.qty, marked ? 'marked' : '');
+  return loadOrderWithProduct(id);
+}
+
 async function transition(id, to, { note } = {}) {
+  // Передача в доставку = момент расчёта: закрывающий чек до смены статуса. Нет кодов маркировки — статус не меняется.
+  if (to === 'shipped') { const cur = await loadOrderWithProduct(id); if (cur && nextStatus(cur) === to && needsClosing(cur) && !cur.closing_receipt_at) await sendClosing(id); }
   const o = await db.tx(async run => {
     const [[o]] = await run(`DECLARE $id AS Utf8; SELECT status, product_id, size, qty, is_preorder, delivery_mode FROM orders WHERE id = $id;`, { $id: db.V.s(id) });
     if (!o || nextStatus(o) !== to) throw new HttpError(409, 'bad_transition', { from: o && o.status, to });
@@ -591,4 +644,4 @@ async function listOrders({ status } = {}) {
 }
 const getOrder = id => loadOrderWithProduct(id);
 
-module.exports = { bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { needsClosing, parseMarkCodes, setMarkCodes, sendClosing, bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
