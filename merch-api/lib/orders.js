@@ -606,6 +606,7 @@ async function transition(id, to, { note } = {}) {
   });
   if (note !== undefined && note !== null) await setField(id, 'admin_note', String(note).slice(0, 1000));
   const full = await loadOrderWithProduct(id);
+  if (to === 'shipped') await fillTrack(full);
   if (to === 'shipped') { try { await ext.mail.send({ to: full.customer_email, ...mail.tplCustomerShipped(full) }); } catch (e) { await setField(id, 'mail_error', 'shipped:' + e.message); } }
   return full;
 }
@@ -642,6 +643,13 @@ async function listOrders({ status } = {}) {
   const titles = Object.fromEntries(ps.map(p => [p.id, p.title]));
   return rows.sort((a, b) => b.created_at - a.created_at).map(o => ({ ...o, product_title: titles[o.product_id] || o.product_id, ...orderExtras(o) }));
 }
-const getOrder = id => loadOrderWithProduct(id);
+// Трек-ссылка Яндекса сразу после confirm часто пустая — дозапрашиваем, когда заказ открывают в админке и перед письмом «Отправлен».
+async function fillTrack(o) {
+  if (!o || !o.yd_request_id || o.yd_track_url) return o;
+  try { const i = await ext.yd.requestInfo(o.yd_request_id); if (i && i.sharing_url) { o.yd_track_url = String(i.sharing_url); await setField(o.id, 'yd_track_url', o.yd_track_url); } }
+  catch (e) { console.error('yd track', o.id, e.message); }
+  return o;
+}
+const getOrder = async id => fillTrack(await loadOrderWithProduct(id));
 
 module.exports = { needsClosing, parseMarkCodes, setMarkCodes, sendClosing, bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
