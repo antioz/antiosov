@@ -13,6 +13,8 @@
   const isDigital = o => !isDiploma(o) && (o.kind === 'digital' || o.delivery_mode === 'none');
   const isEvent = o => o.kind === 'event' || o.delivery_mode === 'event';
   const dlMark = o => isDigital(o) ? `<br><small class="meta">${o.downloaded_at ? 'скачан ' + dd(o.downloaded_at) : 'не скачан'}</small>` : '';
+  // price_diff:N — заявка создана, просто Яндекс посчитал доставку иначе, чем при оплате; это не ошибка
+  const ydNote = e => { if (!e) return ''; const m = /^price_diff:(-?\d+)$/.exec(e); return m ? `<br><small class="meta">Яндекс посчитал доставку на ${Math.abs(+m[1])} ₽ ${+m[1] > 0 ? 'дороже' : 'дешевле'}, чем заплатил покупатель</small>` : `<br><small style="color:#7a1c1c">${esc(e)}</small>`; };
   const item = o => `${esc(o.product_title)}${o.size && o.size !== '-' ? ' ' + esc(o.size) : ''} × ${o.qty}`;
   const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else { const x = e.data || {}; const m = { need_mark_codes: `Нужны коды маркировки: по одному на каждую штуку (нужно ${x.need}, вписано ${x.have}). Впиши их в поле «Коды «Честного знака»» ниже и сохрани.`, closing_failed: 'Т-Банк не принял закрывающий чек: ' + (x.tb ? (x.tb.Message || '') + ' ' + (x.tb.Details || '') + ' (код ' + (x.tb.ErrorCode || '?') + ')' : (x.message || '')) + '. Статус не изменён.', closing_done: 'Закрывающий чек уже пробит — коды не меняются.', validation: x.field === 'mark_codes' ? (x.reason === 'duplicate' ? 'Один код вписан дважды.' : x.reason === 'too_many' ? `Кодов больше, чем штук в заказе (${x.need}).` : 'Это не код «Честного знака»: он начинается с 01, затем 14 цифр, затем 21… ' + (x.code || '')) : 'Проверь поле ' + x.field }[x.error]; alert(m || 'Ошибка: ' + (x.error || e.message)); } };
 
@@ -47,11 +49,12 @@
       <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
         <option value="">все товары</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
       <table id="oTbl"></table>`;
+    // «все» — без неоплаченных (new — ждёт оплату, expired — не оплатили за 20 мин): их видно в своих фильтрах.
     // Фильтр по товару — по уже загруженным заказам, без повторного запроса (холодный старт функции — до 20 с).
     const drawOrders = () => {
       const t = app.querySelector('#oTbl');
       t.innerHTML = `<tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.filter(o => !OF || o.product_id === OF).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
+      ${orders.filter(o => (!OF || o.product_id === OF) && (status || !['new', 'expired'].includes(o.status))).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
       t.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id);
     };
     drawOrders();
@@ -81,7 +84,7 @@
       <b>Покупатель</b><span>${noShip ? '' : `${esc(o.customer_name)}<br><a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a> · `}<a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></span>
       ${o.inscription ? `<b>На форзаце</b><span>${esc(o.inscription).replace(/\n/g, '<br>')}</span>` : ''}
       ${noShip ? '' : `<b>Куда</b><span>${esc(o.pvz_address || o.address_text)}</span>
-      <b>Яндекс</b><span>${o.yd_request_id ? `заявка ${esc(o.yd_request_id)} ${o.yd_track_url ? `· <a href="${esc(o.yd_track_url)}" target="_blank">трек</a>` : ''}` : (o.delivery_mode === 'yandex' ? '<span class="badge">заявка не создана</span>' : 'вручную')}${o.yd_error ? `<br><small style="color:#7a1c1c">${esc(o.yd_error)}</small>` : ''}</span>`}
+      <b>Яндекс</b><span>${o.yd_request_id ? `заявка ${esc(o.yd_request_id)} ${o.yd_track_url ? `· <a href="${esc(o.yd_track_url)}" target="_blank">трек</a>` : ''}` : (o.delivery_mode === 'yandex' ? '<span class="badge">заявка не создана</span>' : 'вручную')}${ydNote(o.yd_error)}</span>`}
       <b>Платёж</b><span>${esc(o.tb_payment_id || '—')}${o.tb_refund_id ? ' · возврат ' + esc(o.tb_refund_id) : ''}${o.mail_error ? `<br><small style="color:#7a1c1c">почта: ${esc(o.mail_error)}</small>` : ''}</span></div>
       <div class="row-actions">${NEXT[o.status] && !noShip ? `<button class="btn" data-act="next">→ ${NEXT[o.status]}</button>` : ''}
         ${['new', 'paid', 'packed'].includes(o.status) ? `<button class="btn ghost" data-act="cancel">Отменить${o.status !== 'new' ? ' и вернуть деньги' : ''}</button>` : ''}

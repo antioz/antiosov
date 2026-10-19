@@ -7,29 +7,49 @@ const hdr = (buf, name) => { const m = String(buf || '').match(new RegExp(`^${na
 const strip = html => String(html || '').replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<br\s*\/?>|<\/p>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const textOf = p => (p.text || strip(p.html) || '').trim();
 
-async function connect({ user, pass }) {
+// Яндекс отдаёт «холодное» письмо ~0,6–1,5 с (первое обращение; потом минуты в кэше), FLAGS — мгновенно.
+// Поэтому: конверты и сниппеты кэшируем в экземпляре (письмо по uid неизменно при той же UIDVALIDITY),
+// недостающее тянем параллельно через PAR соединений — иначе 18 холодных писем ≈ 2×12 с и функция падает по таймауту 30 с.
+const PAR = 4;
+const cache = { validity: null, env: new Map(), snip: new Map() };
+const open = async ({ user, pass }) => {
   const c = new ImapFlow({ host: 'imap.yandex.ru', port: 993, secure: true, auth: { user, pass }, logger: false, socketTimeout: 15000 });
-  await c.connect();
-  await c.mailboxOpen('INBOX');
+  await c.connect(); const box = await c.mailboxOpen('INBOX');
+  const v = String(box.uidValidity); if (cache.validity !== v) { cache.validity = v; cache.env.clear(); cache.snip.clear(); }
+  return c;
+};
+// Разложить uids по соединениям: основное + до PAR-1 дополнительных (не больше, чем писем).
+async function spread(main, auth, uids, query, onMsg) {
+  if (!uids.length) return;
+  const n = Math.min(PAR, uids.length), extra = await Promise.all(Array.from({ length: n - 1 }, () => open(auth).catch(() => null)));
+  const conns = [main, ...extra.filter(Boolean)];
+  try {
+    await Promise.all(conns.map(async (cc, i) => { const part = uids.filter((_, j) => j % conns.length === i);
+      for await (const m of cc.fetch(part, query, { uid: true })) await onMsg(m); }));
+  } finally { await Promise.all(conns.slice(1).map(cc => cc.logout().catch(() => {}))); }
+}
+
+async function connect(auth) {
+  const c = await open(auth);
   return {
     // Конверты писем за days дней (+ In-Reply-To/References для отбора); сниппет — только для отобранных, вторым проходом через snippets().
     async recent(days) {
       const uids = await c.search({ since: new Date(Date.now() - days * 864e5) }, { uid: true });
       if (!uids || !uids.length) return [];
-      const out = [];
-      for await (const m of c.fetch(uids, { uid: true, envelope: true, flags: true, headers: ['in-reply-to', 'references'] }, { uid: true })) {
+      const seen = new Map();
+      for await (const m of c.fetch(uids, { uid: true, flags: true }, { uid: true })) seen.set(m.uid, m.flags && m.flags.has('\\Seen'));
+      await spread(c, auth, uids.filter(u => !cache.env.has(u)), { uid: true, envelope: true, headers: ['in-reply-to', 'references'] }, m => {
         const f = addr(m.envelope.from);
-        out.push({ uid: m.uid, date: m.envelope.date || new Date(0), from: String(f.address || '').toLowerCase(), from_name: f.name || '', subject: m.envelope.subject || '',
-          seen: m.flags && m.flags.has('\\Seen'), in_reply_to: hdr(m.headers, 'in-reply-to'), references: hdr(m.headers, 'references') });
-      }
-      return out;
+        cache.env.set(m.uid, { uid: m.uid, date: m.envelope.date || new Date(0), from: String(f.address || '').toLowerCase(), from_name: f.name || '', subject: m.envelope.subject || '',
+          in_reply_to: hdr(m.headers, 'in-reply-to'), references: hdr(m.headers, 'references') });
+      });
+      return uids.filter(u => cache.env.has(u)).map(u => ({ ...cache.env.get(u), seen: !!seen.get(u) }));
     },
     async snippets(uids) {
-      const res = {}; if (!uids.length) return res;
-      for await (const m of c.fetch(uids, { uid: true, source: { maxLength: 60000 } }, { uid: true })) {
-        try { res[m.uid] = textOf(await simpleParser(m.source)).replace(/\s+/g, ' ').slice(0, 160); } catch (_) { res[m.uid] = ''; }
-      }
-      return res;
+      await spread(c, auth, uids.filter(u => !cache.snip.has(u)), { uid: true, source: { maxLength: 60000 } }, async m => {
+        try { cache.snip.set(m.uid, textOf(await simpleParser(m.source)).replace(/\s+/g, ' ').slice(0, 160)); } catch (_) { cache.snip.set(m.uid, ''); }
+      });
+      return Object.fromEntries(uids.map(u => [u, cache.snip.get(u) || '']));
     },
     async fetch(uid) {
       const m = await c.fetchOne(String(uid), { uid: true, source: true, flags: true }, { uid: true });
