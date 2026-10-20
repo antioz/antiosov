@@ -54,8 +54,16 @@
     const drawOrders = () => {
       const t = app.querySelector('#oTbl');
       t.innerHTML = `<tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.filter(o => (!OF || o.product_id === OF) && (status || !['new', 'expired'].includes(o.status))).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td>${badge(o)}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
+      ${orders.filter(o => (!OF || o.product_id === OF) && (status || !['new', 'expired'].includes(o.status))).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td class="st">${badge(o)}${NEXT[o.status] && !(isDigital(o) || isEvent(o) || isDiploma(o)) ? ` <button class="btn ghost st-next" data-id="${o.id}">→ ${NEXT[o.status]}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
       t.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id);
+      // Смена статуса прямо из списка — тот же шаг вперёд, что и кнопка в карточке заказа (сервер другие переходы не принимает).
+      t.querySelectorAll('.st-next').forEach(b => b.onclick = async e => {
+        e.stopPropagation(); const o = orders.find(x => x.id === b.dataset.id); if (!o) return;
+        if (!confirm(`${o.id}: ${ST[o.status]} → ${NEXT[o.status].toLowerCase()}?${o.status === 'packed' ? '\nПокупателю уйдёт письмо об отправке.' : ''}`)) return;
+        b.disabled = true;
+        try { const r = await A('admin/order', { method: 'POST', body: { id: o.id, action: 'next' } }); o.status = (r.order && r.order.status) || o.status; drawOrders(); }
+        catch (err) { b.disabled = false; if ((err.data || {}).error === 'need_mark_codes') { alert('Нужны коды «Честного знака» — открываю заказ.'); location.hash = '#order/' + o.id; } else fail(err); }
+      });
     };
     drawOrders();
     app.querySelector('#oProd').onchange = e => { OF = e.target.value; drawOrders(); };
