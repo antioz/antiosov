@@ -9,7 +9,7 @@
   <meta property="og:url" content="https://antiosov.ru/merch/coutegier-femme/" />
   <meta property="og:title" content="Coutegière Femme" />
   <meta property="og:description" content="Футболка дамская, оверсайз, секс." />
-  <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/p/coutegier-femme/4033d909ecdb.jpg" />
+  <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/p/coutegier-femme/5e122f703dc7.jpg" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -65,8 +65,8 @@
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
 
   root.innerHTML = `${P.preorder_until ? '<div class="countdown" id="cd"></div>' : ''}<div class="product">
-    <div class="gallery" id="gal">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
-    ${P.image_urls.length > 1 ? `<div class="gdots" id="gdots">${P.image_urls.map((_, i) => `<button type="button" data-i="${i}" aria-label="фото ${i + 1}"></button>`).join('')}</div>` : ''}
+    <div><div class="gallery" id="gal">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    ${P.image_urls.length > 1 ? `<div class="gdots" id="gdots">${P.image_urls.map((_, i) => `<button type="button" data-i="${i}" aria-label="фото ${i + 1}"></button>`).join('')}</div>` : ''}</div>
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
