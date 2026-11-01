@@ -198,6 +198,7 @@
         try { points = (await api('pvz', { q: { geo_id: S.geo } })).points || []; } catch (e) { points = []; }
         $('#pvzBox').style.display = ''; $('#pvzq').value = '';
         const showPvz = () => { if (!points.length) { $('#pvz').innerHTML = '<label>В этом городе пунктов нет</label>'; return; } const q = $('#pvzq').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+          if (!words.length) { $('#pvz').innerHTML = '<label>Начните вводить улицу — покажу подходящие пункты</label>'; return; }
           const hits = points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
           $('#pvz').innerHTML = hits.length ? hits.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}" ${S.pvz && S.pvz.id === p.id ? 'checked' : ''}>${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>Ничего не нашлось — попробуйте другую улицу или выберите из списка без фильтра</label>';
           $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); paintPick(); renderSum(); }); };
