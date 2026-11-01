@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=6" />
+  <link rel="stylesheet" href="../merch.css?v=7" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -79,7 +79,7 @@
         ${ydMode === 'off'
           ? `<label class="field" data-f="address_text"><span>Адрес доставки</span><textarea name="address_text" placeholder="Город, улица, дом, квартира, индекс" required></textarea></label>`
           : `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
-             <div id="pvzBox" style="display:none"><label class="field" data-f="pvz_id"><span>Пункт выдачи</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
+             <div id="pvzBox" style="display:none"><div id="pvzPick" style="display:none"></div><label class="field" data-f="pvz_id"><span>Пункт выдачи</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
              <div class="pvz" id="pvz"></div></div>`}
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
@@ -167,9 +167,10 @@
         const showPvz = () => { if (!points.length) { $('#pvz').innerHTML = '<label>В этом городе пунктов нет</label>'; return; } const q = $('#pvzq').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
           const hits = points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
           $('#pvz').innerHTML = hits.length ? hits.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}" ${S.pvz && S.pvz.id === p.id ? 'checked' : ''}>${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>Ничего не нашлось — попробуйте другую улицу или выберите из списка без фильтра</label>';
-          $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); renderSum(); }); };
+          $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); paintPick(); renderSum(); }); };
+        const paintPick = () => { const el = $('#pvzPick'); if (!S.pvz) { el.style.display = 'none'; el.innerHTML = ''; return; } el.style.display = ''; el.innerHTML = `Выбран пункт: <b>${esc(S.pvz.address)}</b> <button type="button" id="pvzClear">сменить</button>`; $('#pvzClear').onclick = () => { S.pvz = null; paintPick(); showPvz(); renderSum(); }; };
         $('#pvzq').oninput = showPvz;
-        showPvz();
+        showPvz(); paintPick();
         renderSum(); });
     }, 500); };
     document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
