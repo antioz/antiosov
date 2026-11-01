@@ -19,7 +19,7 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const PHOTO_KEY_RE = /^p\/[a-z0-9][a-z0-9-]{1,40}\/[0-9a-f]+\.(jpg|png)$/;
 const fileKeyOk = (id, key) => key === '' || (key.startsWith(`d/${id}/`) && /^[0-9a-f]+\.zip$/.test(key.slice(id.length + 3)));
 const AGE_MARKS = ['0+', '6+', '12+', '16+', '18+'];
-const ORDER_STATUSES = ['new', 'paid', 'packed', 'shipped', 'done', 'cancelled', 'expired'];
+const ORDER_STATUSES = ['new', 'paid', 'packed', 'shipped', 'done', 'returned', 'cancelled', 'expired'];
 async function upsertProduct(b) {
   const id = String(b.id || ''); if (!SLUG_RE.test(id)) throw new HttpError(400, 'validation', { field: 'id' });
   const title = String(b.title || '').trim(); if (!title) throw new HttpError(400, 'validation', { field: 'title' });
@@ -82,10 +82,11 @@ async function route(a, method, body, q, auth) {
   switch (a) {
     case 'admin/summary': {
       await orders.maintenance();
+      const ydSync = await orders.syncYdStatuses(4); // «отправлен» → «выполнен/возврат» по статусу Яндекса
       const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
       const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
-        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats: await orders.productStats() });
+        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats: await orders.productStats(), yd_synced: ydSync.checked });
     }
     case 'admin/orders': {
       const st = q.status ? String(q.status) : undefined;

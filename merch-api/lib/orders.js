@@ -650,6 +650,26 @@ async function fillTrack(o) {
   catch (e) { console.error('yd track', o.id, e.message); }
   return o;
 }
+// Яндекс закрывает доставку сам: «отправлен» → «выполнен» по DELIVERED_FINISH, «возврат» по RETURNED*.
+// Опрашиваем несколько заявок за вызов (из admin/summary) — не гоняем холодный старт на каждый заказ.
+const YD_FINAL = { DELIVERED_FINISH: 'done', RETURNED: 'returned', RETURNED_FINISH: 'returned' };
+async function syncYdStatuses(limit = 4) {
+  if (ext.yd.mode() !== 'prod') return { checked: 0 };
+  const [rows] = await db.query(`DECLARE $st AS Utf8; SELECT id, yd_request_id, yd_track_url FROM orders VIEW by_status WHERE status = $st AND yd_request_id IS NOT NULL AND yd_request_id != '';`, { $st: db.V.s('shipped') });
+  const targets = (rows || []).slice(0, limit);
+  let checked = 0;
+  await Promise.all(targets.map(async o => {
+    try {
+      const i = await ext.yd.requestInfo(o.yd_request_id);
+      checked++;
+      const st = i && i.state && i.state.status;
+      if (i && i.sharing_url && !o.yd_track_url) await setField(o.id, 'yd_track_url', String(i.sharing_url));
+      const to = YD_FINAL[st];
+      if (to) await db.query(`DECLARE $id AS Utf8; DECLARE $to AS Utf8; UPDATE orders SET status = $to, updated_at = CurrentUtcTimestamp() WHERE id = $id AND status = 'shipped';`, { $id: db.V.s(o.id), $to: db.V.s(to) });
+    } catch (e) { console.error('yd sync', o.id, e.message); }
+  }));
+  return { checked };
+}
 const getOrder = async id => fillTrack(await loadOrderWithProduct(id));
 
-module.exports = { needsClosing, parseMarkCodes, setMarkCodes, sendClosing, bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, QTY_MAX };
+module.exports = { needsClosing, parseMarkCodes, setMarkCodes, sendClosing, bookOrders, backupOrder, backupBookOrders, productStats, downloadCount, bumpCounter, catalog, getProduct, createOrder, confirmPaid, gc, maintenance, purgePd, getStatus, getPayInfo, getPayUrl, download, freeDownload, orderPage, nextStatus, isDigital, isEvent, isDiploma, validDiplomaName, transition, cancel, retryYd, setNote, listOrders, getOrder, loadOrderWithProduct, syncYdStatuses, QTY_MAX };
