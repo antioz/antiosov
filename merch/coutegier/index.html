@@ -87,7 +87,7 @@
         ${ydMode === 'off'
           ? `<label class="field" data-f="address_text"><span>Адрес доставки</span><textarea name="address_text" placeholder="Город, улица, дом, квартира, индекс" required></textarea></label>`
           : `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
-             <div id="pvzBox" style="display:none"><div id="pvzPick" style="display:none"></div><label class="field" data-f="pvz_id"><span>Пункт выдачи</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
+             <div id="pvzBox" style="display:none"><div id="pvzPick" style="display:none"></div><label class="field" data-f="pvz_id"><span>Пункт выдачи</span><input id="pvzq" autocomplete="off" placeholder="улица — чтобы найти пункт в списке"></label>
              <div class="pvz" id="pvz"></div></div>`}
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
@@ -153,7 +153,7 @@
         S.quote = quote;
         $('#sDel').textContent = rub(S.quote.price_delivery) + (S.quote.days ? `, ~${S.quote.days} дн.` : ''); $('#sTotal').textContent = rub(S.quote.total);
       } catch (e) { if (seq !== sumSeq) return; S.quote = null; $('#sDel').textContent = 'не удалось посчитать'; $('#sTotal').textContent = '—'; }
-    } else { S.quote = null; $('#sDel').textContent = ydMode === 'off' ? '—' : 'выберите пункт выдачи'; $('#sTotal').textContent = rub(P.price * S.qty); }
+    } else { S.quote = null; $('#sDel').textContent = ydMode === 'off' ? '—' : (!v ? 'выберите размер' : 'выберите пункт выдачи'); $('#sTotal').textContent = rub(P.price * S.qty); }
     if (S.busy) return;
     $('#pay').disabled = !v || (!pre && v.available <= 0) || (ydMode !== 'off' && !S.pvz);
     $('#pay').textContent = S.quote ? `Оплатить ${rub(S.quote.total)}` : 'Оплатить';
@@ -176,7 +176,7 @@
           const hits = points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
           $('#pvz').innerHTML = hits.length ? hits.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}" ${S.pvz && S.pvz.id === p.id ? 'checked' : ''}>${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>Ничего не нашлось — попробуйте другую улицу или выберите из списка без фильтра</label>';
           $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); paintPick(); renderSum(); }); };
-        const paintPick = () => { const el = $('#pvzPick'); if (!S.pvz) { el.style.display = 'none'; el.innerHTML = ''; return; } el.style.display = ''; el.innerHTML = `Выбран пункт: <b>${esc(S.pvz.address)}</b> <button type="button" id="pvzClear">сменить</button>`; $('#pvzClear').onclick = () => { S.pvz = null; paintPick(); showPvz(); renderSum(); }; };
+        const paintPick = () => { const el = $('#pvzPick'); const listOn = !S.pvz; $('#pvzq').closest('label').style.display = listOn ? '' : 'none'; $('#pvz').style.display = listOn ? '' : 'none'; if (!S.pvz) { el.style.display = 'none'; el.innerHTML = ''; return; } el.style.display = ''; el.innerHTML = `Выбран пункт: <b>${esc(S.pvz.address)}</b> <button type="button" id="pvzClear">сменить</button>`; $('#pvzClear').onclick = () => { S.pvz = null; paintPick(); showPvz(); renderSum(); }; };
         $('#pvzq').oninput = showPvz;
         showPvz(); paintPick();
         renderSum(); });
