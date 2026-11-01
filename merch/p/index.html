@@ -57,7 +57,8 @@
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
 
   root.innerHTML = `${P.preorder_until ? '<div class="countdown" id="cd"></div>' : ''}<div class="product">
-    <div class="gallery">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div class="gallery" id="gal">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    ${P.image_urls.length > 1 ? `<div class="gdots" id="gdots">${P.image_urls.map((_, i) => `<button type="button" data-i="${i}" aria-label="фото ${i + 1}"></button>`).join('')}</div>` : ''}
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
@@ -99,6 +100,15 @@
     </div></div>`;
   const $ = s => root.querySelector(s);
   if ($('#chart')) { $('#chartOpen').onclick = () => $('#chart').showModal(); $('#chartClose').onclick = () => $('#chart').close(); $('#chart').onclick = e => { if (e.target === $('#chart')) $('#chart').close(); }; }
+  // Галерея: точки показывают активное фото и листают по клику.
+  if ($('#gdots') && $('#gal')) {
+    const gal = $('#gal'), dots = [...$('#gdots').children];
+    const active = () => Math.round(gal.scrollLeft / gal.clientWidth);
+    const paint = () => dots.forEach((d, i) => d.classList.toggle('on', i === active()));
+    gal.addEventListener('scroll', paint, { passive: true });
+    dots.forEach((d, i) => d.onclick = () => gal.scrollTo({ left: i * gal.clientWidth, behavior: 'smooth' }));
+    paint();
+  }
 
   const btn = (val, label, on, keys) => { const vs = keys.map(k => P.variants.find(x => x.size === k) || { available: 0 }); const avail = vs.some(v => v.available > 0);
     const pre = !avail && P.preorder_allowed; const out = !avail && !P.preorder_allowed;
