@@ -28,7 +28,14 @@ function call(path, body, timeoutMs = 8000) {
 async function cities(q) {
   if (mode() === 'off' || !q || q.length < 2) return [];
   const r = await call('location/detect', { location: q });
-  return (r.variants || []).slice(0, 8).map(v => ({ geo_id: v.geo_id, name: v.address }));
+  const variants = (r.variants || []).slice(0, 8);
+  // location/detect выдаёт и ерунду (fuzzy-match) — оставляем только города, где у Яндекса реально есть пункты.
+  // Если проверка упала (сеть/Яндекс) — город оставляем, лучше лишний вариант, чем потерянный.
+  const checked = await Promise.all(variants.map(async v => {
+    try { const p = await call('pickup-points/list', { geo_id: v.geo_id, type: 'pickup_point', payment_methods: ['already_paid'] }); return p.points && p.points.length ? v : null; }
+    catch (e) { return v; }
+  }));
+  return checked.filter(Boolean).map(v => ({ geo_id: v.geo_id, name: v.address }));
 }
 
 async function pvz(geo_id) {
