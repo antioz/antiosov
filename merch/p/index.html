@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
 
-  <link rel="stylesheet" href="../merch.css?v=7" />
+  <link rel="stylesheet" href="../merch.css?v=8" />
   <link rel="stylesheet" href="../../assets/reveal.css" />
 <script src="/assets/consent.js" defer></script>
 </head>
@@ -41,6 +41,39 @@
   const md = s => String(s || '').split(/\n{2,}/).map(p => /^>\s?/.test(p)
     ? '<blockquote>' + esc(p.replace(/^>\s?/gm, '')).replace(/\n/g, '<br>') + '</blockquote>'
     : '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  // Галерея карточки: лента со свайпом (scroll-snap), стрелки и счётчик, миниатюры под ней, по клику — фото на весь экран.
+  // Один в один карточка книги (products/products.js) — одно поведение на весь сайт.
+  const galleryHtml = (urls, title) => !urls.length ? '<div class="gallery"><img alt=""></div>' : `<div class="gal">
+  <div class="gallery fit" tabindex="0">${urls.map((u, i) => `<img src="${esc(u)}" alt="${esc(title)}, фото ${i + 1}" data-i="${i}"${i ? ' loading="lazy"' : ''}>`).join('')}</div>
+  ${urls.length > 1 ? `<button type="button" class="gnav prev" aria-label="предыдущее фото">‹</button><button type="button" class="gnav next" aria-label="следующее фото">›</button>
+  <div class="gcount"><span class="gi">1</span> / ${urls.length}</div>
+  <div class="thumbs">${urls.map((u, i) => `<button type="button" data-i="${i}" class="${i ? '' : 'on'}" aria-label="фото ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}</div>`;
+  const bindGallery = (elRoot, urls) => {
+    const g = elRoot.querySelector('.gallery.fit'); if (!g) return;
+    const n = urls.length, ims = [...g.querySelectorAll('img')], x = k => ims[k].offsetLeft - ims[0].offsetLeft;
+    const cur = () => ims.reduce((best, _, k) => Math.abs(x(k) - g.scrollLeft) < Math.abs(x(best) - g.scrollLeft) ? k : best, 0);
+    const go = i => g.scrollTo({ left: x(Math.max(0, Math.min(n - 1, i))), behavior: 'smooth' });
+    const mark = () => { const i = cur(); const gi = elRoot.querySelector('.gi'); if (gi) gi.textContent = i + 1;
+      elRoot.querySelectorAll('.thumbs button').forEach((b, k) => b.classList.toggle('on', k === i)); };
+    let t; g.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(mark, 60); }, { passive: true });
+    elRoot.querySelectorAll('.thumbs button').forEach(b => b.onclick = () => go(+b.dataset.i));
+    const pv = elRoot.querySelector('.gnav.prev'), nx = elRoot.querySelector('.gnav.next');
+    if (pv) pv.onclick = () => go(cur() - 1); if (nx) nx.onclick = () => go(cur() + 1);
+    g.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') go(cur() - 1); if (e.key === 'ArrowRight') go(cur() + 1); });
+    g.querySelectorAll('img').forEach(im => im.onclick = () => open(+im.dataset.i));
+    function open(i) {
+      const lb = document.createElement('div'); lb.className = 'lb';
+      lb.innerHTML = `<img alt=""><button type="button" class="x" aria-label="закрыть">×</button>${n > 1 ? '<button type="button" class="gnav prev" aria-label="предыдущее">‹</button><button type="button" class="gnav next" aria-label="следующее">›</button>' : ''}`;
+      const im = lb.querySelector('img'), show = k => { i = (k + n) % n; im.src = urls[i]; };
+      const close = () => { lb.remove(); document.removeEventListener('keydown', key); document.body.style.overflow = ''; go(i); };
+      const key = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowLeft') show(i - 1); if (e.key === 'ArrowRight') show(i + 1); };
+      lb.onclick = e => { if (e.target === lb || e.target.classList.contains('x')) close(); };
+      if (n > 1) { lb.querySelector('.prev').onclick = () => show(i - 1); lb.querySelector('.next').onclick = () => show(i + 1); }
+      let x0 = null; lb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
+      document.addEventListener('keydown', key); document.body.style.overflow = 'hidden'; show(i); document.body.appendChild(lb);
+    }
+  };
   // Цвет хранится в ключе варианта: «Каберне / S». Если так у всех вариантов — на карточке два ряда кнопок: цвет и размер.
   const SEP = ' / ';
   const twoAxes = () => P.sizes.length > 0 && P.sizes.every(s => s.includes(SEP));
@@ -57,8 +90,7 @@
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
 
   root.innerHTML = `${P.preorder_until ? '<div class="countdown" id="cd"></div>' : ''}<div class="product">
-    <div><div class="gallery" id="gal">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
-    ${P.image_urls.length > 1 ? `<div class="gdots" id="gdots">${P.image_urls.map((_, i) => `<button type="button" data-i="${i}" aria-label="фото ${i + 1}"></button>`).join('')}</div>` : ''}</div>
+    ${galleryHtml(P.image_urls, P.title)}
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
@@ -101,15 +133,8 @@
     </div></div>`;
   const $ = s => root.querySelector(s);
   if ($('#chart')) { $('#chartOpen').onclick = () => $('#chart').showModal(); $('#chartClose').onclick = () => $('#chart').close(); $('#chart').onclick = e => { if (e.target === $('#chart')) $('#chart').close(); }; }
-  // Галерея: точки показывают активное фото и листают по клику.
-  if ($('#gdots') && $('#gal')) {
-    const gal = $('#gal'), dots = [...$('#gdots').children];
-    const active = () => Math.round(gal.scrollLeft / gal.clientWidth);
-    const paint = () => dots.forEach((d, i) => d.classList.toggle('on', i === active()));
-    gal.addEventListener('scroll', paint, { passive: true });
-    dots.forEach((d, i) => d.onclick = () => gal.scrollTo({ left: i * gal.clientWidth, behavior: 'smooth' }));
-    paint();
-  }
+  // Галерея: лента со свайпом, стрелки, счётчик, миниатюры, полный экран по клику (как в карточке книги).
+  bindGallery(root, P.image_urls);
 
   const btn = (val, label, on, keys) => { const vs = keys.map(k => P.variants.find(x => x.size === k) || { available: 0 }); const avail = vs.some(v => v.available > 0);
     const pre = !avail && P.preorder_allowed; const out = !avail && !P.preorder_allowed;

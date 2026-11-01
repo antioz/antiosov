@@ -13,7 +13,16 @@ h2{margin:0 0 8px;font-family:var(--serif);font-style:italic;font-weight:400;fon
 .card .t{font-family:var(--serif);font-style:italic;font-size:26px;line-height:1.05} .card .p{margin-top:6px;font-size:13px;letter-spacing:.1em} .card.out{opacity:.45}
 .product{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:start} @media(max-width:760px){.product{grid-template-columns:1fr;gap:28px}}
 .gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;max-width:100%;scrollbar-width:none} .gallery::-webkit-scrollbar{display:none} .gallery img{flex:0 0 100%;width:100%;scroll-snap-align:start;aspect-ratio:4/5;object-fit:cover;background:#f4f4f4}
-.gdots{display:flex;gap:8px;justify-content:center;margin-top:12px} .gdots button{width:24px;height:3px;border:0;background:#ddd;padding:0;cursor:pointer;font-size:0} .gdots button.on{background:var(--ink)}
+.gal{position:relative}
+.gal .gnav{position:absolute;top:calc(50% - 46px);width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.88);color:var(--ink);font-size:28px;line-height:40px;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+.gal .gnav.prev{left:10px} .gal .gnav.next{right:10px}
+@media(hover:none){.gal .gnav{display:none}}
+.gcount{position:absolute;right:10px;top:10px;padding:2px 9px;background:rgba(255,255,255,.88);font-size:12px;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+.thumbs{display:flex;gap:8px;margin-top:10px;overflow-x:auto} .thumbs button{flex:0 0 64px;height:80px;padding:0;border:1px solid transparent;background:#f4f4f4;cursor:pointer;opacity:.55;transition:opacity .2s}
+.thumbs button.on{border-color:var(--ink);opacity:1} .thumbs button:hover{opacity:1} .thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.lb{position:fixed;inset:0;z-index:2147483000;background:rgba(10,10,10,.94);display:flex;align-items:center;justify-content:center}
+.lb img{max-width:96vw;max-height:92vh;object-fit:contain} .lb .x{position:absolute;top:10px;right:14px;width:44px;height:44px;border:0;background:none;color:#fff;font-size:36px;cursor:pointer}
+.lb .gnav{position:absolute;top:calc(50% - 22px);width:48px;height:48px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:30px;cursor:pointer} .lb .prev{left:12px} .lb .next{right:12px}
 .desc{font-size:15px;line-height:1.6;margin:16px 0 24px} .desc p{margin:0 0 10px}
 .desc blockquote{margin:14px 0 10px;padding-left:16px;border-left:1px solid var(--ink);font-size:13px;line-height:1.6;color:#555}
 .price{font-size:20px;letter-spacing:.06em;margin:4px 0 20px}
