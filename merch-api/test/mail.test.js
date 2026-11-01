@@ -49,11 +49,14 @@ test('цифровой заказ: «Доступ открыт» со ссылк
   assert.ok(!o.text.includes('доставка') && !o.html.includes(d.customer_email) && !o.text.includes(d.customer_email), o.text);
 });
 
-test('tplCustomerPaid: mail_note товара — первой строкой и вместо строки про срок отправки', () => {
+test('tplCustomerPaid: mail_note товара — первой строкой; трек-код обещаем вместо сроков', () => {
   const o = { ...order, product: { kind: 'physical', mail_note: 'Спасибо за заказ!' } };
   const m = mail.tplCustomerPaid(o);
   assert.ok(m.text.split('\n')[2] === 'Спасибо за заказ!', m.text);
   assert.ok(!/Отправлю в ближайшие дни|Срок доставки|Это предзаказ/.test(m.text), m.text);
+  assert.ok(m.text.includes('При отправке придёт письмо с трек-кодом.'), m.text);
   const plain = mail.tplCustomerPaid({ ...order, product: { kind: 'physical' } });
-  assert.ok(/Отправлю в ближайшие дни|Срок доставки|Это предзаказ/.test(plain.text), plain.text);
+  assert.ok(plain.text.includes('Привет! Спасибо за заказ.'), plain.text);
+  const pre = mail.tplCustomerPaid({ ...order, is_preorder: true, product: { kind: 'physical', preorder_until: '2026-11-07T12:28:00.000Z' } });
+  assert.ok(/Собираю заказы до 15:28 7 ноября/.test(pre.text), pre.text);
 });

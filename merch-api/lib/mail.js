@@ -44,11 +44,18 @@ function tplOwnerNewOrder(o) {
 }
 function tplCustomerPaid(o) {
   const note = String((o.product && o.product.mail_note) || '').trim();
+  // Дедлайн предзаказа (как в счётчике на карточке), в московском времени: «15:28 7 ноября».
+  const until = o.product && o.product.preorder_until;
+  let deadline = '';
+  if (until) { const ms = new Date(new Date(until).getTime() + 3 * 3600 * 1000);
+    const mon = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'][ms.getUTCMonth()];
+    deadline = `${String(ms.getUTCHours()).padStart(2, '0')}:${String(ms.getUTCMinutes()).padStart(2, '0')} ${ms.getUTCDate()} ${mon}`; }
   const m = wrap('Заказ принят', [
-    // Свой текст товара (админка: «Текст в письме после оплаты») — первой строкой и вместо строки про срок отправки.
+    // Свой текст товара (админка: «Текст в письме после оплаты») — первой строкой.
     ...(note ? [note] : []),
+    o.is_preorder && deadline ? `Привет! Спасибо за заказ. Собираю заказы до ${deadline} (время московское), после этого сразу в печать — и отправляю.` : 'Привет! Спасибо за заказ.',
     `Номер заказа: ${o.id}`, item(o), `Оплачено: ${rub(o.total)}`, where(o),
-    ...(note ? [] : [o.is_preorder ? (o.preorder_ship_by ? `Это предзаказ: отправлю до ${o.preorder_ship_by}.` : 'Это предзаказ: напишу, когда отправлю.') : (o.delivery_days ? `Срок доставки ~${o.delivery_days} дн. после отправки.` : 'Отправлю в ближайшие дни, напишу трек.')]),
+    'При отправке придёт письмо с трек-кодом.',
     ...(o.inscription ? [`Надпись на форзаце — ваше пожелание: «${esc(o.inscription)}»`] : []),
     ...(o.product && o.product.kind === 'book' && o.delivery_mode !== 'yandex' ? ['Книга приедет в пункт выдачи Яндекс Доставки рядом с вашим адресом. Доставку оплачиваете при получении, по тарифу Яндекса.'] : []),
     'Вопросы — просто ответьте на это письмо.',
