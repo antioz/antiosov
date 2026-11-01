@@ -3,7 +3,7 @@
   const tokKey = 'merchAdminToken';
   let token = null; try { token = localStorage.getItem(tokKey); } catch (e) {}
   const A = (a, o = {}) => api(a, { ...o, token });
-  const ST = { new: 'новый', paid: 'оплачен', packed: 'собран', shipped: 'отправлен', done: 'выполнен', cancelled: 'отменён', expired: 'просрочен' };
+  const ST = { new: 'новый', paid: 'оплачен', packed: 'собран', shipped: 'отправлен', done: 'выполнен', returned: 'возврат', cancelled: 'отменён', expired: 'просрочен' };
   const NEXT = { paid: 'Собран', packed: 'Отправлен', shipped: 'Выполнен' };
   const d = s => new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const badge = o => `<span class="badge ${o.status}">${ST[o.status] || o.status}</span>${o.is_preorder ? ' <span class="badge pre">предзаказ</span>' : ''}`;
@@ -42,19 +42,20 @@
     const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
     const [{ orders }, s, { products: prods }, { orders: bookOrders }] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
     const bookShip = {}; (bookOrders || []).filter(o => ['paid', 'packed'].includes(o.status)).forEach(o => { bookShip[o.product_id] = (bookShip[o.product_id] || 0) + (o.qty || 1); });
-    const filters = ['', 'paid', 'packed', 'shipped', 'done', 'new', 'cancelled', 'expired'];
+    const filters = ['', 'paid', 'packed', 'shipped', 'done', 'returned', 'new', 'cancelled', 'expired'];
     app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span>${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
       ${statsTable(s.stats || {}, prods, bookShip)}
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
       <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
-        <option value="">все товары</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
+        <option value="">все товары</option><option value="__merch" ${OF === '__merch' ? 'selected' : ''}>Мерч (все вещи)</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
       <table id="oTbl"></table>`;
+    const kindOf = id => { const p = (prods || []).find(x => x.id === id); return p ? p.kind : ''; };
     // «все» — без неоплаченных (new — ждёт оплату, expired — не оплатили за 20 мин): их видно в своих фильтрах.
     // Фильтр по товару — по уже загруженным заказам, без повторного запроса (холодный старт функции — до 20 с).
     const drawOrders = () => {
       const t = app.querySelector('#oTbl');
       t.innerHTML = `<tr><th>№</th><th>Дата</th><th>Что</th><th>Кто</th><th>Сумма</th><th>Статус</th></tr>
-      ${orders.filter(o => (!OF || o.product_id === OF) && (status || !['new', 'expired'].includes(o.status))).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td class="st">${badge(o)}${NEXT[o.status] && !(isDigital(o) || isEvent(o) || isDiploma(o)) ? ` <button class="btn ghost st-next" data-id="${o.id}">→ ${NEXT[o.status]}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
+      ${orders.filter(o => (OF === '__merch' ? kindOf(o.product_id) === 'physical' : !OF || o.product_id === OF) && (status || !['new', 'expired'].includes(o.status))).map(o => `<tr class="row" data-id="${o.id}"><td>${o.id}</td><td>${d(o.created_at)}</td><td>${item(o)}${dlMark(o)}</td><td>${esc(o.customer_name || (isDigital(o) || isEvent(o) || isDiploma(o) ? o.customer_email : ''))}</td><td>${rub(o.total)}</td><td class="st">${badge(o)}${NEXT[o.status] && !(isDigital(o) || isEvent(o) || isDiploma(o)) ? ` <button class="btn ghost st-next" data-id="${o.id}">→ ${NEXT[o.status]}</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="meta">пусто</td></tr>'}`;
       t.querySelectorAll('tr.row').forEach(r => r.onclick = () => location.hash = '#order/' + r.dataset.id);
       // Смена статуса прямо из списка — тот же шаг вперёд, что и кнопка в карточке заказа (сервер другие переходы не принимает).
       t.querySelectorAll('.st-next').forEach(b => b.onclick = async e => {
