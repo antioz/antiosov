@@ -1,0 +1,15 @@
+{
+  "id": "coutegier-femme",
+  "title": "Coutégier Femme",
+  "description_md": "",
+  "price": 3553,
+  "weight_g": 220,
+  "dims_cm": { "x": 30, "y": 25, "z": 3 },
+  "sizes": ["XS", "S", "M"],
+  "preorder_allowed": true,
+  "active": true,
+  "sort": 1,
+  "kind": "physical",
+  "marked": false,
+  "variants": [{ "size": "XS", "stock": 0 }, { "size": "S", "stock": 0 }, { "size": "M", "stock": 0 }]
+}
