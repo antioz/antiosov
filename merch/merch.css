@@ -12,7 +12,8 @@ h2{margin:0 0 8px;font-family:var(--serif);font-style:italic;font-weight:400;fon
 .card .ph{aspect-ratio:4/5;background:#f4f4f4;overflow:hidden;margin-bottom:14px} .card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease} .card:hover img{transform:scale(1.02)}
 .card .t{font-family:var(--serif);font-style:italic;font-size:26px;line-height:1.05} .card .p{margin-top:6px;font-size:13px;letter-spacing:.1em} .card.out{opacity:.45}
 .product{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:start} @media(max-width:760px){.product{grid-template-columns:1fr;gap:28px}}
-.gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;max-width:100%} .gallery img{flex:0 0 100%;width:100%;scroll-snap-align:start;aspect-ratio:4/5;object-fit:cover;background:#f4f4f4}
+.gallery{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;max-width:100%;scrollbar-width:none} .gallery::-webkit-scrollbar{display:none} .gallery img{flex:0 0 100%;width:100%;scroll-snap-align:start;aspect-ratio:4/5;object-fit:cover;background:#f4f4f4}
+.gdots{display:flex;gap:8px;justify-content:center;margin-top:12px} .gdots button{width:24px;height:3px;border:0;background:#ddd;padding:0;cursor:pointer;font-size:0} .gdots button.on{background:var(--ink)}
 .desc{font-size:15px;line-height:1.6;margin:16px 0 24px} .desc p{margin:0 0 10px}
 .desc blockquote{margin:14px 0 10px;padding-left:16px;border-left:1px solid var(--ink);font-size:13px;line-height:1.6;color:#555}
 .price{font-size:20px;letter-spacing:.06em;margin:4px 0 20px}

@@ -12,7 +12,7 @@ const FN = 'https://functions.yandexcloud.net/d4eh4qtc4a7fria6mgmt';
   const { product: p } = await g.json();
   const description_md = fs.readFileSync(path.join(__dirname, 'description.md'), 'utf8');
   const body = {
-    id: p.id, title: 'Coutegière°', description_md, price: p.price,
+    id: p.id, title: 'Coutegière Femme', description_md, price: p.price,
     images: p.images, weight_g: p.weight_g, dims_cm: p.dims_cm, sizes: p.sizes,
     preorder_allowed: p.preorder_allowed, active: p.active, sort: p.sort, kind: p.kind,
     variants: p.variants.map(v => ({ size: v.size, stock: v.stock })),

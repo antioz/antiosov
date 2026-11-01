@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Coutégier Femme — Дмитрий Антиосов</title>
-  <meta name="description" content="" />
+  <title>Coutegière Femme — Дмитрий Антиосов</title>
+  <meta name="description" content="Футболка дамская, оверсайз, секс." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://antiosov.ru/merch/coutegier-femme/" />
-  <meta property="og:title" content="Coutégier Femme" />
-  <meta property="og:description" content="" />
+  <meta property="og:title" content="Coutegière Femme" />
+  <meta property="og:description" content="Футболка дамская, оверсайз, секс." />
   <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/p/coutegier-femme/4033d909ecdb.jpg" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
@@ -53,21 +53,28 @@
   const SEP = ' / ';
   const twoAxes = () => P.sizes.length > 0 && P.sizes.every(s => s.includes(SEP));
   const axis = i => [...new Set(P.sizes.map(s => s.split(SEP)[i]))];
-  // Размерная сетка одежды: показываем, если размеры — буквенные (S, M, L…).
-  const SIZE_CHART = [['Размер', 'S', 'M', 'L'], ['RU', '46', '48', '50'], ['Обхват груди, см', '90–94', '94–98', '98–102'], ['Обхват бёдер, см', '98–102', '102–106', '106–110'], ['Обхват талии, см', '70–74', '74–78', '78–82']];
+  // Размерная сетка одежды: показываем, если размеры — буквенные (S, M, L…). Сетка своя у капсулы
+  // coutegier-femme (Ticle, женская); у остальных товаров — дефолтная мужская/унисекс.
+  const SIZE_CHARTS = {
+    'coutegier-femme': { XS: { RU: '38–42', chest: '74–86', waist: '54–66', hips: '82–94' }, S: { RU: '40–44', chest: '78–90', waist: '58–70', hips: '86–102' }, M: { RU: '46–50', chest: '90–102', waist: '70–82', hips: '98–110' } },
+    default: { S: { RU: '46', chest: '90–94', waist: '70–74', hips: '98–102' }, M: { RU: '48', chest: '94–98', waist: '74–78', hips: '102–106' }, L: { RU: '50', chest: '98–102', waist: '78–82', hips: '106–110' } }
+  };
   const hasChart = () => P.sizes.length > 0 && P.sizes.every(s => /^(XXS|XS|S|M|L|XL|XXL|XXXL)$/.test(twoAxes() ? s.split(SEP)[1] : s));
   const variant = () => P.variants.find(v => v.size === (P.sizes.length ? S.size : '-'));
   const isPre = () => { const v = variant(); return !!v && v.available <= 0 && P.preorder_allowed; };
   const maxQty = () => { const v = variant(); return !v ? 0 : (isPre() ? QTY_MAX : Math.min(QTY_MAX, v.available)); };
 
   root.innerHTML = `${P.preorder_until ? '<div class="countdown" id="cd"></div>' : ''}<div class="product">
-    <div class="gallery">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div class="gallery" id="gal">${P.image_urls.map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    ${P.image_urls.length > 1 ? `<div class="gdots" id="gdots">${P.image_urls.map((_, i) => `<button type="button" data-i="${i}" aria-label="фото ${i + 1}"></button>`).join('')}</div>` : ''}
     <div>
       <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
       <div class="desc">${md(P.description_md)}</div>
       ${hasChart() ? `<button type="button" class="chart-link" id="chartOpen">Размерная сетка</button>
       <dialog class="chart" id="chart"><div class="chart-h"><h3>Размерная сетка</h3><button type="button" id="chartClose" aria-label="закрыть">×</button></div>
-        <table>${SIZE_CHART.map(([k, ...v], i) => `<tr><th>${k}</th>${v.map(x => i ? `<td>${x}</td>` : `<td><b>${x}</b></td>`).join('')}</tr>`).join('')}</table><p class="chart-note">Плотность изделия 200 г/м².</p></dialog>` : ''}
+        <table>${(() => { const ch = SIZE_CHARTS[P.id] || SIZE_CHARTS.default; const cols = P.sizes.map(s => twoAxes() ? s.split(SEP)[1] : s).filter(s => ch[s]);
+         const row = (k, f) => `<tr><th>${k}</th>${cols.map(s => `<td>${f(ch[s])}</td>`).join('')}</tr>`;
+         return row('Размер', s => `<b>${s}</b>`) + row('RU', s => s.RU) + row('Обхват груди, см', s => s.chest) + row('Обхват бёдер, см', s => s.hips) + row('Обхват талии, см', s => s.waist); })()}</table><p class="chart-note">Плотность изделия 200 г/м².</p></dialog>` : ''}
       <div id="buy">
       ${twoAxes() ? `<div class="meta">Цвет</div><div class="sizes" id="colors"></div>` : ''}
       ${P.sizes.length ? `<div class="meta">Размер</div><div class="sizes" id="sizes"></div>` : ''}
@@ -101,6 +108,15 @@
     </div></div>`;
   const $ = s => root.querySelector(s);
   if ($('#chart')) { $('#chartOpen').onclick = () => $('#chart').showModal(); $('#chartClose').onclick = () => $('#chart').close(); $('#chart').onclick = e => { if (e.target === $('#chart')) $('#chart').close(); }; }
+  // Галерея: точки показывают активное фото и листают по клику.
+  if ($('#gdots') && $('#gal')) {
+    const gal = $('#gal'), dots = [...$('#gdots').children];
+    const active = () => Math.round(gal.scrollLeft / gal.clientWidth);
+    const paint = () => dots.forEach((d, i) => d.classList.toggle('on', i === active()));
+    gal.addEventListener('scroll', paint, { passive: true });
+    dots.forEach((d, i) => d.onclick = () => gal.scrollTo({ left: i * gal.clientWidth, behavior: 'smooth' }));
+    paint();
+  }
 
   const btn = (val, label, on, keys) => { const vs = keys.map(k => P.variants.find(x => x.size === k) || { available: 0 }); const avail = vs.some(v => v.available > 0);
     const pre = !avail && P.preorder_allowed; const out = !avail && !P.preorder_allowed;
