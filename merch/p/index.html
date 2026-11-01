@@ -79,7 +79,8 @@
         ${ydMode === 'off'
           ? `<label class="field" data-f="address_text"><span>Адрес доставки</span><textarea name="address_text" placeholder="Город, улица, дом, квартира, индекс" required></textarea></label>`
           : `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить"><ul id="cities" style="display:none"></ul></label>
-             <div class="meta" id="pvzTitle" style="display:none">Пункт выдачи</div><div class="pvz" id="pvz" style="display:none"></div>`}
+             <div id="pvzBox" style="display:none"><label class="field" data-f="pvz_id"><span>Пункт выдачи</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
+             <div class="pvz" id="pvz"></div></div>`}
         <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
         <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
         <label class="check" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>
@@ -162,9 +163,13 @@
       list.querySelectorAll('li').forEach(li => li.onclick = async () => { cityIn.value = li.textContent; list.style.display = 'none'; S.geo = li.dataset.g; S.pvz = null;
         let points = [];
         try { points = (await api('pvz', { q: { geo_id: S.geo } })).points || []; } catch (e) { points = []; }
-        $('#pvzTitle').style.display = ''; $('#pvz').style.display = '';
-        $('#pvz').innerHTML = points.length ? points.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}">${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>В этом городе пунктов нет</label>';
-        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); renderSum(); });
+        $('#pvzBox').style.display = ''; $('#pvzq').value = '';
+        const showPvz = () => { if (!points.length) { $('#pvz').innerHTML = '<label>В этом городе пунктов нет</label>'; return; } const q = $('#pvzq').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+          const hits = points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
+          $('#pvz').innerHTML = hits.length ? hits.map(p => `<label><input type="radio" name="pvz" value="${esc(p.id)}" ${S.pvz && S.pvz.id === p.id ? 'checked' : ''}>${esc(p.address)}<br><small>${esc(p.schedule)}</small></label>`).join('') : '<label>Ничего не нашлось — попробуйте другую улицу или выберите из списка без фильтра</label>';
+          $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { S.pvz = points.find(p => p.id === r.value); renderSum(); }); };
+        $('#pvzq').oninput = showPvz;
+        showPvz();
         renderSum(); });
     }, 500); };
     document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
