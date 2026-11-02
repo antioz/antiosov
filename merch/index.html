@@ -58,7 +58,7 @@
           }).join('');
         } catch (e) {
           if (attempt === 0) return load(1);
-          empty.innerHTML = 'магазин временно недоступен — <a href="#" onclick="location.reload();return false">обновить</a>';
+          empty.innerHTML = 'магазин временно недоступен — <a href="#" onclick="location.reload();return false">обновить</a><br><span class="meta">если не открывается, выключите впн — иногда он мешает</span>';
           empty.style.display = '';
         }
         showAll();
