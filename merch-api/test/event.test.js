@@ -60,7 +60,7 @@ test('order: валидация, sales_closed, sold_out', async () => {
   } finally { await seat(E, 60); }
 });
 
-test('order → резерв, чек service, без ПД; оплата → места списаны, писем покупателю нет; билет в status; отмена → места вернулись', async () => {
+test('order → резерв, чек service, без ПД; оплата → места списаны, покупателю письмо с билетом (PDF); билет в status; отмена → места вернулись', async () => {
   calls.init.length = 0; calls.mail.length = 0;
   const { id, k, paymentUrl } = await mkOrder({ name: 'Иван', phone: '+79990000000' });
   assert.ok(paymentUrl);
@@ -80,7 +80,10 @@ test('order → резерв, чек service, без ПД; оплата → ме
   await pay(id, 600);
   o = await row(id); assert.equal(o.status, 'paid');
   v = await variant(E); assert.deepEqual([v.stock, v.reserved], [58, 0]);
-  assert.ok(!calls.mail.some(m => m.to === 'guest@example.com'), 'покупателю писем нет');
+  const buyer = calls.mail.find(m => m.to === 'guest@example.com');
+  assert.ok(buyer && /Билет — заказ /.test(buyer.subject), 'покупателю письмо с билетом');
+  const att = buyer && (buyer.attachments || [])[0];
+  assert.ok(att && att.filename === `bilet-${id}.pdf` && att.contentType === 'application/pdf' && att.content.slice(0, 5).toString() === '%PDF-', 'PDF-билет во вложении');
   const owner = calls.mail.find(m => m.to === process.env.OWNER_EMAIL);
   assert.ok(owner && !owner.text.includes('guest@example.com'), 'письмо владельцу без ПД');
   s = body(await handler(ev('status', { q: { id, k } })));

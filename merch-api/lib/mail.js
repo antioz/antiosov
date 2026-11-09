@@ -7,8 +7,8 @@ function getTransport() {
   return transport;
 }
 // keepRaw: вернуть собранное письмо (Buffer) — для копии в «Отправленные» ящика при ответе клиенту из админки.
-async function send({ to, subject, text, html, headers, keepRaw }) {
-  const msg = { from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, ...(html ? { html } : {}), ...(headers ? { headers } : {}),
+async function send({ to, subject, text, html, headers, attachments, keepRaw }) {
+  const msg = { from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, ...(html ? { html } : {}), ...(headers ? { headers } : {}), ...(attachments ? { attachments } : {}),
     messageId: `<${require('crypto').randomUUID()}@antiosov.ru>`, date: new Date() };
   await getTransport().sendMail(msg);
   if (keepRaw) return new MailComposer(msg).compile().build();
@@ -35,7 +35,7 @@ function tplOwnerNewOrder(o) {
   const site = ENV.SITE || 'https://antiosov.ru';
   const m = wrap(`Заказ ${o.id}`, [
     item(o), digital(o) ? `Сумма: ${rub(o.total)}` : `Сумма: ${rub(o.total)} (товар ${rub(o.price_item * o.qty)} + доставка ${rub(o.price_delivery)})`,
-    o.delivery_mode === 'event' ? 'Билеты: покупатель скачивает билет на странице заказа' : o.delivery_mode === 'diploma' ? 'Практикум: покупатель получает диплом на странице заказа' : digital(o) ? 'Цифровой товар: покупателю ушла ссылка на скачивание' : (o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии'),
+    o.delivery_mode === 'event' ? 'Билеты: покупателю ушло письмо с билетом (PDF), билет есть и на странице заказа' : o.delivery_mode === 'diploma' ? 'Практикум: покупатель получает диплом на странице заказа' : digital(o) ? 'Цифровой товар: покупателю ушла ссылка на скачивание' : (o.is_preorder ? 'ПРЕДЗАКАЗ' : 'В наличии'),
     // Без персональных данных покупателя: письмо может уходить на зарубежную почту (152-ФЗ, трансграничная передача).
     // Имя, телефон, адрес — только в админке (Yandex Cloud, РФ).
     link(`${site}/merch/admin/#order/${o.id}`, 'Покупатель и адрес — в админке'),
@@ -86,4 +86,15 @@ function tplOwnerLatePayment(o, paymentId) {
   const m = wrap(`Поздняя оплата ${o.id}`, [`Заказ был в статусе ${o.status}, платёж ${paymentId} подтверждён после срока.`, 'Сделан автоматический возврат через Т-Банк. Проверь в кабинете.', 'Данные покупателя — в админке (без ПД в письме).']);
   return { subject: `Поздняя оплата ${o.id} — возврат`, ...m };
 }
-module.exports = { send, tplOwnerNewOrder, tplCustomerPaid, tplCustomerAccess, tplCustomerShipped, tplCustomerCancelled, tplOwnerLatePayment };
+// Билет на мероприятие: PDF прикладывается к письму (формируется в lib/ticket.js), в тексте — ссылка на страницу заказа.
+function tplCustomerTicket(o) {
+  const site = ENV.SITE || 'https://antiosov.ru';
+  const m = wrap('Билет', [
+    `Номер заказа: ${o.id}`, `${o.product_title} — ${o.qty} × ${rub(o.price_item)}`, `Оплачено: ${rub(o.total)}`,
+    'Электронный билет во вложении (PDF) — покажите его на входе с экрана телефона.',
+    link(`${site}/products/order/?id=${encodeURIComponent(o.id)}&k=${encodeURIComponent(o.k)}`, 'Билет всегда доступен на странице заказа'),
+    'Вопросы — просто ответьте на это письмо.',
+  ]);
+  return { subject: `Билет — заказ ${o.id}`, ...m };
+}
+module.exports = { send, tplOwnerNewOrder, tplCustomerPaid, tplCustomerAccess, tplCustomerShipped, tplCustomerCancelled, tplOwnerLatePayment, tplCustomerTicket };

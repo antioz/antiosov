@@ -103,6 +103,12 @@ async function route(a, method, body, q, auth) {
         case 'cancel': return json(200, { order: await orders.cancel(id) });
         case 'retry_yd': return json(200, { order: await orders.retryYd(id) });
         case 'note': return json(200, { order: await orders.setNote(id, body.note) });
+        // Живая проверка письма с билетом: собирает PDF по заказу и шлёт на OWNER_EMAIL (не покупателю).
+        case 'ticket_test': { const o = await orders.getOrder(id); if (!o) throw new HttpError(404, 'no_order');
+          const t = { number: o.id, product: o.product_id, title: o.product_title, event_at: o.product ? o.product.event_at : '', venue: o.product ? o.product.venue : '', age_mark: o.product ? o.product.age_mark : '', qty: o.qty, price_item: o.price_item, total: o.total };
+          const pdf = await require('./ticket').build(t);
+          await require('./ext').mail.send({ to: process.env.OWNER_EMAIL, subject: `[ТЕСТ] Билет — заказ ${o.id}`, ...require('./mail').tplCustomerTicket(o), attachments: [{ filename: `bilet-${o.id}.pdf`, content: pdf, contentType: 'application/pdf' }] });
+          return json(200, { ok: true }); }
         default: throw new HttpError(400, 'bad_action');
       }
     }
