@@ -1,6 +1,6 @@
 // Домен заказов. Все изменения состояния — условные UPDATE (WHERE status = $from) в serializable-транзакциях (db.tx).
 // Побочные эффекты (письма, Т-Банк, Яндекс Доставка) — только после коммита транзакции и только в той ветке, которая перевела статус.
-const db = require('./ydb'); const ext = require('./ext'); const mail = require('./mail'); const s3 = require('./s3');
+const db = require('./ydb'); const ext = require('./ext'); const mail = require('./mail'); const s3 = require('./s3'); const ticket = require('./ticket');
 const { HttpError, envInt, randomKey, validPhone, validEmail, validName } = require('./util');
 const ENV = process.env;
 const QTY_MAX = 5;
@@ -426,7 +426,13 @@ async function afterPaid(id) {
   const o = await loadOrderWithProduct(id);
   const errs = [];
   try { await ext.mail.send({ to: ENV.OWNER_EMAIL, ...mail.tplOwnerNewOrder(o) }); } catch (e) { errs.push('owner:' + e.message); }
-  if (!isEvent(o) && !isDiploma(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
+  // Ивент: письмо покупателю с билетом PDF во вложении (рисуем на сервере, дублирует билет на странице заказа).
+  if (isEvent(o)) try {
+    const t = { number: o.id, product: o.product_id, title: o.product_title, event_at: o.product ? o.product.event_at : '', venue: o.product ? o.product.venue : '', age_mark: o.product ? o.product.age_mark : '', qty: o.qty, price_item: o.price_item, total: o.total };
+    const pdf = await ticket.build(t);
+    await ext.mail.send({ to: o.customer_email, attachments: [{ filename: `bilet-${o.id}.pdf`, content: pdf, contentType: 'application/pdf' }], ...mail.tplCustomerTicket(o) });
+  } catch (e) { errs.push('customer:' + e.message); }
+  else if (!isDiploma(o)) try { await ext.mail.send({ to: o.customer_email, ...(isDigital(o) ? mail.tplCustomerAccess(o) : mail.tplCustomerPaid(o)) }); } catch (e) { errs.push('customer:' + e.message); }
   if (errs.length) await setField(id, 'mail_error', errs.join(' | ').slice(0, 500));
   if (o.delivery_mode === 'yandex' && !o.is_preorder) await createYd(o); // предзаказ: вещи ещё нет — заявка кнопкой в админке, когда готова
   if (o.product && o.product.kind === 'book') await backupOrder(o);

@@ -12,6 +12,8 @@
     "imapflow": "1.0.172",
     "mailparser": "3.6.9",
     "nodemailer": "^6.9.0",
+    "pdfkit": "^0.15.2",
+    "qrcode": "^1.5.4",
     "ydb-sdk": "^5.11.1"
   }
 }

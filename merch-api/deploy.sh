@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 YC=~/yandex-cloud/bin/yc
 rm -f merch-api.zip
-zip -qr merch-api.zip index.js package.json package-lock.json ru-ca.pem lib schema.yql
+zip -qr merch-api.zip index.js package.json package-lock.json ru-ca.pem lib fonts schema.yql
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" =~ ^[A-Z][A-Z0-9_]*= ]] && [[ "$line" == *,* || "$line" == *'"'* ]]; then
     echo 'env value contains , or " — not supported by yc --environment' >&2
