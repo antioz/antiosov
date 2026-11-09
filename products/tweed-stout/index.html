@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Стихи &amp; Басни — Дмитрий Антиосов</title>
+  <meta name="description" content="" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://antiosov.ru/products/tweed-stout/" />
+  <meta property="og:title" content="Стихи &amp; Басни" />
+  <meta property="og:description" content="" />
+  <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/https://storage.yandexcloud.net/antiosov-merch/p/tweed-stout/b8a4c1aa93da.jpg" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta property="og:site_name" content="Антиосов" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="robots" content="noindex" />
+
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Cormorant+Garamond:ital,wght@1,300;1,400&display=swap">
+
+  <link rel="stylesheet" href="../../merch/merch.css?v=8" />
+  <link rel="stylesheet" href="../products.css?v=20261003a" />
+  <link rel="stylesheet" href="../../assets/reveal.css" />
+<script src="/assets/consent.js" defer></script>
+</head>
+<body>
+<main>
+  <p class="name r in"><a href="/">Дмитрий Антиосов</a></p>
+  <div id="root"><p class="meta" style="text-align:center">загружаю…</p></div>
+  <footer><a href="/products/">← все продукты</a></footer>
+</main>
+<script src="../../merch/api.js"></script>
+<script src="../products.js?v=20261109a"></script>
+<script>
+(async () => {
+  const root = document.getElementById('root');
+  const plural = (n, one, few, many) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; };
+  const slug = new URLSearchParams(location.search).get('s') || ((location.pathname.match(/^\/products\/([a-z0-9][a-z0-9-]*)\/(?:index\.html)?$/) || [])[1]) || ''; // короткий адрес /products/<slug>/
+  // Открыли по старому адресу ?s= — показать в адресной строке короткий, если такая страница есть (её собирает products/build-pages.py).
+  if (slug && location.pathname.startsWith('/products/p/')) fetch(`/products/${encodeURIComponent(slug)}/`, { method: 'HEAD' }).then(r => { if (r.ok) { const q = new URLSearchParams(location.search); q.delete('s'); history.replaceState(null, '', `/products/${encodeURIComponent(slug)}/${q.toString() ? '?' + q : ''}${location.hash}`); } }).catch(() => {});
+  const nope = () => { root.innerHTML = '<p class="center">Нет такого продукта. <a href="/products/">Все продукты</a></p>'; };
+  // Нет ответа от магазина (чаще всего VPN режет запрос к functions.yandexcloud.net) — не путать с «нет продукта».
+  const offline = () => { root.innerHTML = '<p class="center">Выключите VPN и <a href="">обновите страницу</a>.</p>'; };
+  // Секретная ссылка на спеццену билетов: ?p=<код>. Код проверяет сервер; неверный — обычная карточка.
+  const promo = new URLSearchParams(location.search).get('p') || '';
+  const pq = () => promo ? { s: slug, p: promo } : { s: slug };
+  let P, skew = 0;
+  try { const r = await api('product', { q: pq() }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
+  if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
+  document.title = P.title + ' — Продукты — Дмитрий Антиосов';
+  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  if (P.kind === 'event') return eventPage();
+  if (P.kind === 'diploma') return diplomaPage();
+  if (P.kind === 'book') return bookPage();
+
+  // Книга: предзаказ. Яндекс включён (yd_mode test/prod) — покупатель выбирает ПВЗ, доставка считается Яндексом и оплачивается вместе с книгой.
+  // Яндекс выключен — доставку не берём, ПВЗ подбирается перед отправкой по адресу. Пожелание для надписи на форзаце.
+  function bookPage() {
+    const YD = P.yd_mode && P.yd_mode !== 'off';
+    const B = { busy: false, qty: 1, geo: null, pvz: null, quote: null, points: [] };
+    const v = (P.variants || []).find(x => x.size === '-'), inStock = !!v && v.available > 0, canPre = !inStock && P.preorder_allowed;
+    const open = inStock || canPre;
+    const total = () => P.price * B.qty + (YD ? (B.quote ? B.quote.price_delivery : 0) : 0);
+    const label = () => !open ? 'Предзаказ закрыт' : `${inStock ? 'Оплатить' : 'Оформить предзаказ'} · ${rub(total())}`;
+    const fld = (n, t, attrs = '', opt = false) => `<label class="field" data-f="${n}"><span>${t}${opt ? ' <i class="optional">— можно пропустить</i>' : ''}</span><input name="${n}" ${attrs}></label>`;
+    root.innerHTML = `<div class="product">
+    ${galleryHtml(P.image_urls || [], P.title)}
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      ${canPre ? `<p class="pretag meta">предзаказ${P.preorder_ship_by ? ' · отправка до ' + esc(P.preorder_ship_by) : ''}</p>` : ''}
+      <div class="desc">${md(P.description_md)}</div>
+      <form id="f" novalidate>
+        <label class="field" data-f="qty"><span>Сколько экземпляров</span><select name="qty" id="qty">${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}</option>`).join('')}</select></label>
+        <div class="wish"><p>Скажите, что написать на форзаце. Если не скажете, то напишу что в голову придет. А кто знает, какое у меня будет на тот момент настроение, вдруг грустное, а вам потом жить с этим (изданием книги)</p>
+          <label class="field" data-f="inscription"><span>Что написать на форзаце</span><textarea name="inscription" maxlength="500" placeholder="Например: Маше — с любовью. Если книг несколько, напишите для каждой"></textarea></label></div>
+        <div class="meta" style="margin:6px 0 10px">Кому отправить</div>
+        <div class="row2">${fld('last_name', 'Фамилия', 'autocomplete="family-name" required')}${fld('first_name', 'Имя', 'autocomplete="given-name" required')}</div>
+        ${fld('middle_name', 'Отчество', 'autocomplete="additional-name"', true)}
+        <div class="row2">${fld('phone', 'Телефон', 'type="tel" autocomplete="tel" required')}${fld('email', 'E-mail', 'type="email" autocomplete="email" required')}</div>
+        <div class="meta" style="margin:6px 0 10px">Где забрать</div>
+        ${YD ? `<label class="field suggest" data-f="city"><span>Город</span><input name="city" autocomplete="off" placeholder="начните вводить и выберите из списка"><ul id="cities" style="display:none"></ul></label>
+          <p class="hint" id="cityHint">Выберите город из подсказки — ниже появится список пунктов выдачи Яндекса.</p>
+          <div id="pvzBox" style="display:none"><label class="field" data-f="pvz_id"><span>Пункт выдачи Яндекса</span><input id="pvzq" autocomplete="off" placeholder="улица или метро — чтобы найти пункт в списке"></label>
+          <div class="pvz" id="pvz"></div></div>`
+        : `<p class="notice" style="margin:0 0 14px">Книга приедет в пункт выдачи Яндекс Доставки рядом с этим адресом — пункт подберу перед отправкой. Доставку оплачиваете при получении, по тарифу Яндекса.</p>
+        ${fld('city', 'Город или населённый пункт', 'autocomplete="address-level2" required')}
+        ${fld('street', 'Улица', 'autocomplete="address-line1" required')}
+        <div class="row2">${fld('house', 'Дом', 'required')}${fld('zip', 'Индекс', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', true)}</div>`}
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <label class="check" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>
+        <div class="sum"><span>Книга</span><span id="sItem"></span></div>
+        <div class="sum"><span>Доставка</span><span id="sDel">${YD ? 'выберите город и пункт выдачи' : 'при получении'}</span></div>
+        <div class="sum total"><span>${YD ? 'Итого' : 'Итого сейчас'}</span><span id="sTotal"></span></div>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:16px">${label()}</button>
+        <p class="fine">${canPre ? `Это предзаказ: оплата сейчас, отправка${P.preorder_ship_by ? ' до ' + esc(P.preorder_ship_by) : ' — как только книга выйдет'}. ` : ''}Чек придёт на e-mail. Условия возврата — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    bindGallery(root, P.image_urls || []);
+    let seq = 0;
+    const sum = async () => {
+      $('#sItem').textContent = rub(P.price * B.qty);
+      if (YD && B.pvz) { const my = ++seq; $('#sDel').textContent = 'считаю…'; B.quote = null;
+        try { const q = await api('quote', { method: 'POST', body: { product_id: P.id, qty: B.qty, pvz_id: B.pvz.id } }); if (my !== seq) return; B.quote = q;
+          $('#sDel').textContent = rub(q.price_delivery) + (q.days ? `, ~${q.days} дн. после отправки` : ''); }
+        catch (e) { if (my !== seq) return; $('#sDel').textContent = 'не удалось посчитать — выберите другой пункт'; } }
+      else if (YD) $('#sDel').textContent = B.geo ? 'выберите пункт выдачи' : 'выберите город и пункт выдачи';
+      $('#sTotal').textContent = rub(total());
+      if (!B.busy) { $('#pay').textContent = label(); $('#pay').disabled = !open; }
+    };
+    $('#qty').onchange = e => { B.qty = +e.target.value; sum(); }; sum();
+    if (YD) {
+      const cityIn = root.querySelector('[name=city]'), list = $('#cities'); let t;
+      const showPvz = () => { const q = $('#pvzq').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+        const hits = B.points.filter(x => words.every(w => x.address.toLowerCase().includes(w))).slice(0, 60);
+        $('#pvz').innerHTML = hits.length ? hits.map(x => `<label><input type="radio" name="pvzr" value="${esc(x.id)}" ${B.pvz && B.pvz.id === x.id ? 'checked' : ''}>${esc(x.address)}</label>`).join('')
+          + (B.points.length > hits.length ? `<label class="meta" style="cursor:default">показаны ${hits.length} из ${B.points.length} — уточните улицу</label>` : '') : '<label>Ничего не нашлось</label>';
+        $('#pvz').querySelectorAll('input').forEach(r => r.onchange = () => { B.pvz = B.points.find(x => x.id === r.value); root.querySelector('[data-f="pvz_id"]').classList.remove('err'); $('#err').style.display = 'none'; sum(); }); };
+      $('#pvzq').oninput = showPvz;
+      // Город выбирается из подсказки; если набранное совпало с подсказкой — выбираем сами, без клика.
+      let cs = [];
+      const norm = x => String(x || '').trim().toLowerCase().replace(/ё/g, 'е');
+      const pickCity = async c => {
+        cityIn.value = c.name; list.style.display = 'none'; B.geo = String(c.geo_id); B.pvz = null; B.quote = null; B.points = []; sum();
+        $('#cityHint').style.display = 'none'; root.querySelector('[data-f="city"]').classList.remove('err'); $('#err').style.display = 'none';
+        $('#pvzBox').style.display = ''; $('#pvz').innerHTML = '<label>загружаю пункты…</label>'; $('#pvzq').value = '';
+        const my = B.geo; let pts = [];
+        try { pts = (await api('pvz', { q: { geo_id: c.geo_id } })).points || []; } catch (e) {}
+        if (my !== B.geo) return;
+        B.points = pts;
+        if (pts.length) showPvz(); else $('#pvz').innerHTML = '<label>В этом городе не нашлось пунктов выдачи Яндекса — выберите ближайший город покрупнее</label>'; };
+      const exact = () => cs.find(c => norm(c.name) === norm(cityIn.value));
+      cityIn.oninput = () => {
+        if (B.geo) { B.geo = null; B.pvz = null; B.quote = null; B.points = []; $('#pvzBox').style.display = 'none'; $('#cityHint').style.display = ''; sum(); }
+        clearTimeout(t); t = setTimeout(async () => {
+        const q = cityIn.value.trim(); if (q.length < 2) { list.style.display = 'none'; return; }
+        let r = []; try { r = (await api('cities', { q: { q } })).cities || []; } catch (e) {}
+        if (q !== cityIn.value.trim() || B.geo) return; cs = r;
+        const ex = exact(); if (ex) return pickCity(ex);
+        list.innerHTML = cs.map((c, i) => `<li data-i="${i}">${esc(c.name)}</li>`).join(''); list.style.display = cs.length ? '' : 'none';
+        list.querySelectorAll('li').forEach(li => li.onclick = () => pickCity(cs[+li.dataset.i]));
+      }, 400); };
+      cityIn.onblur = () => setTimeout(() => { if (!B.geo && cs.length === 1 && norm(cs[0].name).startsWith(norm(cityIn.value)) && cityIn.value.trim()) pickCity(cs[0]); }, 250);
+      document.addEventListener('click', e => { if (!list.contains(e.target) && e.target !== cityIn) list.style.display = 'none'; });
+    }
+    const FIELD_RU = { last_name: 'фамилия', first_name: 'имя', phone: 'телефон', email: 'e-mail', city: 'город', street: 'улица', house: 'дом', zip: 'индекс (6 цифр)', pvz_id: 'пункт выдачи', qty: 'количество', consent: 'согласие', offer: 'оферта' };
+    const showErr = (m, f) => { $('#err').textContent = m; $('#err').style.display = ''; if (f) { const el = root.querySelector(`[data-f="${f}"]`); if (el) { el.classList.add('err'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } } };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (B.busy || !open) return;
+      const f = new FormData(e.target), g = k => String(f.get(k) || '').trim();
+      root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, qty: B.qty, last_name: g('last_name'), first_name: g('first_name'), middle_name: g('middle_name'), phone: g('phone'), email: g('email'),
+        city: g('city'), street: g('street'), house: g('house'), zip: g('zip'), pvz_id: B.pvz ? B.pvz.id : '', pvz_address: B.pvz ? B.pvz.address : '', inscription: g('inscription'),
+        offer: f.get('offer') === 'on', consent: f.get('consent') === 'on', news: f.get('news') === 'on' };
+      for (const k of ['last_name', 'first_name', 'phone', 'email', 'city', ...(YD ? [] : ['street', 'house'])]) if (!body[k]) return showErr('Заполните поле: ' + FIELD_RU[k] + '.', k);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return showErr('Проверьте e-mail — на него придёт чек.', 'email');
+      if (YD && !B.geo) return showErr('Выберите город из выпадающего списка под полем «Город» — после этого появятся пункты выдачи.', 'city');
+      if (YD && !B.pvz) return showErr('Отметьте пункт выдачи в списке (можно найти по улице или метро).', 'pvz_id');
+      if (YD && !B.quote) return showErr('Стоимость доставки ещё считается или не посчиталась — подождите секунду или выберите другой пункт.', 'pvz_id');
+      if (body.zip && !/^\d{6}$/.test(body.zip)) return showErr('Индекс — 6 цифр (или оставьте пустым).', 'zip');
+      if (!body.offer) return showErr('Нужно принять условия оферты.', 'offer');
+      if (!body.consent) return showErr('Нужно согласие на обработку данных.', 'consent');
+      B.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        B.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
+        const field = err.data && err.data.field;
+        const m = { sold_out: 'Предзаказ только что закрылся — все экземпляры разобраны.', validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.', no_product: 'Этого продукта больше нет.', bad_json: 'Магазин временно недоступен, попробуйте через минуту.' }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        showErr(m, field);
+      }
+    };
+    showAll();
+  }
+
+  // Мероприятие: билеты 1…min(qty_max, left), только e-mail для чека. Остаток и «продажа открыта» решает сервер.
+  function eventPage() {
+    const E = { busy: false, qty: 1 };
+    // По коду: цена уже подменена сервером, P.promo.left — сколько билетов по коду ещё есть; места вечера общие.
+    const promoOut = () => !!P.promo && P.promo.left <= 0, open = () => P.sales_open && !promoOut();
+    const left = () => Math.max(0, P.left | 0), max = () => Math.max(1, Math.min(P.qty_max || 5, left(), P.promo ? P.promo.left : Infinity));
+    const label = () => !P.sales_open ? (left() ? 'Продажа закрыта' : 'Мест нет') : promoOut() ? 'Билеты по этой цене закончились' : `Купить ${E.qty} ${plural(E.qty, 'билет', 'билета', 'билетов')} за ${rub(P.price * E.qty)}`;
+    root.innerHTML = `<div class="product">
+    <div class="gallery full">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2>
+      <p class="ev"><b>когда</b>${esc(evWhen(P.event_at, true))}</p>
+      ${P.venue ? `<p class="ev"><b>где</b>${esc(P.venue)}</p>` : ''}
+      ${P.age_mark ? `<p class="ev"><span class="age">${esc(P.age_mark)}</span></p>` : ''}
+      <div class="price" style="margin-top:16px">${rub(P.price)} ${P.promo ? `<s class="meta">${rub(P.promo.regular_price)}</s> ` : ''}<span class="meta">за билет</span></div>
+      <p class="meta" id="promoOut" style="display:none">Билеты по этой цене закончились. <a href="/products/${esc(P.id)}/">Купить по обычной цене</a></p>
+      <div class="desc">${md(P.description_md)}</div>
+      <div class="seatsbox" id="left"><span class="n" id="leftn"></span><span class="meta" id="leftw"></span></div>
+      <form id="f" novalidate>
+        <label class="field" data-f="qty"><span>Сколько билетов</span><select name="qty" id="qty"></select></label>
+        <label class="field" data-f="email"><span>E-mail для чека</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <label class="check" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px"></button>
+        <p class="fine">Вернуть билет: за 10 дней и раньше — 100%, за 5–9 дней — 50%, за 3–4 дня — 30%, позже — нет. Если вечер отменится — 100%. Пишите на <a href="mailto:dimaantiosov@yandex.ru">dimaantiosov@yandex.ru</a> с номером заказа.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    const paint = () => { E.qty = Math.min(E.qty, max());
+      const sl = shownLeft(P); $('#leftn').textContent = sl || '0'; $('#leftw').textContent = !sl ? 'мест нет' : plural(sl, 'место осталось', 'места осталось', 'мест осталось');
+      $('#qty').innerHTML = Array.from({ length: max() }, (_, i) => `<option value="${i + 1}"${i + 1 === E.qty ? ' selected' : ''}>${i + 1}</option>`).join(''); $('#qty').disabled = !open();
+      $('#pay').textContent = label(); $('#pay').disabled = !open() || E.busy; $('#promoOut').style.display = promoOut() ? '' : 'none'; };
+    $('#qty').onchange = e => { E.qty = +e.target.value || 1; paint(); };
+    paint();
+    // Счётчик остатка живой: раз в 30 с перечитываем товар, пока вкладка на виду.
+    setInterval(async () => { if (document.hidden || E.busy) return; await reload(); paint(); }, 30000);
+    const FIELD_RU = { email: 'e-mail', qty: 'количество билетов', consent: 'согласие', offer: 'оферта', product_id: 'мероприятие' };
+    const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+    const reload = async () => { try { const r = await api('product', { q: pq() }); if (r.product) P = r.product; } catch (e) {} };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (E.busy || !open()) return;
+      const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, email: String(f.get('email') || '').trim(), qty: E.qty, offer: f.get('offer') === 'on', consent: f.get('consent') === 'on', news: f.get('news') === 'on', ...(P.promo ? { promo } : {}) };
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт чек.'); $('[data-f="email"]').classList.add('err'); return; }
+      if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+      if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+      E.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        const field = err.data && err.data.field;
+        if (['sold_out', 'sales_closed', 'promo_sold_out'].includes(err.message)) await reload();
+        if (err.message === 'sales_closed') P.sales_open = false;
+        E.busy = false; paint();
+        const m = {
+          sold_out: left() ? `Столько мест уже нет — осталось ${shownLeft(P)}.` : 'Места закончились.',
+          sales_closed: 'Продажа закрыта.',
+          promo_sold_out: P.promo && P.promo.left > 0 ? `По этой цене осталось ${P.promo.left} ${plural(P.promo.left, 'билет', 'билета', 'билетов')}.` : 'Билеты по этой цене закончились.',
+          validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+          no_product: 'Этого мероприятия больше нет.',
+          bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+        }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+        showErr(m);
+      }
+    };
+    showAll();
+  }
+  // Практикум (диплом): имя для диплома + e-mail для чека. Диплом рисуется на странице заказа после оплаты.
+  function diplomaPage() {
+    const D = { busy: false }, label = () => 'Пройти практикум за ' + rub(P.price);
+    root.innerHTML = `<div class="product">
+    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2><div class="price">${rub(P.price)}</div>
+      <div class="desc">${md(P.description_md)}</div>
+      <form id="f" novalidate>
+        <label class="field" data-f="name"><span>Имя</span><input name="name" type="text" autocomplete="name" maxlength="60" required></label>
+        <label class="field" data-f="email"><span>E-mail — только для чека</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <label class="check" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px">${label()}</button>
+        <p class="fine">Практикум засчитывается в момент оплаты: диплом появится на странице заказа сразу после неё. Подробно — в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
+      </form>
+    </div></div>`;
+    const $ = s => root.querySelector(s);
+    const FIELD_RU = { name: 'имя', email: 'e-mail', consent: 'согласие', offer: 'оферта', product_id: 'товар' };
+    const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+    $('#f').onsubmit = async e => {
+      e.preventDefault(); if (D.busy) return;
+      const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+      const body = { product_id: P.id, name: String(f.get('name') || '').replace(/\s+/g, ' ').trim(), email: String(f.get('email') || '').trim(), offer: f.get('offer') === 'on', consent: f.get('consent') === 'on', news: f.get('news') === 'on' };
+      if (!body.name) { showErr('Впишите имя — оно будет в дипломе.'); $('[data-f="name"]').classList.add('err'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт чек.'); $('[data-f="email"]').classList.add('err'); return; }
+      if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+      if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+      D.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+      try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+      catch (err) {
+        D.busy = false; $('#pay').disabled = false; $('#pay').textContent = label();
+        const field = err.data && err.data.field;
+        const m = {
+          validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+          payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+          no_product: 'Этого практикума больше нет.',
+          bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+        }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+        if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+        showErr(m);
+      }
+    };
+    showAll();
+  }
+  const S = { busy: false, soon: !P.has_file };
+  const label = () => S.soon ? 'Скоро' : 'Купить за ' + rub(P.price);
+
+  root.innerHTML = `<div class="product">
+    <div class="gallery">${(P.image_urls || []).map(u => `<img src="${esc(u)}" alt="${esc(P.title)}">`).join('') || '<img alt="">'}</div>
+    <div>
+      <h2>${esc(P.title)}</h2>${P.free_active ? '' : `<div class="price">${rub(P.price)}</div>`}${P.downloads ? `<div class="dls">${P.downloads.toLocaleString('ru-RU')} ${plural(P.downloads, 'скачивание', 'скачивания', 'скачиваний')}</div>` : ''}
+      <div class="desc">${md(P.description_md)}</div>
+      ${P.free_active ? `<div class="free"><span class="meta">бесплатно ещё</span><div class="timer" id="timer">${countdown(P.free_until, skew).text}</div>
+        <a class="btn" href="${MERCH_API}?a=free&s=${encodeURIComponent(P.id)}">Скачать бесплатно</a></div>` : ''}
+      ${HOWTO}
+      <form id="f" novalidate${P.free_active ? ' hidden' : ''}>
+        <label class="field" data-f="email"><span>E-mail — пришлю туда ссылку на скачивание</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="check" data-f="offer"><input type="checkbox" name="offer" required> <span>Принимаю условия <a href="/offer/" target="_blank">оферты</a></span></label>
+        <label class="check" data-f="consent"><input type="checkbox" name="consent" required> <span>Даю <a href="/consent/" target="_blank">согласие на обработку персональных данных</a></span></label>
+        <label class="check" data-f="news"><input type="checkbox" name="news"> <span>я не против, если Антиосов будет мне иногда присылать письма. А Антиосов точно не будет присылать письма часто, делать ему нечего письма строчить, он же не CRM-маркетолог какой. <a href="/consent/rassylka/" target="_blank">(документик)</a></span></label>
+        <div id="err" class="notice err" style="display:none"></div>
+        <button class="btn" id="pay" type="submit" style="margin-top:8px">${label()}</button>
+        ${S.soon ? '<p class="meta soon" id="soon">архив ещё не готов — скоро</p>' : ''}
+        <p class="fine">Это цифровой товар: после оплаты архив можно скачивать сколько угодно раз. Вернуть деньги можно, пока архив ни разу не скачан — подробно в <a href="/offer/" target="_blank">оферте</a>. <a href="/merch/privacy/" target="_blank">Политика обработки персональных данных</a>.</p>
+      </form>
+    </div></div>`;
+  const $ = s => root.querySelector(s);
+  $('#pay').disabled = S.soon;
+
+  const FIELD_RU = { email: 'e-mail', consent: 'согласие', offer: 'оферта', product_id: 'товар' };
+  const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
+  $('#f').onsubmit = async e => {
+    e.preventDefault(); if (S.busy || S.soon) return;
+    const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
+    const body = { product_id: P.id, email: String(f.get('email') || '').trim(), offer: f.get('offer') === 'on', consent: f.get('consent') === 'on', news: f.get('news') === 'on' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { showErr('Проверьте e-mail — на него придёт ссылка.'); $('[data-f="email"]').classList.add('err'); return; }
+    if (!body.offer) { showErr('Нужно принять условия оферты.'); $('[data-f="offer"]').classList.add('err'); return; }
+    if (!body.consent) { showErr('Нужно согласие на обработку данных.'); $('[data-f="consent"]').classList.add('err'); return; }
+    S.busy = true; $('#pay').disabled = true; $('#pay').textContent = 'Секунду…';
+    try { const r = await api('order', { method: 'POST', body }); location.href = r.paymentUrl; }
+    catch (err) {
+      S.busy = false;
+      const field = err.data && err.data.field;
+      if (err.message === 'no_file') { S.soon = true; if (!$('#soon')) $('#pay').insertAdjacentHTML('afterend', '<p class="meta soon" id="soon">архив ещё не готов — скоро</p>'); }
+      $('#pay').disabled = S.soon; $('#pay').textContent = label();
+      const m = {
+        no_file: 'Товар временно недоступен — архив ещё не загружен. Загляните чуть позже.',
+        validation: 'Проверьте поле: ' + (FIELD_RU[field] || 'данные формы') + '.',
+        payment_init: 'Платёжная система не отвечает, попробуйте через минуту.',
+        no_product: 'Этого продукта больше нет.',
+        bad_json: 'Магазин временно недоступен, попробуйте через минуту.'
+      }[err.message] || 'Что-то пошло не так, попробуйте ещё раз.';
+      if (field) { const fl = root.querySelector(`.field[data-f="${field}"], .check[data-f="${field}"]`); if (fl) fl.classList.add('err'); }
+      showErr(m);
+    }
+  };
+  // Таймер тикает раз в секунду; на нуле карточка перерисовывается уже без бесплатной кнопки (сервер к этому моменту отдаёт только платную).
+  if (P.free_active) { const t = setInterval(() => { const c = countdown(P.free_until, skew); const el = document.getElementById('timer'); if (el) el.textContent = c.text; if (c.ms <= 0) { clearInterval(t); location.reload(); } }, 1000); }
+  if (new URLSearchParams(location.search).get('free') === 'promo_over') showErr('Бесплатный период закончился — осталась платная версия.');
+  showAll();
+})();
+</script>
+<script src="../../assets/reveal.js"></script>
+</body>
+</html>

@@ -19,8 +19,8 @@ window.SEATS_CAP = { otdokhni: 41 };
 window.shownLeft = p => { const l = Math.max(0, p.left | 0), c = SEATS_CAP[p.id]; return c ? Math.min(l, c) : l; };
 window.seats = n => `${n} ${plural(n, 'место', 'места', 'мест')}`;
 
-// QR на билете ведёт на спрятанную страницу-открытку (одна на всех, noindex, ссылок на неё нет).
-window.TICKET_QR_URL = 'https://antiosov.ru/products/obnimemsya-6be75605/';
+// QR на билете ведёт на страницу вечера (одна ссылка на всех билетах текущего ивента).
+window.TICKET_QR_URL = 'https://antiosov.ru/products/tweed-stout/';
 
 // Электронный билет (реквизиты по приказу Минкультуры № 702) — рисуется в браузере, на сервере не хранится; PDF — ticketPdf ниже.
 window.drawTicket = async t => {
