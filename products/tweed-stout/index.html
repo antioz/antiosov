@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Стихи &amp; Басни — Дмитрий Антиосов</title>
-  <meta name="description" content="" />
+  <meta name="description" content="Ноябрь." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://antiosov.ru/products/tweed-stout/" />
   <meta property="og:title" content="Стихи &amp; Басни" />
-  <meta property="og:description" content="" />
-  <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/https://storage.yandexcloud.net/antiosov-merch/p/tweed-stout/b8a4c1aa93da.jpg" />
+  <meta property="og:description" content="Ноябрь." />
+  <meta property="og:image" content="https://storage.yandexcloud.net/antiosov-merch/p/tweed-stout/b8a4c1aa93da.jpg" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -52,7 +52,7 @@
   try { const r = await api('product', { q: pq() }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
   if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
-  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>') + '</p>').join('');
   if (P.kind === 'event') return eventPage();
   if (P.kind === 'diploma') return diplomaPage();
   if (P.kind === 'book') return bookPage();
