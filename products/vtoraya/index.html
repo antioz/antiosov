@@ -52,7 +52,7 @@
   try { const r = await api('product', { q: pq() }); P = r.product; P.yd_mode = r.yd_mode; skew = r.now ? Date.parse(r.now) - Date.now() : 0; } catch (e) { e.code === 404 ? nope() : offline(); return; }
   if (!['digital', 'event', 'diploma', 'book'].includes(P.kind)) { location.replace('/merch/p/?s=' + encodeURIComponent(P.id)); return; }
   document.title = P.title + ' — Продукты — Дмитрий Антиосов';
-  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+  const md = s => esc(s).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>') + '</p>').join('');
   if (P.kind === 'event') return eventPage();
   if (P.kind === 'diploma') return diplomaPage();
   if (P.kind === 'book') return bookPage();
