@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Как и зачем читать, или коллаб Антиосов х Адлер — Дмитрий Антиосов</title>
-  <meta name="description" content="Заметки из канала «Онтологические записки» за 16 ноября 2026: три вида чтения по Адлеру, артефакты вместо пересказа и MVP, который платит детям за чтение." />
+  <title>Антиосов х Адлер — Дмитрий Антиосов</title>
+  <meta name="description" content="Заметки с размышлениями на фоне «Как читать книги», ставшие манифестом образовательного продукта для детей." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://antiosov.ru/nonfiction/cheetaht/" />
 
   <meta property="og:type" content="article" />
   <meta property="og:url" content="https://antiosov.ru/nonfiction/cheetaht/" />
-  <meta property="og:title" content="Как и зачем читать, или коллаб Антиосов х Адлер" />
-  <meta property="og:description" content="От размышления до продукта. Заметки из канала @ontiosov, 16.11.2026." />
+  <meta property="og:title" content="Антиосов х Адлер" />
+  <meta property="og:description" content="Заметки с размышлениями на фоне «Как читать книги», ставшие манифестом образовательного продукта для детей." />
   <meta property="og:image" content="https://antiosov.ru/nonfiction/cheetaht/img/og-cheetaht.png" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Антиосов" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Как и зачем читать, или коллаб Антиосов х Адлер" />
-  <meta name="twitter:description" content="От размышления до продукта. Заметки из канала @ontiosov, 16.11.2026." />
+  <meta name="twitter:title" content="Антиосов х Адлер" />
+  <meta name="twitter:description" content="Заметки с размышлениями на фоне «Как читать книги», ставшие манифестом образовательного продукта для детей." />
   <meta name="twitter:image" content="https://antiosov.ru/nonfiction/cheetaht/img/og-cheetaht.png" />
 
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml" />
@@ -48,22 +48,34 @@
       font-size: clamp(28px, 4.2vw, 52px); line-height: 1.1; letter-spacing: -0.01em;
     }
     header.hero .sub {
-      font-family: 'Inter', system-ui, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
+      font-family: 'Inter', system-ui, sans-serif; font-size: 13px; letter-spacing: 0.02em; line-height: 1.6; color: var(--dim);
+      max-width: 460px; margin: 0 auto;
     }
     main { max-width: 680px; margin: 0 auto; padding: 48px 24px 40px; font-size: 16.5px; line-height: 1.7; text-wrap: pretty; }
     /* заметка «из канала»: рамка в дизайн-коде сайта */
-    .note { border: 1px solid var(--line); padding: 30px 30px 14px; margin: 0 0 32px; }
+    .note { position: relative; border: 1px solid var(--line); padding: 30px 30px 40px; margin: 0; }
+    .tgmeta {
+      position: absolute; right: 16px; bottom: 12px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'Inter', system-ui, sans-serif; font-size: 11px; color: var(--dim);
+    }
+    .tgmeta svg { display: block; }
     .note p { margin: 0 0 16px; }
     .note ul { margin: 0 0 16px; padding-left: 22px; }
     .note li { margin-bottom: 6px; }
     .note .dash { color: var(--dim); }
-    /* иллюстрации — только в конце, в 2 раза меньше */
-    .gallery { display: flex; justify-content: center; align-items: flex-end; gap: 18px; margin: 40px 0 8px; flex-wrap: wrap; }
-    .gallery img { width: 140px; height: auto; }
-    .gallery img.lodka { width: 260px; margin: 18px auto 0; display: block; }
-    /* узорные стрелки между заметками, каждая своя */
-    .arrow { display: flex; justify-content: center; margin: 6px 0; }
-    .arrow svg { width: 120px; height: 60px; }
+    /* связка от рамки к рамке; стрелка огибает иллюстрацию сбоку */
+    .flow { position: relative; }
+    .flowline { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    .flowline path, .flowline circle, .flowline line { vector-effect: non-scaling-stroke; }
+    .ill { position: relative; margin: 0 auto; padding: 78px 0; text-align: center; }
+    .ill img { width: 140px; height: auto; }
+    .ill.lodka { padding: 48px 0 8px; }
+    .ill.lodka img { width: 260px; }
+    @media (max-width: 640px) {
+      .ill { padding: 44px 0; }
+      .ill.lodka { padding: 36px 0 8px; }
+    }
     footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
     footer a {
       font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -79,8 +91,8 @@
   </nav>
 
   <header class="hero">
-    <h1 class="r" style="--i:1">Как и зачем читать, или коллаб Антиосов&nbsp;х&nbsp;Адлер</h1>
-    <div class="sub r" style="--i:2">От размышления до продукта</div>
+    <h1 class="r" style="--i:1">Антиосов&nbsp;х&nbsp;Адлер</h1>
+    <div class="sub r" style="--i:2">Заметки с размышлениями на фоне «Как читать книги», ставшие манифестом образовательного продукта для детей</div>
   </header>
 
   <main>
@@ -99,14 +111,21 @@
       <p>Но я вообще-то не об этом.</p>
       <p>Отвез Диану в школу, по пути дежурно заехал за кофе, и пока ждал, осенило (осень же): а ведь как красиво можно смотреть на себя в ситуации, как на материал: одновременно сверху, как на систему, и снизу, как на набор позиций и их мотивации, действия. А, рассмотрев (считай, поделав ситанализ), можно что-то продуктивно покритиковать.</p>
       <p>А покритиковав, принять какие-то управленческие решения, и разбить на задачи. Или не принимать, если нет ясности, а выделить проблемы, и уже углубиться в них по той же схеме. Я обещал себе писать проще, но не знаю, как проще про эти фракталы шести ядер. Вроде и так понятно😄</p>
+    <span class="tgmeta">08:51 <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="#888888" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1,5.2 L3.6,7.8 L8,1.6"/><path d="M5.6,5.2 L8.2,7.8 L12.6,1.6"/></svg></span>
     </section>
 
-    <div class="arrow r" style="--i:5" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round">
-      <path d="M8 10 C 8 4, 18 4, 18 10 C 18 15, 11 15, 11 11"/>
-      <path d="M18 12 C 34 30, 56 34, 76 30"/>
-      <path d="M68 24 L 78 30 L 69 36"/>
-      <circle cx="30" cy="24" r="2.2" fill="#f5c518" stroke="none"/>
-    </svg></div>
+    <div class="flow r" style="--i:5">
+      <svg class="flowline" viewBox="0 0 632 348" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M316,0 C252,14 142,42 112,98 C88,146 88,218 120,260 C162,314 252,336 316,348" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M305,334 L316,348 L327,334" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M0,0 c-7,-3 -11,4 -6,8 c4,3 10,-1 6,-6" transform="translate(185.4,40) rotate(155.5)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M0,0 c-7,-3 -11,4 -6,8 c4,3 10,-1 6,-6" transform="translate(94.9,174.2) rotate(90.2)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M0,0 c-7,-3 -11,4 -6,8 c4,3 10,-1 6,-6" transform="translate(185.6,309.4) rotate(25.6)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <circle cx="255.4" cy="15" r="3" fill="#f5c518"/>
+        <circle cx="255.6" cy="334.5" r="3" fill="#f5c518"/>
+      </svg>
+      <figure class="ill"><img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy"></figure>
+    </div>
 
     <section class="note r" style="--i:6">
       <p>Но это еще не всё😄</p>
@@ -126,16 +145,23 @@
       <p>Что-то банальное, но постоянно упускаемое.</p>
       <p>Короче, то же в ситуации, как на материал: одновременно сверху, как на систему, и снизу, как на набор позиций и их мотивации, действия. А, рассмотрев (считай, поделав ситанализ), можно что-то продуктивно покритиковать.</p>
       <p>И это тоже было еще не все, я только начал😄</p>
+    <span class="tgmeta">09:11 <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="#888888" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1,5.2 L3.6,7.8 L8,1.6"/><path d="M5.6,5.2 L8.2,7.8 L12.6,1.6"/></svg></span>
     </section>
 
-    <div class="arrow r" style="--i:8" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M10 8 L 26 18 L 10 28"/>
-      <path d="M28 10 L 44 20 L 28 30" stroke-dasharray="3 4"/>
-      <path d="M46 12 L 62 22 L 46 32"/>
-      <path d="M64 14 L 80 24"/>
-      <path d="M72 19 L 81 24 L 73 30"/>
-      <circle cx="86" cy="26" r="2.2" fill="#f5c518" stroke="none"/>
-    </svg></div>
+    <div class="flow r" style="--i:8">
+      <svg class="flowline" viewBox="0 0 632 348" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M316,0 C380,14 490,42 520,98 C544,146 544,218 512,260 C470,314 380,336 316,348" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M305,334 L316,348 L327,334" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="423.6" cy="30.5" r="2.6" fill="none" stroke="#0a0a0a" stroke-width="1.3"/>
+        <circle cx="515.7" cy="90.9" r="2.6" fill="none" stroke="#0a0a0a" stroke-width="1.3"/>
+        <circle cx="535.5" cy="198.9" r="2.6" fill="none" stroke="#0a0a0a" stroke-width="1.3"/>
+        <circle cx="478.7" cy="290.8" r="2.6" fill="none" stroke="#0a0a0a" stroke-width="1.3"/>
+        <circle cx="388.5" cy="331.1" r="2.6" fill="none" stroke="#0a0a0a" stroke-width="1.3"/>
+        <circle cx="358.5" cy="10.1" r="3" fill="#f5c518"/>
+        <circle cx="358.4" cy="339.1" r="3" fill="#f5c518"/>
+      </svg>
+      <figure class="ill"><img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy"></figure>
+    </div>
 
     <section class="note r" style="--i:9">
       <p>Так вот😄</p>
@@ -156,16 +182,22 @@
       <p>Дилемма.</p>
       <p>Что-то про мотивацию, как будто. Целый отдельный пласт, который требует отдельного исследования.</p>
       <p>Поэтому я пошел в другую сторону😄</p>
+    <span class="tgmeta">09:34 <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="#888888" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1,5.2 L3.6,7.8 L8,1.6"/><path d="M5.6,5.2 L8.2,7.8 L12.6,1.6"/></svg></span>
     </section>
 
-    <div class="arrow r" style="--i:11" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round">
-      <path d="M8 12 C 24 6, 30 26, 46 20 C 62 14, 66 34, 82 28"/>
-      <path d="M74 22 L 83 28 L 75 34"/>
-      <path d="M22 14 L 20 20"/>
-      <path d="M38 19 L 36 25"/>
-      <path d="M56 18 L 54 24"/>
-      <path d="M70 26 L 68 32" stroke="#f5c518" stroke-width="2.2"/>
-    </svg></div>
+    <div class="flow r" style="--i:11">
+      <svg class="flowline" viewBox="0 0 632 348" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M316,0 C252,14 142,42 112,98 C88,146 88,218 120,260 C162,314 252,336 316,348" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M305,334 L316,348 L327,334" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M-6,0 Q0,-7 7,-5 Q2,2 -6,0 Z" transform="translate(197,35) rotate(157.5)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M-6,0 Q0,-7 7,-5 Q2,2 -6,0 Z" transform="translate(101.6,125.1) rotate(105.7)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M-6,0 Q0,-7 7,-5 Q2,2 -6,0 Z" transform="translate(111.1,246.1) rotate(61.9)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M-6,0 Q0,-7 7,-5 Q2,2 -6,0 Z" transform="translate(208.3,319.2) rotate(21.3)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linejoin="round"/>
+        <circle cx="267.6" cy="11.6" r="3" fill="#f5c518"/>
+        <circle cx="261.7" cy="336.1" r="3" fill="#f5c518"/>
+      </svg>
+      <figure class="ill"><img src="img/gepard-dumaet.png" alt="Гепард, думающий на стопке книг" loading="lazy"></figure>
+    </div>
 
     <section class="note r" style="--i:12">
       <p>Пошел я, значит, в другую сторону😄</p>
@@ -195,14 +227,22 @@
       <p>Понятия не имею, куда это повернет. Но попробовать хочется.</p>
       <p>Зато мне эта идея и не проработка дала понимание, что я давно хотел уйти от мировоззрения больного бизнеса, где юзера целуют в попку, а на самом деле презирают, и хотят выжать из него максимум.</p>
       <p>Я хочу делать так, чтобы реально работало, все знали, зачем, а русские дети были самыми умными на земле.</p>
+    <span class="tgmeta">09:55 <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="#888888" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1,5.2 L3.6,7.8 L8,1.6"/><path d="M5.6,5.2 L8.2,7.8 L12.6,1.6"/></svg></span>
     </section>
 
-    <div class="arrow r" style="--i:13" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M8 10 L 22 26 L 36 12 L 50 28 L 64 14 L 78 28"/>
-      <path d="M71 22 L 80 28 L 72 34"/>
-      <circle cx="22" cy="26" r="2" fill="#f5c518" stroke="none"/>
-      <circle cx="50" cy="28" r="2" fill="#f5c518" stroke="none"/>
-    </svg></div>
+    <div class="flow r" style="--i:13">
+      <svg class="flowline" viewBox="0 0 632 348" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M316,0 C380,14 490,42 520,98 C544,146 544,218 512,260 C470,314 380,336 316,348" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M305,334 L316,348 L327,334" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M-5,0 L5,0 M-3.5,-3.5 L3.5,3.5 M0,-5 L0,5 M3.5,-3.5 L-3.5,3.5" transform="translate(435,35) rotate(11.2)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M-5,0 L5,0 M-3.5,-3.5 L3.5,3.5 M0,-5 L0,5 M3.5,-3.5 L-3.5,3.5" transform="translate(531.9,130.9) rotate(38.1)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M-5,0 L5,0 M-3.5,-3.5 L3.5,3.5 M0,-5 L0,5 M3.5,-3.5 L-3.5,3.5" transform="translate(506.7,266.3) rotate(65.8)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M-5,0 L5,0 M-3.5,-3.5 L3.5,3.5 M0,-5 L0,5 M3.5,-3.5 L-3.5,3.5" transform="translate(400.2,327.5) rotate(81.1)" fill="none" stroke="#0a0a0a" stroke-width="1.3" stroke-linecap="round"/>
+        <circle cx="358.5" cy="10.1" r="3" fill="#f5c518"/>
+        <circle cx="364.5" cy="337.6" r="3" fill="#f5c518"/>
+      </svg>
+      <figure class="ill"><img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy"></figure>
+    </div>
 
     <section class="note r" style="--i:14">
       <p>Таким образом, мне видится продукт/инструмент, который:</p>
@@ -218,15 +258,10 @@
       — Есть опасения, что у ребенка может утвердиться логика «за реальное усилие мне платят», но думаю, что низкая частота итераций может, наоборот, превратить это в предвкушение борьбы за ценность. Зато понятная материальная мотивация избавляет от рисков эффекта давления, где ценой развития для ребенка становится страх не порадовать маму, вытеснив свои ценности;<br>
       — К тому же нет необходимости ежедневного или непрерывного пользования инструментом, допустима работа на каникулах, в отпуске и другими «флайтами»;</p>
       <p>Вот такой получился проектный документ-манифест. На сегодня я исчерпал свое желание писать мысли. Как только получу работоспособный продукт, поделюсь здесь.</p>
+    <span class="tgmeta">12:07 <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="#888888" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1,5.2 L3.6,7.8 L8,1.6"/><path d="M5.6,5.2 L8.2,7.8 L12.6,1.6"/></svg></span>
     </section>
 
-    <figure class="gallery r" style="--i:15">
-      <img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy">
-      <img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy">
-      <img src="img/gepard-dumaet.png" alt="Гепард, думающий на стопке книг" loading="lazy">
-      <img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy">
-      <img src="img/nastya-lodka.png" alt="Иллюстрация: читатель в лодке" class="lodka" loading="lazy">
-    </figure>
+    <figure class="ill lodka r" style="--i:15"><img src="img/nastya-lodka.png" alt="Иллюстрация: читатель в лодке" loading="lazy"></figure>
   </main>
 
   <footer class="r" style="--i:17">
