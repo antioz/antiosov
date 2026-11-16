@@ -57,15 +57,13 @@
     .note ul { margin: 0 0 16px; padding-left: 22px; }
     .note li { margin-bottom: 6px; }
     .note .dash { color: var(--dim); }
-    figure.ill { margin: 48px 0; text-align: center; }
-    figure.ill img { max-width: 100%; height: auto; }
-    figure.ill.nastya img { max-width: 380px; }
-    .source {
-      margin: 64px auto 0; max-width: 640px; padding: 0 24px 24px; text-align: center;
-      font-family: 'Inter', system-ui, sans-serif; font-size: 13px; color: var(--dim);
-    }
-    .source a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); transition: border-color .2s ease; }
-    .source a:hover { border-color: var(--ink); }
+    /* иллюстрации — только в конце, в 2 раза меньше */
+    .gallery { display: flex; justify-content: center; align-items: flex-end; gap: 18px; margin: 40px 0 8px; flex-wrap: wrap; }
+    .gallery img { width: 140px; height: auto; }
+    .gallery img.lodka { width: 260px; margin: 18px auto 0; display: block; }
+    /* узорные стрелки между заметками, каждая своя */
+    .arrow { display: flex; justify-content: center; margin: 6px 0; }
+    .arrow svg { width: 120px; height: 60px; }
     footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
     footer a {
       font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
@@ -103,6 +101,13 @@
       <p>А покритиковав, принять какие-то управленческие решения, и разбить на задачи. Или не принимать, если нет ясности, а выделить проблемы, и уже углубиться в них по той же схеме. Я обещал себе писать проще, но не знаю, как проще про эти фракталы шести ядер. Вроде и так понятно😄</p>
     </section>
 
+    <div class="arrow r" style="--i:5" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round">
+      <path d="M8 10 C 8 4, 18 4, 18 10 C 18 15, 11 15, 11 11"/>
+      <path d="M18 12 C 34 30, 56 34, 76 30"/>
+      <path d="M68 24 L 78 30 L 69 36"/>
+      <circle cx="30" cy="24" r="2.2" fill="#f5c518" stroke="none"/>
+    </svg></div>
+
     <section class="note r" style="--i:6">
       <p>Но это еще не всё😄</p>
       <p>Есть хорошая традиция — сделал работу, сделай и доклад. Нет доклада — нет работы. А чтобы сделать доклад, нужна схема. Нет схемы — нет доклада.</p>
@@ -123,7 +128,14 @@
       <p>И это тоже было еще не все, я только начал😄</p>
     </section>
 
-    <figure class="ill r" style="--i:7"><img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy"></figure>
+    <div class="arrow r" style="--i:8" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 8 L 26 18 L 10 28"/>
+      <path d="M28 10 L 44 20 L 28 30" stroke-dasharray="3 4"/>
+      <path d="M46 12 L 62 22 L 46 32"/>
+      <path d="M64 14 L 80 24"/>
+      <path d="M72 19 L 81 24 L 73 30"/>
+      <circle cx="86" cy="26" r="2.2" fill="#f5c518" stroke="none"/>
+    </svg></div>
 
     <section class="note r" style="--i:9">
       <p>Так вот😄</p>
@@ -146,8 +158,14 @@
       <p>Поэтому я пошел в другую сторону😄</p>
     </section>
 
-    <figure class="ill r" style="--i:10"><img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy"></figure>
-    <figure class="ill r" style="--i:11"><img src="img/gepard-dumaet.png" alt="Гепарт, думающий на стопке книг" loading="lazy"></figure>
+    <div class="arrow r" style="--i:11" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round">
+      <path d="M8 12 C 24 6, 30 26, 46 20 C 62 14, 66 34, 82 28"/>
+      <path d="M74 22 L 83 28 L 75 34"/>
+      <path d="M22 14 L 20 20"/>
+      <path d="M38 19 L 36 25"/>
+      <path d="M56 18 L 54 24"/>
+      <path d="M70 26 L 68 32" stroke="#f5c518" stroke-width="2.2"/>
+    </svg></div>
 
     <section class="note r" style="--i:12">
       <p>Пошел я, значит, в другую сторону😄</p>
@@ -179,6 +197,13 @@
       <p>Я хочу делать так, чтобы реально работало, все знали, зачем, а русские дети были самыми умными на земле.</p>
     </section>
 
+    <div class="arrow r" style="--i:13" aria-hidden="true"><svg viewBox="0 0 92 46" fill="none" stroke="#0a0a0a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 10 L 22 26 L 36 12 L 50 28 L 64 14 L 78 28"/>
+      <path d="M71 22 L 80 28 L 72 34"/>
+      <circle cx="22" cy="26" r="2" fill="#f5c518" stroke="none"/>
+      <circle cx="50" cy="28" r="2" fill="#f5c518" stroke="none"/>
+    </svg></div>
+
     <section class="note r" style="--i:14">
       <p>Таким образом, мне видится продукт/инструмент, который:</p>
       <p>— Будет достаточно сложным, чтобы поддерживать правило «автор понимает немного лучше тебя»;<br>
@@ -195,13 +220,13 @@
       <p>Вот такой получился проектный документ-манифест. На сегодня я исчерпал свое желание писать мысли. Как только получу работоспособный продукт, поделюсь здесь.</p>
     </section>
 
-    <figure class="ill r" style="--i:15"><img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy"></figure>
-
-    <div class="source r" style="--i:16">
-      Заметки опубликованы в канале
-      <a href="https://t.me/ontiosov" target="_blank" rel="noopener">«Онтологические записки» (@ontiosov)</a>
-      · 16 ноября 2026
-    </div>
+    <figure class="gallery r" style="--i:15">
+      <img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy">
+      <img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy">
+      <img src="img/gepard-dumaet.png" alt="Гепард, думающий на стопке книг" loading="lazy">
+      <img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy">
+      <img src="img/nastya-lodka.png" alt="Иллюстрация: читатель в лодке" class="lodka" loading="lazy">
+    </figure>
   </main>
 
   <footer class="r" style="--i:17">
