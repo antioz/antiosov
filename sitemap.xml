@@ -41,6 +41,11 @@
     <changefreq>monthly</changefreq>
   </url>
   <url>
+    <loc>https://antiosov.ru/nonfiction/cheetaht/</loc>
+    <priority>0.8</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
     <loc>https://antiosov.ru/nonfiction/lyubit-pisat/</loc>
     <priority>0.8</priority>
     <changefreq>monthly</changefreq>
