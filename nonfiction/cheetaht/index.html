@@ -65,10 +65,9 @@
     .note li { margin-bottom: 6px; }
     .note .dash { color: var(--dim); }
     /* связка от рамки к рамке; стрелка огибает иллюстрацию сбоку */
-    .flow { position: relative; }
-    .flowline { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-    .flowline path, .flowline circle, .flowline line { vector-effect: non-scaling-stroke; }
-    .ill { position: relative; margin: 0 auto; padding: 100px 0; text-align: center; }
+    .flow { display: flex; align-items: center; justify-content: center; gap: 44px; padding: 44px 0; }
+    .flow .strelka { height: 300px; width: auto; }
+    .flow figure.ill { margin: 0; padding: 0; order: 1; }
     .ill.intro { padding: 24px 0 48px; }
     .ill.intro img { width: 280px; }
     .ill img { width: 140px; height: auto; }
@@ -77,8 +76,10 @@
     .ill.lodka { padding: 48px 0 8px; }
     .ill.lodka img { width: 260px; }
     @media (max-width: 640px) {
-      .ill { padding: 56px 0; }
-      .ill.lodka { padding: 36px 0 8px; }
+      .flow { gap: 20px; padding: 28px 0; }
+      .flow .strelka { height: 200px; }
+      .flow figure.ill img { width: 110px; }
+        .ill.lodka { padding: 36px 0 8px; }
     }
     footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
     footer a {
@@ -121,10 +122,7 @@
     </section>
 
     <div class="flow r" style="--i:5">
-      <svg class="flowline" viewBox="0 0 632 355" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M316,3 C313,30 296,20 290,32 C283,46 292,64 310,60 C322,57 326,44 316,40 C308,37 312,48 316,58 C319,84 336,74 342,86 C349,100 340,118 322,114 C310,111 306,98 316,94 C324,91 320,102 316,112 C178,126 66,151 66,182 C66,214 178,239 316,239 C313,255 296,245 290,257 C283,271 292,289 310,285 C322,282 326,269 316,265 C308,262 312,273 316,283 L316,352 " fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M292,298 C300,320 308,338 316,352 C324,338 332,320 340,298" fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:0">
       <figure class="ill"><img src="img/gepard-kluch.png" alt="Гепард с ключом у двери" loading="lazy"></figure>
     </div>
 
@@ -150,10 +148,7 @@
     </section>
 
     <div class="flow r" style="--i:8">
-      <svg class="flowline" viewBox="0 0 632 319" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M316,3 C319,30 336,20 342,32 C349,46 340,64 322,60 C310,57 306,44 316,40 C324,37 320,48 316,58 C454,72 566,90 566,112 C566,133 454,151 316,151 C319,167 336,157 342,169 C349,183 340,201 322,197 C310,194 306,181 316,177 C324,174 320,185 316,195 C313,221 296,211 290,223 C283,237 292,255 310,251 C322,248 326,235 316,231 C308,228 312,239 316,249 L316,316 " fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M292,262 C300,284 308,302 316,316 C324,302 332,284 340,262" fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:2">
       <figure class="ill"><img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy"></figure>
     </div>
 
@@ -180,10 +175,7 @@
     </section>
 
     <div class="flow r" style="--i:11">
-      <svg class="flowline" viewBox="0 0 632 340" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M316,3 C313,30 296,20 290,32 C283,46 292,64 310,60 C322,57 326,44 316,40 C308,37 312,48 316,58 C313,84 296,74 290,86 C283,100 292,118 310,114 C322,111 326,98 316,94 C308,91 312,102 316,112 C178,126 66,148 66,175 C66,202 178,224 316,224 C319,240 336,230 342,242 C349,256 340,274 322,270 C310,267 306,254 316,250 C324,247 320,258 316,268 L316,337 " fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M292,283 C300,305 308,323 316,337 C324,323 332,305 340,283" fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:0">
       <figure class="ill"><img src="img/gepard-dumaet.png" alt="Гепард, думающий на стопке книг" loading="lazy"></figure>
     </div>
 
@@ -219,10 +211,7 @@
     </section>
 
     <div class="flow r" style="--i:13">
-      <svg class="flowline" viewBox="0 0 632 310" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M316,3 C319,30 336,20 342,32 C349,46 340,64 322,60 C310,57 306,44 316,40 C324,37 320,48 316,58 C313,84 296,74 290,86 C283,100 292,118 310,114 C322,111 326,98 316,94 C308,91 312,102 316,112 C454,126 566,141 566,160 C566,179 454,194 316,194 C319,210 336,200 342,212 C349,226 340,244 322,240 C310,237 306,224 316,220 C324,217 320,228 316,238 L316,307 " fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M292,253 C300,275 308,293 316,307 C324,293 332,275 340,253" fill="none" stroke="#0a0a0a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:2">
       <figure class="ill"><img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy"></figure>
     </div>
 
