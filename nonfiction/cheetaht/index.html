@@ -40,18 +40,19 @@
     .top a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
     .top a:hover { color: var(--ink); }
     .top .sep { margin: 0 10px; }
-    header.hero { text-align: center; padding: 88px 24px 24px; }
+    header.hero { text-align: center; padding: 80px 24px 16px; }
     header.hero h1 {
-      margin: 0 0 20px;
+      margin: 0 0 18px;
       font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
       font-style: italic; font-weight: 300;
-      font-size: clamp(38px, 6vw, 84px); line-height: 1.05; letter-spacing: -0.01em;
+      font-size: clamp(28px, 4.2vw, 52px); line-height: 1.1; letter-spacing: -0.01em;
     }
     header.hero .sub {
       font-family: 'Inter', system-ui, sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim);
     }
-    header.hero .date { margin-top: 14px; font-size: 12px; color: var(--dim); font-style: italic; }
-    main { max-width: 640px; margin: 0 auto; padding: 40px 24px 40px; font-size: 16.5px; line-height: 1.7; text-wrap: pretty; }
+    main { max-width: 680px; margin: 0 auto; padding: 48px 24px 40px; font-size: 16.5px; line-height: 1.7; text-wrap: pretty; }
+    /* заметка «из канала»: рамка в дизайн-коде сайта */
+    .note { border: 1px solid var(--line); padding: 30px 30px 14px; margin: 0 0 32px; }
     .note p { margin: 0 0 16px; }
     .note ul { margin: 0 0 16px; padding-left: 22px; }
     .note li { margin-bottom: 6px; }
@@ -59,13 +60,6 @@
     figure.ill { margin: 48px 0; text-align: center; }
     figure.ill img { max-width: 100%; height: auto; }
     figure.ill.nastya img { max-width: 380px; }
-    figure.ill.gepard img { max-width: 440px; }
-    /* гепард-связка: бежит из заметки в заметку */
-    .link { display: flex; justify-content: flex-end; padding: 4px 0; margin: 8px 0; }
-    .link img {
-      width: 74px; height: auto; opacity: .92;
-      transform: scaleX(-1) rotate(48deg);
-    }
     .source {
       margin: 64px auto 0; max-width: 640px; padding: 0 24px 24px; text-align: center;
       font-family: 'Inter', system-ui, sans-serif; font-size: 13px; color: var(--dim);
@@ -89,7 +83,6 @@
   <header class="hero">
     <h1 class="r" style="--i:1">Как и зачем читать, или коллаб Антиосов&nbsp;х&nbsp;Адлер</h1>
     <div class="sub r" style="--i:2">От размышления до продукта</div>
-    <div class="date r" style="--i:3">заметки из канала «Онтологические записки» · 16 ноября 2026</div>
   </header>
 
   <main>
@@ -109,8 +102,6 @@
       <p>Отвез Диану в школу, по пути дежурно заехал за кофе, и пока ждал, осенило (осень же): а ведь как красиво можно смотреть на себя в ситуации, как на материал: одновременно сверху, как на систему, и снизу, как на набор позиций и их мотивации, действия. А, рассмотрев (считай, поделав ситанализ), можно что-то продуктивно покритиковать.</p>
       <p>А покритиковав, принять какие-то управленческие решения, и разбить на задачи. Или не принимать, если нет ясности, а выделить проблемы, и уже углубиться в них по той же схеме. Я обещал себе писать проще, но не знаю, как проще про эти фракталы шести ядер. Вроде и так понятно😄</p>
     </section>
-
-    <div class="link r" style="--i:5"><img src="img/gepard-run.jpg" alt="" aria-hidden="true"></div>
 
     <section class="note r" style="--i:6">
       <p>Но это еще не всё😄</p>
@@ -132,9 +123,7 @@
       <p>И это тоже было еще не все, я только начал😄</p>
     </section>
 
-    <figure class="ill gepard r" style="--i:7"><img src="img/gepard-read.jpg" alt="Гепард, лежащий с книгой" loading="lazy"></figure>
-
-    <div class="link r" style="--i:8"><img src="img/gepard-run.jpg" alt="" aria-hidden="true"></div>
+    <figure class="ill r" style="--i:7"><img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy"></figure>
 
     <section class="note r" style="--i:9">
       <p>Так вот😄</p>
@@ -157,9 +146,8 @@
       <p>Поэтому я пошел в другую сторону😄</p>
     </section>
 
-    <figure class="ill nastya r" style="--i:10"><img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy"></figure>
-
-    <div class="link r" style="--i:11"><img src="img/gepard-run.jpg" alt="" aria-hidden="true"></div>
+    <figure class="ill r" style="--i:10"><img src="img/nastya-chitaet-bochka.png" alt="Иллюстрация: читатель у бочки" loading="lazy"></figure>
+    <figure class="ill r" style="--i:11"><img src="img/gepard-dumaet.png" alt="Гепарт, думающий на стопке книг" loading="lazy"></figure>
 
     <section class="note r" style="--i:12">
       <p>Пошел я, значит, в другую сторону😄</p>
@@ -191,8 +179,6 @@
       <p>Я хочу делать так, чтобы реально работало, все знали, зачем, а русские дети были самыми умными на земле.</p>
     </section>
 
-    <div class="link r" style="--i:13"><img src="img/gepard-run.jpg" alt="" aria-hidden="true"></div>
-
     <section class="note r" style="--i:14">
       <p>Таким образом, мне видится продукт/инструмент, который:</p>
       <p>— Будет достаточно сложным, чтобы поддерживать правило «автор понимает немного лучше тебя»;<br>
@@ -209,7 +195,7 @@
       <p>Вот такой получился проектный документ-манифест. На сегодня я исчерпал свое желание писать мысли. Как только получу работоспособный продукт, поделюсь здесь.</p>
     </section>
 
-    <figure class="ill nastya r" style="--i:15"><img src="img/nastya-lodka.png" alt="Иллюстрация: читатель в лодке" loading="lazy"></figure>
+    <figure class="ill r" style="--i:15"><img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy"></figure>
 
     <div class="source r" style="--i:16">
       Заметки опубликованы в канале
@@ -219,7 +205,7 @@
   </main>
 
   <footer class="r" style="--i:17">
-    <a href="/nonfiction/">← ко всем нехудожественным текстам</a>
+    <a href="/nonfiction/">← ко всем текстам</a>
   </footer>
 
   <script src="../../assets/reveal.js"></script>
