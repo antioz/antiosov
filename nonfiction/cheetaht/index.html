@@ -40,7 +40,7 @@
     .top a { color: var(--dim); text-decoration: none; transition: color .2s ease; }
     .top a:hover { color: var(--ink); }
     .top .sep { margin: 0 10px; }
-    header.hero { text-align: center; padding: 80px 24px 16px; }
+    header.hero { text-align: center; padding: 56px 24px 10px; }
     header.hero h1 {
       margin: 0 0 18px;
       font-family: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
@@ -65,20 +65,17 @@
     .note li { margin-bottom: 6px; }
     .note .dash { color: var(--dim); }
     /* связка от рамки к рамке; стрелка огибает иллюстрацию сбоку */
-    .flow { display: flex; align-items: center; justify-content: center; gap: 44px; padding: 44px 0; }
-    .flow .strelka { height: 300px; width: auto; }
-    .flow figure.ill { margin: 0; padding: 0; order: 1; }
-    .ill.intro { padding: 24px 0 48px; }
+    .flow { padding: 32px 0; text-align: center; }
+    .flow figure.ill { margin: 0; padding: 0; }
+    .ill.intro { padding: 4px 0 22px; }
     .ill.intro img { width: 280px; }
     .ill img { width: 140px; height: auto; }
-    .ill.intro { padding: 24px 0 48px; }
+    .ill.intro { padding: 6px 0 26px; }
     .ill.intro img { width: 280px; }
     .ill.lodka { padding: 48px 0 8px; }
     .ill.lodka img { width: 260px; }
     @media (max-width: 640px) {
-      .flow { gap: 20px; padding: 28px 0; }
-      .flow .strelka { height: 200px; }
-      .flow figure.ill img { width: 110px; }
+      .flow { padding: 22px 0; }
         .ill.lodka { padding: 36px 0 8px; }
     }
     footer { display: flex; justify-content: center; padding: 24px 24px 56px; }
@@ -122,7 +119,7 @@
     </section>
 
     <div class="flow r" style="--i:5">
-      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:0">
+      
       <figure class="ill"><img src="img/gepard-kluch.png" alt="Гепард с ключом у двери" loading="lazy"></figure>
     </div>
 
@@ -148,7 +145,7 @@
     </section>
 
     <div class="flow r" style="--i:8">
-      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:2">
+      
       <figure class="ill"><img src="img/gepard-kreslo.png" alt="Гепард с книгой в кресле у лампы" loading="lazy"></figure>
     </div>
 
@@ -175,7 +172,7 @@
     </section>
 
     <div class="flow r" style="--i:11">
-      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:0">
+      
       <figure class="ill"><img src="img/gepard-dumaet.png" alt="Гепард, думающий на стопке книг" loading="lazy"></figure>
     </div>
 
@@ -211,7 +208,7 @@
     </section>
 
     <div class="flow r" style="--i:13">
-      <img class="strelka" src="img/strelka.png" alt="" aria-hidden="true" style="order:2">
+      
       <figure class="ill"><img src="img/gepard-beg.png" alt="Бегущий гепард" loading="lazy"></figure>
     </div>
 
