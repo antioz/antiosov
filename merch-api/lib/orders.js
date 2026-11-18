@@ -1,6 +1,6 @@
 // Домен заказов. Все изменения состояния — условные UPDATE (WHERE status = $from) в serializable-транзакциях (db.tx).
 // Побочные эффекты (письма, Т-Банк, Яндекс Доставка) — только после коммита транзакции и только в той ветке, которая перевела статус.
-const db = require('./ydb'); const ext = require('./ext'); const mail = require('./mail'); const s3 = require('./s3'); const ticket = require('./ticket');
+const db = require('./ydb'); const ext = require('./ext'); const mail = require('./mail'); const s3 = require('./s3'); const ticket = require('./ticket'); const markpool = require('./markpool');
 const { HttpError, envInt, randomKey, validPhone, validEmail, validName } = require('./util');
 const ENV = process.env;
 const QTY_MAX = 5;
@@ -364,10 +364,13 @@ async function maintenance() {
 async function purgePd() {
   const cutoff = new Date(Date.now() - envInt('PD_RETENTION_DAYS', 1095) * 86400000);
   const [rows] = await db.query(`DECLARE $c AS Timestamp; SELECT id FROM orders WHERE created_at < $c AND customer_email != ''u LIMIT 100;`, { $c: db.V.ts(cutoff) });
-  for (const r of rows) {
-    await db.query(`DECLARE $id AS Utf8; UPDATE orders SET customer_name = ''u, customer_phone = ''u, customer_email = ''u, address_text = ''u, pvz_address = ''u, inscription = ''u, addr = ''u, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(r.id) });
-    try { await s3.deleteObject(backupKey(r.id)); } catch (e) { console.error('purgePd backup', r.id, e.message); } // копия предзаказа книги, если была
-    console.log('purgePd', r.id);
+  const pool = 10; // апдейт + удаление бэкапа параллельно пачками, а не по одному
+  for (let i = 0; i < rows.length; i += pool) {
+    await Promise.all(rows.slice(i, i + pool).map(async r => {
+      await db.query(`DECLARE $id AS Utf8; UPDATE orders SET customer_name = ''u, customer_phone = ''u, customer_email = ''u, address_text = ''u, pvz_address = ''u, inscription = ''u, addr = ''u, updated_at = CurrentUtcTimestamp() WHERE id = $id;`, { $id: db.V.s(r.id) });
+      try { await s3.deleteObject(backupKey(r.id)); } catch (e) { console.error('purgePd backup', r.id, e.message); } // копия предзаказа книги, если была
+      console.log('purgePd', r.id);
+    }));
   }
   return rows.length;
 }
@@ -450,10 +453,24 @@ async function backupOrder(o) {
 // Раз в 6 часов (из gc) копии всех оплаченных заказов книги перезаписываются: если запись при оплате сорвалась — восстановится,
 // смена статуса и заметки тоже попадут в копию. Заказов книги — десятки, перезапись дешёвая.
 const BACKUP_STATUSES = ['paid', 'packed', 'shipped', 'done'];
+// Бэкап каждого оплаченного+ заказа книги. HEAD-пропуск неизменённых: S3 кладёт LastModified,
+// поэтому перезаписываем только заказы, чей updated_at новее бэкапа (S3 секундная точность — эпсилон 2 с).
 async function backupBookOrders() {
   const [rows, ps] = await db.query(`SELECT * FROM orders; SELECT id, title, kind FROM products;`);
   const books = Object.fromEntries(ps.filter(p => p.kind === 'book').map(p => [p.id, p]));
-  let n = 0; for (const o of rows) if (books[o.product_id] && BACKUP_STATUSES.includes(o.status) && o.customer_email) { await backupOrder({ ...o, product_title: books[o.product_id].title }); n++; }
+  const targets = rows.filter(o => books[o.product_id] && BACKUP_STATUSES.includes(o.status) && o.customer_email);
+  let n = 0;
+  const pool = 8; // S3-запросы параллельно пачками, а не по одному (сводка открывалась ~15 с из-за этого цикла)
+  for (let i = 0; i < targets.length; i += pool) {
+    await Promise.all(targets.slice(i, i + pool).map(async o => {
+      try {
+        const h = await s3.headObject(backupKey(o.id));
+        // Эпсилон 2 с: LastModified в S3 без миллисекунд, бэкап пишется сразу после updated_at заказа.
+        if (h && h.lastModified && o.updated_at && h.lastModified.getTime() + 2000 >= new Date(o.updated_at).getTime()) return;
+      } catch (e) { console.error('backup head', o.id, e.message); } // сбой HEAD — бэкапим, как раньше
+      await backupOrder({ ...o, product_title: books[o.product_id].title }); n++;
+    }));
+  }
   return n;
 }
 
@@ -581,7 +598,13 @@ async function sendClosing(id) {
   if (!needsClosing(o)) throw new HttpError(409, 'closing_not_needed');
   if (o.closing_receipt_at) return o;
   if (!['paid', 'packed', 'shipped', 'done'].includes(o.status) || !o.tb_payment_id) throw new HttpError(409, 'bad_transition', { from: o.status });
-  const marked = !!(o.product && o.product.marked), codes = storedCodes(o);
+  const marked = !!(o.product && o.product.marked);
+  let codes = storedCodes(o);
+  // Коды не вписаны в заказ руками — берём из пула товара (пул заводится один раз в админке).
+  if (marked && codes.length < o.qty) {
+    const fromPool = await markpool.take(o.product_id, o.qty - codes.length);
+    if (fromPool.length) { codes = [...codes, ...fromPool]; await setField(id, 'mark_codes', JSON.stringify(codes)); }
+  }
   if (marked && codes.length !== o.qty) throw new HttpError(409, 'need_mark_codes', { need: o.qty, have: codes.length });
   const name = `${o.product_title}${o.size && o.size !== '-' ? ' ' + o.size : ''}`;
   const items = marked ? codes.map(c => ({ name, price_rub: o.price_item, qty: 1, object: 'commodity', method: 'full_payment', mark_code: c }))

@@ -67,5 +67,27 @@ function putObject(key, body, contentType) {
   });
 }
 
+// HEAD: метаданные объекта (LastModified) без скачивания. Нет объекта → null.
+function headObject(key) {
+  const date = amzDate(), day = date.slice(0, 8), scope = `${day}/${REGION}/${SERVICE}/aws4_request`;
+  const payloadHash = sha('');
+  const headers = { host: HOST, 'x-amz-content-sha256': payloadHash, 'x-amz-date': date };
+  const signed = Object.keys(headers).sort();
+  const cr = ['HEAD', canonicalUri(key), '', signed.map(h => `${h}:${headers[h]}\n`).join(''), signed.join(';'), payloadHash].join('\n');
+  const sts = ['AWS4-HMAC-SHA256', date, scope, sha(cr)].join('\n');
+  const signature = crypto.createHmac('sha256', signingKey(day)).update(sts).digest('hex');
+  const auth = `AWS4-HMAC-SHA256 Credential=${ENV.S3_KEY}/${scope}, SignedHeaders=${signed.join(';')}, Signature=${signature}`;
+  return new Promise((resolve, reject) => {
+    const req = https.request({ hostname: HOST, path: canonicalUri(key), method: 'HEAD', headers: { ...headers, Authorization: auth } }, res => {
+      res.resume(); res.on('end', () => {
+        if (res.statusCode === 404) return resolve(null);
+        if (res.statusCode < 300) return resolve({ lastModified: res.headers['last-modified'] ? new Date(res.headers['last-modified']) : null });
+        reject(new Error('s3 head ' + res.statusCode));
+      });
+    });
+    req.on('error', reject); req.end();
+  });
+}
+
 const publicUrl = key => `https://${HOST}/${ENV.S3_BUCKET}/${key}`;
-module.exports = { presignPut, presignGet, deleteObject, putObject, publicUrl };
+module.exports = { presignPut, presignGet, deleteObject, putObject, headObject, publicUrl };

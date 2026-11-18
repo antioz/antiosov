@@ -1,6 +1,6 @@
 // Админ-маршруты. Доступ по JWT (пароль в ADMIN_PASSWORD, 30 дней).
 const crypto = require('crypto');
-const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients'); const inbox = require('./inbox'); const waitlist = require('./waitlist');
+const db = require('./ydb'); const orders = require('./orders'); const jwt = require('./jwt'); const s3 = require('./s3'); const ext = require('./ext'); const subscribers = require('./subscribers'); const clients = require('./clients'); const inbox = require('./inbox'); const waitlist = require('./waitlist'); const markpool = require('./markpool');
 const { json, HttpError } = require('./util');
 const ENV = process.env;
 const fails = { n: 0, at: 0 }; // rate-limit логина на инстанс: 5 неудач / 10 мин
@@ -81,12 +81,15 @@ async function route(a, method, body, q, auth) {
   requireAuth(auth);
   switch (a) {
     case 'admin/summary': {
-      await orders.maintenance();
-      const ydSync = await orders.syncYdStatuses(4); // «отправлен» → «выполнен/возврат» по статусу Яндекса
-      const [paid, packed] = await Promise.all([orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' })]);
+      // Всё независимое — параллельно: раньше ждали maintenance → Яндекс-синк → заказы → статистику
+      // по очереди, и первая сводка после паузы открывалась ~15 с.
+      const [, ydSync, paid, packed, stats] = await Promise.all([
+        orders.maintenance(), orders.syncYdStatuses(4),
+        orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' }), orders.productStats(),
+      ]);
       const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
       return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
-        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats: await orders.productStats(), yd_synced: ydSync.checked });
+        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats, yd_synced: ydSync.checked });
     }
     case 'admin/orders': {
       const st = q.status ? String(q.status) : undefined;
@@ -143,6 +146,12 @@ async function route(a, method, body, q, auth) {
     case 'admin/waitlist': {
       if (method === 'DELETE') { await waitlist.remove(body.product_id, body.email); return json(200, { ok: true }); }
       return json(200, { waitlist: await waitlist.list(q.product_id) });
+    }
+    // Пул кодов ЧЗ на товар: GET ?product_id — список; POST {product_id, codes} — добавить (текст, по коду на строку); DELETE {product_id, code} — убрать
+    case 'admin/mark_pool': {
+      if (method === 'DELETE') { await markpool.remove(body.product_id, body.code); return json(200, { ok: true }); }
+      if (method === 'POST') return json(200, await markpool.add(String(body.product_id || ''), body.codes));
+      return json(200, { codes: await markpool.list(String(q.product_id || '')) });
     }
     case 'admin/subscribers': { const [l, bp] = await Promise.all([subscribers.list(), subscribers.byProduct()]); return json(200, { count: l.length, subscribers: l, by_product: bp }); }
     // {subject, body, test:true} — только на OWNER_EMAIL; иначе порция до 25 подписчиков с offset, первый вызов без mailing_id создаёт запись журнала

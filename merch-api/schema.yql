@@ -52,3 +52,6 @@ ALTER TABLE orders ADD COLUMN prepay_receipt Bool;
 ALTER TABLE orders ADD COLUMN mark_codes Utf8;
 ALTER TABLE orders ADD COLUMN closing_receipt_at Utf8;
 ALTER TABLE orders ADD COLUMN closing_error Utf8;
+-- 2026-11-19 пул кодов «Честного знака» на товар: при отправке маркированного заказа коды подставляются
+-- автоматически (qty штук из пула), ручной ввод в заказ остаётся. Взятые коды удаляются из пула.
+CREATE TABLE IF NOT EXISTS mark_pool (product_id Utf8, code Utf8, added_at Timestamp, PRIMARY KEY (product_id, code));

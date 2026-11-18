@@ -16,7 +16,7 @@
   // price_diff:N — заявка создана, просто Яндекс посчитал доставку иначе, чем при оплате; это не ошибка
   const ydNote = e => { if (!e) return ''; const m = /^price_diff:(-?\d+)$/.exec(e); return m ? `<br><small class="meta">Яндекс посчитал доставку на ${Math.abs(+m[1])} ₽ ${+m[1] > 0 ? 'дороже' : 'дешевле'}, чем заплатил покупатель</small>` : `<br><small style="color:#7a1c1c">${esc(e)}</small>`; };
   const item = o => `${esc(o.product_title)}${o.size && o.size !== '-' ? ' ' + esc(o.size) : ''} × ${o.qty}`;
-  const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else { const x = e.data || {}; const m = { need_mark_codes: `Нужны коды маркировки: по одному на каждую штуку (нужно ${x.need}, вписано ${x.have}). Впиши их в поле «Коды «Честного знака»» ниже и сохрани.`, closing_failed: 'Т-Банк не принял закрывающий чек: ' + (x.tb ? (x.tb.Message || '') + ' ' + (x.tb.Details || '') + ' (код ' + (x.tb.ErrorCode || '?') + ')' : (x.message || '')) + '. Статус не изменён.', closing_done: 'Закрывающий чек уже пробит — коды не меняются.', validation: x.field === 'mark_codes' ? (x.reason === 'duplicate' ? 'Один код вписан дважды.' : x.reason === 'too_many' ? `Кодов больше, чем штук в заказе (${x.need}).` : 'Это не код «Честного знака»: он начинается с 01, затем 14 цифр, затем 21… ' + (x.code || '')) : 'Проверь поле ' + x.field }[x.error]; alert(m || 'Ошибка: ' + (x.error || e.message)); } };
+  const fail = e => { if (e.code === 401) { token = null; try { localStorage.removeItem(tokKey); } catch (_) {} route(); } else { const x = e.data || {}; const m = { need_mark_codes: `Не хватает кодов маркировки (нужно ${x.need}, есть ${x.have}). Добавь коды в пул товара (Товары → карточка → «Пул кодов ЧЗ») или впиши в заказ вручную.`, closing_failed: 'Т-Банк не принял закрывающий чек: ' + (x.tb ? (x.tb.Message || '') + ' ' + (x.tb.Details || '') + ' (код ' + (x.tb.ErrorCode || '?') + ')' : (x.message || '')) + '. Статус не изменён.', closing_done: 'Закрывающий чек уже пробит — коды не меняются.', validation: x.field === 'mark_codes' ? (x.reason === 'duplicate' ? 'Один код вписан дважды.' : x.reason === 'too_many' ? `Кодов больше, чем штук в заказе (${x.need}).` : 'Это не код «Честного знака»: он начинается с 01, затем 14 цифр, затем 21… ' + (x.code || '')) : 'Проверь поле ' + x.field }[x.error]; alert(m || 'Ошибка: ' + (x.error || e.message)); } };
 
   function login() {
     app.innerHTML = `<form id="lf" class="center" style="max-width:320px"><label class="field"><span>Пароль</span><input type="password" name="p" autofocus></label><button class="btn">Войти</button></form>`;
@@ -294,7 +294,7 @@
       <div class="meta">Фото (первое — главное; ⇠ ⇢ порядок, × удалить)</div><div class="thumbs" id="thumbs"></div>
       <input type="file" id="file" accept="image/*" multiple ${isNew ? 'disabled title="сначала сохраните товар"' : ''}><p class="meta" id="upl"></p>
       <button class="btn" style="margin-top:20px">Сохранить</button></form>
-      ${isNew ? '' : '<div id="wl" style="margin-top:32px"></div>'}`;
+      ${isNew ? '' : '<div id="wl" style="margin-top:32px"></div><div id="mp" style="margin-top:32px"></div>'}`;
     // Заявки «сообщите, когда будет ещё» (после закрытия предзаказа). Удаление — по отзыву согласия или после письма.
     const paintWait = async () => { const el = app.querySelector('#wl'); if (!el) return;
       let ls = []; try { ls = (await A('admin/waitlist', { q: { product_id: p.id } })).waitlist; } catch (e) { el.innerHTML = '<p class="meta">заявки: не загрузились</p>'; return; }
@@ -303,6 +303,20 @@
       el.querySelectorAll('a[data-e]').forEach(a => a.onclick = async ev => { ev.preventDefault(); if (!confirm('Удалить заявку ' + a.dataset.e + '?')) return;
         try { await A('admin/waitlist', { method: 'DELETE', body: { product_id: p.id, email: a.dataset.e } }); paintWait(); } catch (err) { fail(err); } }); };
     paintWait();
+    // Пул кодов «Честного знака»: при отправке маркированного заказа коды берутся отсюда автоматически.
+    const paintPool = async () => { const el = app.querySelector('#mp'); if (!el) return;
+      if (!p.marked) { el.innerHTML = ''; return; }
+      let codes = []; try { codes = (await A('admin/mark_pool', { q: { product_id: p.id } })).codes; } catch (e) { el.innerHTML = '<p class="meta">пул кодов: не загрузился</p>'; return; }
+      el.innerHTML = `<h2>Пул кодов «Честного знака»: ${codes.length}</h2>
+        <p class="meta">При переходе заказа в «отправлен» коды подставятся сами (по коду на штуку). Впишенные в заказ вручную коды не трогают пул.</p>
+        <label class="field"><span>Добавить коды — по одному на строку (из УПД, формат 01…21…)</span><textarea id="mpAdd" rows="4" style="font-family:monospace;font-size:13px"></textarea></label>
+        <p><button class="btn ghost" id="mpBtn" style="width:auto;padding:0 20px">Добавить в пул</button> <span class="meta" id="mpMsg"></span></p>
+        ${codes.length ? `<table><tr><th>Код</th><th>Добавлен</th><th></th></tr>${codes.map(c => `<tr><td style="font-family:monospace;font-size:13px">${esc(c.code)}</td><td>${new Date(c.added_at).toLocaleString('ru-RU')}</td><td><a href="#" data-c="${esc(c.code)}" style="color:inherit">удалить</a></td></tr>`).join('')}</table>` : '<p class="meta">пул пуст — при отправке маркированного заказа будет ошибка need_mark_codes, пока не добавишь коды</p>'}`;
+      app.querySelector('#mpBtn').onclick = async () => { const msg = app.querySelector('#mpMsg');
+        try { const r = await A('admin/mark_pool', { method: 'POST', body: { product_id: p.id, codes: app.querySelector('#mpAdd').value } }); msg.textContent = 'добавлено ' + r.added + ', в пуле ' + r.left; paintPool(); } catch (e) { fail(e); } };
+      el.querySelectorAll('a[data-c]').forEach(a => a.onclick = async ev => { ev.preventDefault(); if (!confirm('Убрать код из пула?\n' + a.dataset.c)) return;
+        try { await A('admin/mark_pool', { method: 'DELETE', body: { product_id: p.id, code: a.dataset.c } }); paintPool(); } catch (err) { fail(err); } }); };
+    paintPool();
     const form = app.querySelector('#pf'); const F = n => form.elements.namedItem(n); // form.id/form.title — свойства элемента, не поля
     const sizesOf = () => F('sizes').value.split(',').map(s => s.trim()).filter(Boolean);
     const renderStock = () => { const want = sizesOf().length ? sizesOf() : ['-']; const cur = Object.fromEntries([...app.querySelectorAll('#stock input')].map(i => [i.dataset.s, i.value]));
