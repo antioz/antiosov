@@ -40,7 +40,13 @@
   let OF = ''; // фильтр заказов по товару; '' — все
   async function orders(status) {
     const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
-    const [{ orders }, s, { products: prods }, { orders: bookOrders }] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
+    // Одна загрузка вместо четырёх параллельных: serverless разводил их по холодным инстансам (до 4 холодных стартов на открытие).
+    // Фолбэк на старые 4 запроса — пока страница из кэша работает против функции без admin/dashboard.
+    let orders, s, prods, bookOrders;
+    try { const d = await A('admin/dashboard', { q: { status } }); orders = d.orders; s = d.summary; prods = d.products; bookOrders = d.book_orders; }
+    catch (e) { if (e.code === 401) throw e;
+      const [o2, s2, p2, b2] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
+      orders = o2.orders; s = s2; prods = p2.products; bookOrders = b2.orders; }
     const bookShip = {}; (bookOrders || []).filter(o => ['paid', 'packed'].includes(o.status)).forEach(o => { bookShip[o.product_id] = (bookShip[o.product_id] || 0) + (o.qty || 1); });
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'returned', 'new', 'cancelled', 'expired'];
     app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span>${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>

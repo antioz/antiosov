@@ -1,9 +1,9 @@
 // Postbox по SMTP (465, логин = id API-ключа SA со scope yc.postbox.send). Шаблоны — простой HTML.
-const nodemailer = require('nodemailer'); const MailComposer = require('nodemailer/lib/mail-composer');
+// nodemailer — лениво: модуль тянут orders/admin на каждом холодном старте, а письма уходят не в каждом вызове.
 const ENV = process.env;
 let transport = null;
 function getTransport() {
-  if (!transport) transport = nodemailer.createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000 }); // Postbox отвечает на MAIL FROM до ~6 с
+  if (!transport) transport = require('nodemailer').createTransport({ host: 'postbox.cloud.yandex.net', port: 465, secure: true, auth: { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS }, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000 }); // Postbox отвечает на MAIL FROM до ~6 с
   return transport;
 }
 // keepRaw: вернуть собранное письмо (Buffer) — для копии в «Отправленные» ящика при ответе клиенту из админки.
@@ -11,7 +11,7 @@ async function send({ to, subject, text, html, headers, attachments, keepRaw }) 
   const msg = { from: `Антиосов <${ENV.MAIL_FROM || 'shop@antiosov.ru'}>`, to, replyTo: ENV.REPLY_TO || ENV.OWNER_EMAIL, subject, text, ...(html ? { html } : {}), ...(headers ? { headers } : {}), ...(attachments ? { attachments } : {}),
     messageId: `<${require('crypto').randomUUID()}@antiosov.ru>`, date: new Date() };
   await getTransport().sendMail(msg);
-  if (keepRaw) return new MailComposer(msg).compile().build();
+  if (keepRaw) return new (require('nodemailer/lib/mail-composer'))(msg).compile().build();
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

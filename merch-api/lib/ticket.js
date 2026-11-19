@@ -10,7 +10,7 @@ function jpegSize(buf) { let p = 2;
   return null; }
 
 const path = require('path'); const https = require('https');
-const PDFDocument = require('pdfkit'); const QRCode = require('qrcode');
+// pdfkit/qrcode (~0,7 с require) — лениво в build(): билеты нужны только оплате ивента, а модуль тянет orders.js на каждом холодном старте.
 const ENV = process.env;
 
 const FONTS = path.join(__dirname, '..', 'fonts');
@@ -47,6 +47,7 @@ const centered = (doc, s, y, size, spacing) => doc.fontSize(size).text(s, 0, y, 
 
 // t — тот же объект, что в status.ticket: {number, product, title, event_at, venue, age_mark, qty, price_item, total}.
 async function build(t) {
+  const PDFDocument = require('pdfkit'); const QRCode = require('qrcode');
   const serifL = SERIF_L, serifR = SERIF_R, sans = SANS;
   // Афиша (обычно вертикальная): во всю ширину 500 pt, высота по пропорции — как на клиенте.
   const art = await fetchBuf(`${SITE()}/products/${encodeURIComponent(t.product)}/ticket.jpg`).catch(() => null);

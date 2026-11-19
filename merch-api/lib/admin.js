@@ -76,20 +76,35 @@ async function upsertProduct(b) {
   return orders.getProduct(id, { admin: true });
 }
 
+// Сводка главной: всё независимое — параллельно (раньше ждали maintenance → Яндекс-синк → заказы → статистику
+// по очереди, и первая сводка после паузы открывалась ~15 с).
+async function summaryData() {
+  const [, ydSync, paid, packed, stats] = await Promise.all([
+    orders.maintenance(), orders.syncYdStatuses(4),
+    orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' }), orders.productStats(),
+  ]);
+  const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
+  return { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
+    yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats, yd_synced: ydSync.checked };
+}
+async function productsList() {
+  const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
+  return ps.map(p => ({ ...p, kind: ['digital', 'event', 'diploma', 'book'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
+    variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) }));
+}
+
 async function route(a, method, body, q, auth) {
   if (a === 'admin/login') { if (method !== 'POST') throw new HttpError(405, 'method'); return login(body); }
   requireAuth(auth);
   switch (a) {
-    case 'admin/summary': {
-      // Всё независимое — параллельно: раньше ждали maintenance → Яндекс-синк → заказы → статистику
-      // по очереди, и первая сводка после паузы открывалась ~15 с.
-      const [, ydSync, paid, packed, stats] = await Promise.all([
-        orders.maintenance(), orders.syncYdStatuses(4),
-        orders.listOrders({ status: 'paid' }), orders.listOrders({ status: 'packed' }), orders.productStats(),
-      ]);
-      const open = [...paid, ...packed].filter(o => o.kind === 'physical'); const mode = ext.yd.mode(); // цифровые, билеты и практикумы не ждут отправки
-      return json(200, { to_ship: open.length, preorders: open.filter(o => o.is_preorder).length, yd_mode: mode,
-        yd_env_mismatch: open.filter(o => o.delivery_mode === 'yandex' && o.yd_env !== mode).length, stats, yd_synced: ydSync.checked });
+    case 'admin/summary': return json(200, await summaryData());
+    // Вкладка «Заказы» одним вызовом вместо четырёх параллельных: serverless разводил их по разным
+    // инстансам, и открытие админки после паузы платило до 4 холодных стартов.
+    case 'admin/dashboard': {
+      const st = q.status ? String(q.status) : undefined;
+      if (st && !ORDER_STATUSES.includes(st)) throw new HttpError(400, 'validation', { field: 'status' });
+      const [summary, ords, prods, book] = await Promise.all([summaryData(), orders.listOrders({ status: st }), productsList(), orders.bookOrders()]);
+      return json(200, { summary, orders: ords, products: prods, book_orders: book });
     }
     case 'admin/orders': {
       const st = q.status ? String(q.status) : undefined;
@@ -116,11 +131,7 @@ async function route(a, method, body, q, auth) {
       }
     }
     case 'admin/book_orders': return json(200, { orders: await orders.bookOrders() });
-    case 'admin/products': {
-      const [ps, vs] = await db.query(`SELECT * FROM products ORDER BY sort, id; SELECT * FROM variants;`);
-      return json(200, { products: ps.map(p => ({ ...p, kind: ['digital', 'event', 'diploma', 'book'].includes(p.kind) ? p.kind : 'physical', file_key: p.file_key || '', event_at: p.event_at || '', venue: p.venue || '', age_mark: p.age_mark || '', has_file: !!p.file_key, images: JSON.parse(p.images || '[]'), sizes: JSON.parse(p.sizes || '[]'), dims_cm: JSON.parse(p.dims_cm || '{}'),
-        variants: vs.filter(v => v.product_id === p.id).map(v => ({ size: v.size, stock: v.stock, reserved: v.reserved, preorder_count: v.preorder_count })) })) });
-    }
+    case 'admin/products': return json(200, { products: await productsList() });
     case 'admin/product': {
       if (method === 'GET') { const p = await orders.getProduct(String(q.id || ''), { admin: true }); return p ? json(200, { product: p }) : json(404, { error: 'no_product' }); }
       return json(200, { product: await upsertProduct(body) });

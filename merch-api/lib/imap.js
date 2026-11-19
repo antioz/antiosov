@@ -1,6 +1,6 @@
 // IMAP ящика REPLY_TO (imap.yandex.ru, пароль приложения). Только INBOX; отбор клиентских писем — в inbox.js.
-const { ImapFlow } = require('imapflow');
-const { simpleParser } = require('mailparser');
+// imapflow/mailparser (~0,5 с require) грузим лениво, внутри connect: нужны только вкладке «Письма»,
+// а холодный старт платят все действия функции.
 
 const addr = a => (a && a[0]) || {};
 const hdr = (buf, name) => { const m = String(buf || '').match(new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\r?\\n\\S|$)`, 'im')); return m ? m[1].replace(/\s+/g, ' ').trim() : ''; };
@@ -13,6 +13,7 @@ const textOf = p => (p.text || strip(p.html) || '').trim();
 const PAR = 4;
 const cache = { validity: null, env: new Map(), snip: new Map() };
 const open = async ({ user, pass }) => {
+  const { ImapFlow } = require('imapflow');
   const c = new ImapFlow({ host: 'imap.yandex.ru', port: 993, secure: true, auth: { user, pass }, logger: false, socketTimeout: 15000 });
   await c.connect(); const box = await c.mailboxOpen('INBOX');
   const v = String(box.uidValidity); if (cache.validity !== v) { cache.validity = v; cache.env.clear(); cache.snip.clear(); }
@@ -31,6 +32,7 @@ async function spread(main, auth, uids, query, onMsg) {
 
 async function connect(auth) {
   const c = await open(auth);
+  const { simpleParser } = require('mailparser');
   return {
     // Конверты писем за days дней (+ In-Reply-To/References для отбора); сниппет — только для отобранных, вторым проходом через snippets().
     async recent(days) {

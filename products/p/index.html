@@ -217,6 +217,8 @@
     const FIELD_RU = { email: 'e-mail', qty: 'количество билетов', consent: 'согласие', offer: 'оферта', product_id: 'мероприятие' };
     const showErr = m => { $('#err').textContent = m; $('#err').style.display = ''; };
     const reload = async () => { try { const r = await api('product', { q: pq() }); if (r.product) P = r.product; } catch (e) {} };
+    // Вернулся на вкладку (iPhone Safari замирает на фоновых): перечитать остаток сразу, не ждать тик 30 с.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !E.busy) reload().then(paint); });
     $('#f').onsubmit = async e => {
       e.preventDefault(); if (E.busy || !open()) return;
       const f = new FormData(e.target); root.querySelectorAll('.field, .check').forEach(x => x.classList.remove('err')); $('#err').style.display = 'none';
