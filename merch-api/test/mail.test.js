@@ -22,7 +22,9 @@ test('HTML из пользовательских полей экранирует
   assert.ok(mail.tplOwnerNewOrder(order).html.includes('<a href="'), 'ссылка в админку');
   assert.ok(mail.tplCustomerCancelled({ ...order, total: undefined }).subject.includes('возврат —'), 'rub(undefined) → —');
 });
-test('живая отправка владельцу', { skip: !process.env.SMTP_USER }, async (t) => {
+// Живую отправку включаем только явно (LIVE_MAIL=1): иначе каждый прогон npm test шлёт владельцу реальное письмо
+// с тестовым шаблоном «Заказ M-000001…» (19.11.2026 — 6 таких писем ушло за вечер прогонов тестов).
+test('живая отправка владельцу', { skip: !(process.env.LIVE_MAIL === '1' && process.env.SMTP_USER) }, async (t) => {
   try { await mail.send({ to: process.env.OWNER_EMAIL, ...mail.tplOwnerNewOrder(order) }); }
   catch (e) {
     // До подтверждения домена в Postbox (Task 6) сервер отвечает 550 5.4.1 identity not verified — ожидаемо, не падаем
