@@ -39,23 +39,20 @@
 
   let OF = ''; // фильтр заказов по товару; '' — все
   async function orders(status) {
+    // Прогрессивная загрузка (практика для тяжёлых дашбордов): критичное — список заказов — одним лёгким
+    // запросом, страница рисуется сразу; статистика, товары и предзаказы книги догружаются фоном
+    // и подставляются в плейсхолдеры. Раньше всё ждало один жирный dashboard (~16–18 с на холодном инстансе).
     const inboxP = A('admin/inbox').then(r => r, e => ({ error: e })); // письма грузятся параллельно и не мешают заказам
-    // Одна загрузка вместо четырёх параллельных: serverless разводил их по холодным инстансам (до 4 холодных стартов на открытие).
-    // Фолбэк на старые 4 запроса — пока страница из кэша работает против функции без admin/dashboard.
-    let orders, s, prods, bookOrders;
-    try { const d = await A('admin/dashboard', { q: { status } }); orders = d.orders; s = d.summary; prods = d.products; bookOrders = d.book_orders; }
-    catch (e) { if (e.code === 401) throw e;
-      const [o2, s2, p2, b2] = await Promise.all([A('admin/orders', { q: { status } }), A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
-      orders = o2.orders; s = s2; prods = p2.products; bookOrders = b2.orders; }
-    const bookShip = {}; (bookOrders || []).filter(o => ['paid', 'packed'].includes(o.status)).forEach(o => { bookShip[o.product_id] = (bookShip[o.product_id] || 0) + (o.qty || 1); });
+    const orders = (await A('admin/orders', { q: { status } })).orders;
+    let prods = [];
     const filters = ['', 'paid', 'packed', 'shipped', 'done', 'returned', 'new', 'cancelled', 'expired'];
-    app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span>${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}</div>
-      ${statsTable(s.stats || {}, prods, bookShip)}
+    app.innerHTML = tabs('orders') + `<div class="summary"><span id="inboxLine" class="meta">письма…</span><span id="ydWarn" class="meta">статистика…</span></div>
+      <div id="statsBox" class="meta" style="padding:8px 0">статистика грузится…</div>
       <div class="tabs">${filters.map(f => `<a href="#orders${f ? '/' + f : ''}" class="${(status || '') === f ? 'on' : ''}">${f ? ST[f] : 'все'}</a>`).join('')}</div>
-      <div style="text-align:center;margin:0 0 16px"><select id="oProd" style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
-        <option value="">все товары</option><option value="__merch" ${OF === '__merch' ? 'selected' : ''}>Мерч (все вещи)</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}</select></div>
+      <div style="text-align:center;margin:0 0 16px"><select id="oProd" disabled style="height:40px;border:1px solid var(--line);font:inherit;font-size:14px;padding:0 8px;background:#fff">
+        <option value="">товары…</option></select></div>
       <table id="oTbl"></table>`;
-    const kindOf = id => { const p = (prods || []).find(x => x.id === id); return p ? p.kind : ''; };
+    const kindOf = id => { const p = prods.find(x => x.id === id); return p ? p.kind : ''; };
     // «все» — без неоплаченных (new — ждёт оплату, expired — не оплатили за 20 мин): их видно в своих фильтрах.
     // Фильтр по товару — по уже загруженным заказам, без повторного запроса (холодный старт функции — до 20 с).
     const drawOrders = () => {
@@ -75,6 +72,20 @@
     drawOrders();
     app.querySelector('#oProd').onchange = e => { OF = e.target.value; drawOrders(); };
     bindLogout();
+    // Фон: сводка + товары + предзаказы книги. Подставляются по готовности, без блокировки таблицы.
+    (async () => {
+      let s, bookOrders;
+      try { const [s2, p2, b2] = await Promise.all([A('admin/summary'), A('admin/products'), A('admin/book_orders')]);
+        s = s2; prods = p2.products; bookOrders = b2.orders; }
+      catch (e) { if (e.code === 401) throw e; const el = document.getElementById('statsBox'); if (el) el.textContent = 'статистика: не загрузилась'; return; }
+      const bookShip = {}; (bookOrders || []).filter(o => ['paid', 'packed'].includes(o.status)).forEach(o => { bookShip[o.product_id] = (bookShip[o.product_id] || 0) + (o.qty || 1); });
+      if (!document.getElementById('statsBox')) return; // ушёл со вкладки, не дорисовываем
+      document.getElementById('ydWarn').outerHTML = `${s.yd_mode !== 'prod' ? `<span style="color:#7a1c1c">⚠ Яндекс Доставка не в боевом режиме (${esc(s.yd_mode)})</span>` : ''}${s.yd_env_mismatch ? `<span style="color:#7a1c1c">⚠ ${s.yd_env_mismatch} заказ(ов) создано в другом режиме Яндекс Доставки</span>` : ''}`;
+      const box = document.getElementById('statsBox'); box.className = ''; box.innerHTML = statsTable(s.stats || {}, prods, bookShip);
+      const sel = app.querySelector('#oProd');
+      sel.innerHTML = `<option value="">все товары</option><option value="__merch" ${OF === '__merch' ? 'selected' : ''}>Мерч (все вещи)</option>${Object.entries(s.stats || {}).map(([id, v]) => `<option value="${esc(id)}" ${OF === id ? 'selected' : ''}>${esc(v.title)}</option>`).join('')}`;
+      sel.disabled = false;
+    })();
     inboxP.then(r => { const el = document.getElementById('inboxLine'); if (!el) return;
       if (r.error || typeof r.unread !== 'number') { el.className = 'meta'; el.textContent = 'письма: нет связи с почтой'; return; }
       el.className = ''; el.innerHTML = `<a href="#inbox" style="color:inherit">Новых писем от клиентов: ${r.unread > 0 ? `<b>${r.unread}</b>` : r.unread}</a>`; });
